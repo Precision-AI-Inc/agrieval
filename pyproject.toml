@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pai-ag-emb"
+version = "0.1.0"
+description = "Agricultural Embedding Evaluation API"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "numpy>=1.26,<3",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+analysis = [
+    "scikit-learn>=1.3",
+    "scipy>=1.11",
+    "plotly>=5.0",
+]
+test = [
+    "pytest>=7.0",
+    "httpx2>=0.28",
+]
+dev = [
+    "scikit-learn>=1.3",
+    "scipy>=1.11",
+    "plotly>=5.0",
+    "pytest>=7.0",
+    "httpx2>=0.28",
+]
+
+[project.scripts]
+pai-ag-emb = "pai.ag_emb.api.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pai*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+markers = [
+    "integration: marks tests that require external resources (deselect with '-m \"not integration\"')",
+]
