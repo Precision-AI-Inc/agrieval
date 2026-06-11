@@ -79,7 +79,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    payload_path = Path(__file__).parent.parent / "dummy_input.json"
+    payload_path = Path(__file__).parent / "example_input.json"
     with open(payload_path) as f:
         payload = json.load(f)
 

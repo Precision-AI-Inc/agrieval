@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from pai.ag_emb.metrics import (
     centroid_similarity_stats,
@@ -146,6 +147,113 @@ def _jsonify(obj: object) -> Any:  # noqa: PLR0911
 
 
 # ---------------------------------------------------------------------------
+# Core analysis helpers
+# ---------------------------------------------------------------------------
+
+
+def _validate_embeddings(paths: list[str], vectors: list[list[float]]) -> None:
+    """Raise ``ValueError`` if the embeddings are not usable for evaluation.
+
+    Parameters
+    ----------
+    paths : list[str]
+        Image path keys from the embeddings dict.
+    vectors : list[list[float]]
+        Embedding vectors corresponding to ``paths``.
+    """
+    if len(paths) < 2:
+        raise ValueError("At least 2 embeddings are required.")
+    dims = {len(v) for v in vectors}
+    if next(iter(dims)) == 0:
+        raise ValueError("Embedding vectors must not be empty.")
+    if len(dims) > 1:
+        raise ValueError(f"All embeddings must have the same dimension. Found: {sorted(dims)}")
+
+
+def _slice_knn_stats(per_item_by_k: dict[int, np.ndarray], indices: np.ndarray) -> dict:
+    """Summarise per-item KNN scores for a subset of items.
+
+    Parameters
+    ----------
+    per_item_by_k : dict[int, np.ndarray]
+        Mapping of k → per-item score array (full dataset).
+    indices : np.ndarray
+        Row indices of the subset to summarise.
+
+    Returns
+    -------
+    dict
+        Keyed by str(k), each value has mean/std/p05/p50/p95.
+    """
+    out: dict = {}
+    for k, per_item in per_item_by_k.items():
+        vals = per_item[indices].astype(np.float64)
+        p05, p50, p95 = np.percentile(vals, [5, 50, 95]).tolist()
+        out[str(k)] = {
+            "mean": float(np.mean(vals)),
+            "std": float(np.std(vals)),
+            "p05": p05,
+            "p50": p50,
+            "p95": p95,
+        }
+    return out
+
+
+def _build_per_class_metrics(
+    unique_classes: list[str],
+    embeddings: np.ndarray,
+    labels_arr: np.ndarray,
+    sample_pairs: int | None,
+    purity_per_item: dict[int, np.ndarray],
+    ndcg_per_item: dict[int, np.ndarray],
+    map_per_item: dict[int, np.ndarray],
+) -> dict:
+    """Compute per-class embedding metrics.
+
+    Parameters
+    ----------
+    unique_classes : list[str]
+        Sorted list of class labels.
+    embeddings : np.ndarray
+        Full embedding matrix, shape ``(n, d)``.
+    labels_arr : np.ndarray
+        Label per row, aligned with ``embeddings``.
+    sample_pairs : int | None
+        Pair-sampling budget (capped at 100 000 per class).
+    purity_per_item : dict[int, np.ndarray]
+        KNN purity scores indexed by k.
+    ndcg_per_item : dict[int, np.ndarray]
+        KNN nDCG scores indexed by k.
+    map_per_item : dict[int, np.ndarray]
+        KNN MAP scores indexed by k.
+
+    Returns
+    -------
+    dict
+        Keyed by class label, each value is the class metrics dict.
+    """
+    per_class: dict = {}
+    for cls in unique_classes:
+        cls_mask = labels_arr == cls
+        cls_indices = np.where(cls_mask)[0]
+        cls_embeddings = embeddings[cls_mask]
+        cls_n = int(np.sum(cls_mask))
+        cls_metrics: dict = {"n_items": cls_n}
+        if cls_n >= 2:
+            cls_sample = min(sample_pairs, 100_000) if sample_pairs is not None else None
+            cls_metrics["pairwise_similarity_stats"] = pairwise_similarity_stats(
+                cls_embeddings, sample_pairs=cls_sample
+            )
+            cls_metrics["centroid_similarity_stats"] = centroid_similarity_stats(cls_embeddings)
+            cls_metrics["effective_rank"] = effective_rank(cls_embeddings)
+        cls_metrics["knn_label_purity"] = _slice_knn_stats(purity_per_item, cls_indices)
+        cls_metrics["knn_label_ndcg"] = _slice_knn_stats(ndcg_per_item, cls_indices)
+        cls_metrics["knn_map"] = _slice_knn_stats(map_per_item, cls_indices)
+        per_class[cls] = cls_metrics
+    return per_class
+
+
+# ---------------------------------------------------------------------------
 # Core analysis
 # ---------------------------------------------------------------------------
 
@@ -176,77 +284,59 @@ def run_evaluation(
     """
     paths = list(image_embeddings.keys())
     vectors = list(image_embeddings.values())
+    _validate_embeddings(paths, vectors)
 
     labels_list = extract_labels(paths, dataset_root)
     labels_arr = np.array(labels_list)
-
     embeddings = np.array(vectors, dtype=np.float32)
     n, d = embeddings.shape
     unique_classes = sorted(set(labels_list))
 
-    # --- Global nearest-neighbour computation (shared across all metrics) ---
-    neighbors = top_k_neighbors(embeddings, ks=k_values)
-    effective_ks = sorted(neighbors.keys())
+    with tqdm(total=7, desc="Neighbor graph", unit="step") as pbar:
+        neighbors = top_k_neighbors(embeddings, ks=k_values)
+        effective_ks = sorted(neighbors.keys())
+        pbar.update(1)
 
-    purity_raw = knn_label_purity_at_k(neighbors, labels_arr)
-    ndcg_raw = knn_label_ndcg_at_k(neighbors, labels_arr)
-    map_raw = knn_map_at_k(neighbors, labels_arr)
+        pbar.set_description("KNN purity")
+        purity_raw = knn_label_purity_at_k(neighbors, labels_arr)
+        purity_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in purity_raw.items()}
+        pbar.update(1)
 
-    # Preserve per_item arrays before _jsonify strips them (needed for per-class slices)
-    purity_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in purity_raw.items()}
-    ndcg_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in ndcg_raw.items()}
-    map_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in map_raw.items()}
+        pbar.set_description("KNN nDCG")
+        ndcg_raw = knn_label_ndcg_at_k(neighbors, labels_arr)
+        ndcg_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in ndcg_raw.items()}
+        pbar.update(1)
 
-    # --- Global metrics ---
-    global_metrics: dict = {
-        "pairwise_similarity_stats": pairwise_similarity_stats(embeddings, sample_pairs=sample_pairs),
-        "intra_inter_similarity_gap": intra_inter_similarity_gap(embeddings, labels_arr, sample_pairs=sample_pairs),
-        "knn_label_purity": purity_raw,
-        "knn_label_ndcg": ndcg_raw,
-        "knn_map": map_raw,
-        "effective_rank": effective_rank(embeddings),
-        "centroid_similarity_stats": centroid_similarity_stats(embeddings),
-    }
+        pbar.set_description("KNN MAP")
+        map_raw = knn_map_at_k(neighbors, labels_arr)
+        map_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in map_raw.items()}
+        pbar.update(1)
 
-    # --- Per-class metrics ---
-    per_class: dict = {}
-    for cls in unique_classes:
-        cls_mask = labels_arr == cls
-        cls_indices = np.where(cls_mask)[0]
-        cls_embeddings = embeddings[cls_mask]
-        cls_n = int(np.sum(cls_mask))
+        pbar.set_description("Similarity & geometry")
+        pairwise_s = pairwise_similarity_stats(embeddings, sample_pairs=sample_pairs)
+        intra_inter = intra_inter_similarity_gap(embeddings, labels_arr, sample_pairs=sample_pairs)
+        eff_rank = effective_rank(embeddings)
+        centroid_s = centroid_similarity_stats(embeddings)
+        global_metrics: dict = {
+            "pairwise_similarity_stats": pairwise_s,
+            "intra_inter_similarity_gap": intra_inter,
+            "knn_label_purity": purity_raw,
+            "knn_label_ndcg": ndcg_raw,
+            "knn_map": map_raw,
+            "effective_rank": eff_rank,
+            "centroid_similarity_stats": centroid_s,
+        }
+        pbar.update(1)
 
-        cls_metrics: dict = {"n_items": cls_n}
+        pbar.set_description("Per-class metrics")
+        per_class = _build_per_class_metrics(
+            unique_classes, embeddings, labels_arr, sample_pairs, purity_per_item, ndcg_per_item, map_per_item
+        )
+        pbar.update(1)
 
-        if cls_n >= 2:
-            cls_sample = min(sample_pairs, 100_000) if sample_pairs is not None else None
-            cls_metrics["pairwise_similarity_stats"] = pairwise_similarity_stats(
-                cls_embeddings, sample_pairs=cls_sample
-            )
-            cls_metrics["centroid_similarity_stats"] = centroid_similarity_stats(cls_embeddings)
-            cls_metrics["effective_rank"] = effective_rank(cls_embeddings)
-
-        def _slice_per_item(per_item_by_k: dict[int, np.ndarray], _idx: np.ndarray = cls_indices) -> dict:
-            out: dict = {}
-            for k, per_item in per_item_by_k.items():
-                vals = per_item[_idx].astype(np.float64)
-                p05, p50, p95 = np.percentile(vals, [5, 50, 95]).tolist()
-                out[str(k)] = {
-                    "mean": float(np.mean(vals)),
-                    "std": float(np.std(vals)),
-                    "p05": p05,
-                    "p50": p50,
-                    "p95": p95,
-                }
-            return out
-
-        cls_metrics["knn_label_purity"] = _slice_per_item(purity_per_item)
-        cls_metrics["knn_label_ndcg"] = _slice_per_item(ndcg_per_item)
-        cls_metrics["knn_map"] = _slice_per_item(map_per_item)
-
-        per_class[cls] = cls_metrics
-
-    confusion_raw = knn_confusion_matrix(neighbors, labels_arr)
+        pbar.set_description("Confusion matrix")
+        confusion_raw = knn_confusion_matrix(neighbors, labels_arr)
+        pbar.update(1)
 
     return {
         "n_items": n,

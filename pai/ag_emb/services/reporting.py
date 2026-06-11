@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from pai.ag_emb.services.evaluate import extract_labels
 
@@ -172,8 +173,8 @@ def _print_per_class(per_class: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _write_plotly(fig: Any, output_path: str) -> None:
-    """Write a Plotly figure to an HTML or static-image file.
+def _write_plotly(fig: Any, output_path: str | None) -> None:
+    """Write a Plotly figure to an HTML or static-image file, or display it inline.
 
     HTML output uses a CDN-hosted Plotly bundle.  Static image formats
     (``.png``, ``.pdf``, etc.) require the ``kaleido`` package; if it is
@@ -183,9 +184,18 @@ def _write_plotly(fig: Any, output_path: str) -> None:
     ----------
     fig : plotly.graph_objects.Figure
         Plotly figure to write.
-    output_path : str
+    output_path : str | None
         Destination file path.  The extension determines the format.
+        Pass ``None`` to display the figure inline (e.g. in a Jupyter notebook).
     """
+    if output_path is None:
+        try:
+            from IPython.display import HTML, display  # type: ignore[import]
+
+            display(HTML(fig.to_html(full_html=False, include_plotlyjs="cdn")))
+        except ImportError:
+            fig.show()
+        return
     if output_path.lower().endswith(".html"):
         fig.write_html(output_path, include_plotlyjs="cdn")
     else:
@@ -202,7 +212,7 @@ def _write_plotly(fig: Any, output_path: str) -> None:
 def plot_knn_confusion(
     result: dict,
     k: int | None = None,
-    output_path: str = "class_confusion_matrix.html",
+    output_path: str | None = "class_confusion_matrix.html",
 ) -> None:
     """Save an interactive KNN confusion matrix heatmap (Plotly).
 
@@ -217,9 +227,10 @@ def plot_knn_confusion(
         Output of ``run_evaluation()`` or a JSON-deserialized equivalent.
     k : int | None
         K cutoff to visualize.  Defaults to the largest k in the result.
-    output_path : str
+    output_path : str | None
         Destination file path.  ``.html`` (default) produces an interactive page;
         ``.png``/``.pdf`` requires ``kaleido`` (``pip install kaleido``).
+        Pass ``None`` to display inline (e.g. in a Jupyter notebook).
     """
     if not _PLOTLY_AVAILABLE:
         raise ImportError("plotly is required: pip install plotly") from None
@@ -272,7 +283,7 @@ def plot_knn_confusion(
 def plot_cosine_similarity(
     image_embeddings: dict,
     result: dict,
-    output_path: str = "cosine_similarity.html",
+    output_path: str | None = "cosine_similarity.html",
 ) -> None:
     """Save an interactive pairwise cosine similarity heatmap (Plotly).
 
@@ -285,8 +296,9 @@ def plot_cosine_similarity(
         The same ``{path: vector}`` dict passed to ``run_evaluation()``.
     result : dict
         Output of ``run_evaluation()``.
-    output_path : str
+    output_path : str | None
         Destination file path.  ``.html`` produces an interactive page.
+        Pass ``None`` to display inline (e.g. in a Jupyter notebook).
     """
     if not _PLOTLY_AVAILABLE:
         raise ImportError("plotly is required: pip install plotly") from None
@@ -413,7 +425,7 @@ def _build_scatter3d(
 def plot_lle(
     image_embeddings: dict,
     result: dict,
-    output_path: str = "lle.html",
+    output_path: str | None = "lle.html",
     n_neighbors: int | None = None,
 ) -> None:
     """Save an interactive 3D LLE (Locally Linear Embedding) scatter (Plotly).
@@ -427,8 +439,9 @@ def plot_lle(
         The same ``{path: vector}`` dict passed to ``run_evaluation()``.
     result : dict
         Output of ``run_evaluation()``.
-    output_path : str
+    output_path : str | None
         Destination file path.  ``.html`` produces a rotatable 3D page.
+        Pass ``None`` to display inline (e.g. in a Jupyter notebook).
     n_neighbors : int | None
         LLE neighbourhood size.  Defaults to ``max(5, n // 3)`` clamped to
         ``n - 1``.
@@ -450,6 +463,7 @@ def plot_lle(
     label_arr = np.array(item_labels)
 
     k = min(n - 1, n_neighbors if n_neighbors is not None else max(5, n // 3))
+    tqdm.write(f"  LLE 3D — fitting {n} samples (n_neighbors={k})...")
     coords = LocallyLinearEmbedding(
         n_components=3,
         n_neighbors=k,
@@ -479,7 +493,7 @@ def plot_lle(
 def plot_tsne(
     image_embeddings: dict,
     result: dict,
-    output_path: str = "tsne.html",
+    output_path: str | None = "tsne.html",
     perplexity: int = 30,
     dimensions: int = 3,
 ) -> None:
@@ -494,9 +508,10 @@ def plot_tsne(
         The same ``{path: vector}`` dict passed to ``run_evaluation()``.
     result : dict
         Output of ``run_evaluation()``.
-    output_path : str
+    output_path : str | None
         Destination file path.  ``.html`` (default) produces an interactive page;
         ``.png``/``.pdf`` requires ``kaleido``.
+        Pass ``None`` to display inline (e.g. in a Jupyter notebook).
     perplexity : int
         t-SNE perplexity.  Auto-clamped to ``max(5, n // 3)`` for small datasets.
     dimensions : int
@@ -522,6 +537,7 @@ def plot_tsne(
     label_arr = np.array(item_labels)
 
     effective_perplexity = min(perplexity, max(5, n // 3))
+    tqdm.write(f"  t-SNE {dimensions}D — fitting {n} samples (perplexity={effective_perplexity})...")
     coords = TSNE(
         n_components=dimensions,
         perplexity=effective_perplexity,

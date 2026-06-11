@@ -169,6 +169,19 @@ plot_lle(embeddings, result, output_path="output/lle.html")
 
 ---
 
+## Example notebook
+
+[`examples/example.ipynb`](examples/example.ipynb) is a runnable Jupyter notebook that loads
+`examples/example_input.json`, runs the full evaluation, and renders all four interactive
+Plotly visualizations inline.
+
+```bash
+# From the project root
+jupyter notebook examples/example.ipynb
+```
+
+---
+
 ## Development
 
 ```bash

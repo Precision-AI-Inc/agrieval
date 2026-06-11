@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from pai.ag_emb.api.app import app
@@ -248,6 +249,27 @@ class TestRunAnalysis:
                 "knn_map",
             ):
                 assert key in cls_data, f"Missing per-class key {key!r} for {cls!r}"
+
+    def test_mismatched_dims_raises(self) -> None:
+        bad = {
+            "dataset/corn/cam/img1.png": [1.0, 0.0],
+            "dataset/soy/cam/img2.png": [1.0, 0.0, 0.0],
+        }
+        with pytest.raises(ValueError, match="same dimension"):
+            run_evaluation(bad, k_values=[1], dataset_root="dataset", sample_pairs=None)
+
+    def test_too_few_embeddings_raises(self) -> None:
+        single = {"dataset/corn/cam/img.png": [1.0, 0.0]}
+        with pytest.raises(ValueError, match="At least 2"):
+            run_evaluation(single, k_values=[1], dataset_root="dataset", sample_pairs=None)
+
+    def test_empty_vectors_raises(self) -> None:
+        empty_vecs: dict[str, list[float]] = {
+            "dataset/corn/cam/img1.png": [],
+            "dataset/soy/cam/img2.png": [],
+        }
+        with pytest.raises(ValueError, match="must not be empty"):
+            run_evaluation(empty_vecs, k_values=[1], dataset_root="dataset", sample_pairs=None)
 
 
 # ---------------------------------------------------------------------------

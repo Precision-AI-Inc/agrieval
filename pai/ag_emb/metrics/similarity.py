@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from pai.ag_emb.metrics._utils import (
     _auto_batch_size,
@@ -100,28 +101,30 @@ def top_k_neighbors(
     all_indices = np.empty((n, max_k), dtype=np.int64)
     all_scores = np.empty((n, max_k), dtype=np.float32)
 
-    for start in range(0, n, batch_size):
-        end = min(start + batch_size, n)
-        b = end - start
-        sims = (emb[start:end] @ emb.T).astype(np.float32)  # [B, N]
+    with tqdm(total=n, desc="k-NN graph", leave=False, unit="item") as pbar:
+        for start in range(0, n, batch_size):
+            end = min(start + batch_size, n)
+            b = end - start
+            sims = (emb[start:end] @ emb.T).astype(np.float32)  # [B, N]
 
-        if exclude_self:
-            for local_i, global_i in enumerate(range(start, end)):
-                sims[local_i, global_i] = -np.inf
+            if exclude_self:
+                for local_i, global_i in enumerate(range(start, end)):
+                    sims[local_i, global_i] = -np.inf
 
-        b_range = np.arange(b)[:, None]
-        if max_k >= sims.shape[1]:
-            sorted_idx = np.argsort(-sims, axis=1)
-            sorted_scores = np.take_along_axis(sims, sorted_idx, axis=1)
-        else:
-            part_idx = np.argpartition(sims, -max_k, axis=1)[:, -max_k:]
-            part_scores = sims[b_range, part_idx]
-            order = np.argsort(-part_scores, axis=1)
-            sorted_idx = part_idx[b_range, order]
-            sorted_scores = part_scores[b_range, order]
+            b_range = np.arange(b)[:, None]
+            if max_k >= sims.shape[1]:
+                sorted_idx = np.argsort(-sims, axis=1)
+                sorted_scores = np.take_along_axis(sims, sorted_idx, axis=1)
+            else:
+                part_idx = np.argpartition(sims, -max_k, axis=1)[:, -max_k:]
+                part_scores = sims[b_range, part_idx]
+                order = np.argsort(-part_scores, axis=1)
+                sorted_idx = part_idx[b_range, order]
+                sorted_scores = part_scores[b_range, order]
 
-        all_indices[start:end] = sorted_idx[:, :max_k]
-        all_scores[start:end] = sorted_scores[:, :max_k]
+            all_indices[start:end] = sorted_idx[:, :max_k]
+            all_scores[start:end] = sorted_scores[:, :max_k]
+            pbar.update(b)
 
     return {
         k: {

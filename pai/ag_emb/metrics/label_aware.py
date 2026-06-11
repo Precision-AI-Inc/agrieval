@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from pai.ag_emb.metrics._utils import _prepare_embeddings
 from pai.ag_emb.metrics.ranking import average_precision_at_k, ndcg_at_k
@@ -114,10 +115,9 @@ def knn_label_ndcg_at_k(
         indices = data["indices"]  # [N, k]
         per_item = np.empty(n, dtype=np.float64)
 
-        for i in range(n):
+        for i in tqdm(range(n), desc=f"nDCG@{k}", leave=False, unit="item"):
             ranked_relevances = [1 if lbl[idx] == lbl[i] else 0 for idx in indices[i]]
             n_relevant = int(np.sum(lbl == lbl[i])) - 1  # exclude self
-            # ideal: top positions filled with relevant items, rest zero
             ideal_relevances = [1] * n_relevant + [0] * max(0, n - 1 - n_relevant)
             score = ndcg_at_k(ranked_relevances, ideal_relevances, k)
             per_item[i] = score if score is not None else 0.0
@@ -159,7 +159,7 @@ def knn_map_at_k(
         indices = data["indices"]  # [N, k]
         per_item = np.empty(n, dtype=np.float64)
 
-        for i in range(n):
+        for i in tqdm(range(n), desc=f"MAP@{k}", leave=False, unit="item"):
             neighbor_ids = list(map(int, indices[i]))
             relevant_ids = {j for j in range(n) if j != i and lbl[j] == lbl[i]}
             ap = average_precision_at_k(neighbor_ids, relevant_ids, k)
@@ -208,7 +208,7 @@ def knn_confusion_matrix(
         matrix = np.zeros((n_cls, n_cls), dtype=np.float64)
         row_counts = np.zeros(n_cls, dtype=np.int64)
 
-        for i in range(n):
+        for i in tqdm(range(n), desc=f"confusion@{k}", leave=False, unit="item"):
             ti = label_indices[i]
             row_counts[ti] += 1
             for nb in indices[i]:
@@ -251,7 +251,7 @@ def knn_label_purity_at_k(
         n = indices.shape[0]
         per_item = np.empty(n, dtype=np.float32)
 
-        for i in range(n):
+        for i in tqdm(range(n), desc=f"purity@{k}", leave=False, unit="item"):
             neighbor_labels = lbl[indices[i]]
             per_item[i] = float(np.sum(neighbor_labels == lbl[i])) / k
 
