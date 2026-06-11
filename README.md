@@ -1,4 +1,4 @@
-# pai-ag-emb
+# Precision AI Agricultural Embedding API
 
 Agricultural embedding evaluation API for Precision AI. Measures how well image model embeddings cluster by crop class using KNN-based metrics, geometry diagnostics, and interactive visualizations.
 
@@ -87,11 +87,15 @@ Only `embeddings` is required. All other fields use server defaults.
 ## Python / CLI usage
 
 ```bash
-# Run evaluation directly (no HTTP server)
+# Run evaluation directly (no HTTP server) — tight scenario by default
 python examples/example.py
+
+# Sparse scenario (overlapping classes — shows degraded KPIs)
+python examples/example.py --scenario sparse
 
 # With options
 python examples/example.py \
+  --scenario tight \
   --dataset-root /path/to/dataset \
   --k-values 5 10 20 \
   --sample-pairs 500000 \
@@ -172,8 +176,9 @@ plot_lle(embeddings, result, output_path="output/lle.html")
 ## Example notebook
 
 [`examples/example.ipynb`](examples/example.ipynb) is a runnable Jupyter notebook that loads
-`examples/example_input.json`, runs the full evaluation, and renders all four interactive
-Plotly visualizations inline.
+`examples/example_tight.json` (well-separated classes) and `examples/example_sparse.json`
+(overlapping classes), runs the full evaluation on both, and renders all interactive
+Plotly visualizations inline for side-by-side comparison.
 
 ```bash
 # From the project root

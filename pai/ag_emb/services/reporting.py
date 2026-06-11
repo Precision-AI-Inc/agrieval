@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 import numpy as np
@@ -30,6 +31,8 @@ except ImportError:
 try:
     from sklearn.manifold import TSNE, LocallyLinearEmbedding  # type: ignore[import]
 
+    # `n_iter` was renamed to `max_iter` in scikit-learn 1.5.
+    _TSNE_ITER_PARAM = "max_iter" if "max_iter" in inspect.signature(TSNE.__init__).parameters else "n_iter"
     _SKLEARN_AVAILABLE = True
 except ImportError:
     _SKLEARN_AVAILABLE = False
@@ -537,14 +540,20 @@ def plot_tsne(
     label_arr = np.array(item_labels)
 
     effective_perplexity = min(perplexity, max(5, n // 3))
-    tqdm.write(f"  t-SNE {dimensions}D — fitting {n} samples (perplexity={effective_perplexity})...")
+    # 3D t-SNE has more degrees of freedom than 2D, so the repulsion forces
+    # can spread tight clusters along the z-axis with too few iterations.
+    # Double the iteration budget for 3D to ensure convergence.
+    n_iter = 1000 if dimensions == 2 else 2000
+    tqdm.write(f"  t-SNE {dimensions}D — fitting {n} samples (perplexity={effective_perplexity}, iter={n_iter})...")
     coords = TSNE(
         n_components=dimensions,
         perplexity=effective_perplexity,
+        metric="cosine",
         random_state=42,
+        **{_TSNE_ITER_PARAM: n_iter},
     ).fit_transform(vectors.astype(np.float64))
 
-    title_text = f"t-SNE {dimensions}D  (n={n},  perplexity={effective_perplexity})"
+    title_text = f"t-SNE {dimensions}D  (n={n},  perplexity={effective_perplexity},  iter={n_iter})"
     fig = go.Figure()
 
     if dimensions == 3:

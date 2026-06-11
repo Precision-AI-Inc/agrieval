@@ -32,7 +32,7 @@ If a hook auto-fixes files (ruff lint/format), stage the changes and commit agai
 
 | Hook | What it checks |
 |---|---|
-| File hygiene | Large files (>1 MB), trailing whitespace, merge conflicts, private keys, debug statements |
+| File hygiene | Large files (>1000 KB), trailing whitespace, merge conflicts, private keys, debug statements |
 | `ruff` | Linting and import sorting (auto-fix) |
 | `ruff-format` | Code formatting (auto-fix) |
 | `mypy` | Static type checking |
@@ -46,7 +46,7 @@ pre-commit run --all-files
 
 ## Code style
 
-- **Formatter / linter:** ruff (`line-length = 88`, Python 3.10 target).
+- **Formatter / linter:** ruff (`line-length = 120`, Python 3.10 target).
 - **Type hints:** all public functions should have type annotations.
 - **Docstrings:** NumPy style for all public functions, classes, and modules.
 - **Comments:** only where the _why_ is non-obvious. No inline narration of what the code does.

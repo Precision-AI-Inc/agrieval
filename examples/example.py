@@ -10,10 +10,18 @@
 # ======================================================================
 """Run the evaluation service directly — no HTTP server required.
 
-Loads dummy_input.json, calls run_evaluation(), and prints selected KPIs.
+Two example scenarios are bundled:
+
+* **tight** (default) — embeddings from each class cluster very closely
+  (intra-class cosine ≈ 0.99, inter-class ≈ 0.00).  Use this to see what
+  a well-trained model looks like.
+* **sparse** — class prototypes are close and per-image noise is large, so
+  the two classes heavily overlap (gap ≈ 0.07, purity@5 ≈ 0.56).  Use this
+  to see how the KPIs degrade for a weak or untrained model.
 
 Usage (from repo root):
     python examples/example.py
+    python examples/example.py --scenario sparse
     python examples/example.py --dataset-root /path/to/dataset
     python examples/example.py --k-values 1 5 10
     python examples/example.py --output-dir output --tsne-dimensions 2
@@ -38,14 +46,23 @@ from pai.ag_emb.services.reporting import (
     print_result,
 )
 
+_SCENARIO_FILES: dict[str, str] = {
+    "tight": "example_tight.json",
+    "sparse": "example_sparse.json",
+}
+
 
 def main() -> None:
-    """Load ``dummy_input.json``, run the evaluation service, and print results.
+    """Load an example input file, run the evaluation service, and print results.
 
     Optionally writes visualization HTML files to an output directory.
 
     Recognised arguments
     --------------------
+    --scenario : {tight, sparse}
+        Which bundled example to run.  ``tight`` (default) shows a
+        well-separated embedding space; ``sparse`` shows a weak model where
+        classes heavily overlap.
     --dataset-root : str
         Dataset root for label extraction.  Defaults to ``"dataset"``.
     --k-values : list[int]
@@ -60,6 +77,12 @@ def main() -> None:
         Dimensionality for the t-SNE scatter plot.  Defaults to ``3``.
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--scenario",
+        choices=list(_SCENARIO_FILES),
+        default="tight",
+        help="Embedding scenario: 'tight' (well-separated) or 'sparse' (overlapping classes). Default: tight",
+    )
     parser.add_argument("--dataset-root", default="dataset")
     parser.add_argument("--k-values", nargs="+", type=int, default=[5, 10])
     parser.add_argument(
@@ -79,12 +102,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    payload_path = Path(__file__).parent / "example_input.json"
+    payload_path = Path(__file__).parent / _SCENARIO_FILES[args.scenario]
     with open(payload_path) as f:
         payload = json.load(f)
 
     embeddings: dict[str, list[float]] = payload["embeddings"]
-    print(f"Loaded {len(embeddings)} embeddings, " f"dim={len(next(iter(embeddings.values())))}")
+    print(f"Scenario : {args.scenario}")
+    print(f"Loaded {len(embeddings)} embeddings, dim={len(next(iter(embeddings.values())))}")
     print()
 
     result = run_evaluation(
