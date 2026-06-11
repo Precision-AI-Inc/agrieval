@@ -32,7 +32,7 @@ dataset/
   soybean_[anafi]/img/210625-img.JPG       →  class: soybean
 ```
 
-Convention: `{root}/{crop}_[{camera}]/img/{image}`  
+Convention: `{root}/{crop}_[{camera}]/img/{image}`
 The `crop_[camera]` folder → class = everything before `_[`.
 
 ---

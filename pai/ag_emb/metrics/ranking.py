@@ -14,7 +14,8 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable, Sequence, TypeVar
+from collections.abc import Iterable, Sequence
+from typing import TypeVar
 
 import numpy as np
 
@@ -115,9 +116,7 @@ def recall_at_k(ranked_ids: Sequence[T], relevant_ids: set[T], k: int) -> float 
     """
     if not relevant_ids:
         return None
-    return sum(1 for candidate_id in ranked_ids[:k] if candidate_id in relevant_ids) / float(
-        len(relevant_ids)
-    )
+    return sum(1 for candidate_id in ranked_ids[:k] if candidate_id in relevant_ids) / float(len(relevant_ids))
 
 
 def average_precision_at_k(
@@ -176,7 +175,7 @@ def dcg_at_k(relevances: Sequence[int], k: int) -> float:
 
 
 def ndcg_at_k(ranked_relevances: Sequence[int], ideal_relevances: Sequence[int], k: int) -> float | None:
-    """Normalized Discounted Cumulative Gain at rank K.
+    """Compute normalized discounted cumulative gain at rank K.
 
     Parameters
     ----------

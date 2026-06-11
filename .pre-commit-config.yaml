@@ -14,7 +14,7 @@ repos:
       - id: detect-private-key
       - id: debug-statements
 
-  # ── Ruff: lint + format + import sorting (replaces black + flake8 + isort) ─
+  # ── Ruff: lint + format + import sorting ───────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.5
     hooks:

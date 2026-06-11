@@ -9,13 +9,20 @@
 #  fullest extent of the law.
 # ======================================================================
 
-"""P2 — Embedding-space geometry and health metrics."""
+"""Embedding-space geometry and health metrics."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from pai.ag_emb.metrics._utils import _prepare_embeddings, _validate_embeddings
+from pai.ag_emb.metrics._utils import _prepare_embeddings
+
+try:
+    from sklearn.decomposition import PCA  # type: ignore[import]
+
+    _PCA_AVAILABLE = True
+except ImportError:
+    _PCA_AVAILABLE = False
 from pai.ag_emb.metrics.similarity import pairwise_similarity_stats
 
 
@@ -49,7 +56,9 @@ def centroid_similarity_stats(
         return {
             "mean_cosine_to_centroid": None,
             "std_cosine_to_centroid": None,
-            "p05": None, "p50": None, "p95": None,
+            "p05": None,
+            "p50": None,
+            "p95": None,
             "centroid_norm": 0.0,
         }
 
@@ -94,25 +103,28 @@ def pca_explained_variance(
     n, d = emb.shape
 
     _empty = {
-        "embedding_dim": d, "n_components": 0,
+        "embedding_dim": d,
+        "n_components": 0,
         "explained_variance_ratio": [],
-        "pc1": None, "top_5": None, "top_10": None,
-        "top_50": None, "top_100": None,
+        "pc1": None,
+        "top_5": None,
+        "top_10": None,
+        "top_50": None,
+        "top_100": None,
     }
     if n < 2:
         return _empty
 
     actual = min(n - 1, d, n_components)
 
-    try:
-        from sklearn.decomposition import PCA  # type: ignore[import]
+    if _PCA_AVAILABLE:
         pca = PCA(n_components=actual)
         pca.fit(emb.astype(np.float64))
         evr = pca.explained_variance_ratio_.tolist()
-    except ImportError:
-        centered = (emb.astype(np.float64) - emb.mean(axis=0))
+    else:
+        centered = emb.astype(np.float64) - emb.mean(axis=0)
         _, s_all, _ = np.linalg.svd(centered, full_matrices=False)
-        total = float(np.sum(s_all ** 2))
+        total = float(np.sum(s_all**2))
         if total == 0.0:
             return _empty
         evr = (s_all[:actual] ** 2 / total).tolist()
@@ -167,10 +179,10 @@ def effective_rank(
     eigenvalues = np.linalg.eigvalsh(cov)
     eigenvalues = eigenvalues[eigenvalues > 0]
 
-    if len(eigenvalues) == 0 or np.sum(eigenvalues ** 2) == 0:
+    if len(eigenvalues) == 0 or np.sum(eigenvalues**2) == 0:
         return {"embedding_dim": d, "effective_rank": 0.0, "effective_rank_ratio": 0.0}
 
-    eff = float(np.sum(eigenvalues) ** 2 / np.sum(eigenvalues ** 2))
+    eff = float(np.sum(eigenvalues) ** 2 / np.sum(eigenvalues**2))
     return {
         "embedding_dim": d,
         "effective_rank": eff,
@@ -184,7 +196,7 @@ def anisotropy_summary(
     normalize: bool = True,
     sample_pairs: int | None = 1_000_000,
 ) -> dict:
-    """Convenience wrapper combining all anisotropy-related metrics.
+    """Combine all anisotropy-related metrics into a single summary dict.
 
     Parameters
     ----------
@@ -205,11 +217,7 @@ def anisotropy_summary(
         "pairwise_similarity_stats": pairwise_similarity_stats(
             embeddings, normalize=normalize, sample_pairs=sample_pairs
         ),
-        "centroid_similarity_stats": centroid_similarity_stats(
-            embeddings, normalize=normalize
-        ),
-        "pca_explained_variance": pca_explained_variance(
-            embeddings, normalize=normalize
-        ),
+        "centroid_similarity_stats": centroid_similarity_stats(embeddings, normalize=normalize),
+        "pca_explained_variance": pca_explained_variance(embeddings, normalize=normalize),
         "effective_rank": effective_rank(embeddings, normalize=normalize),
     }

@@ -114,7 +114,7 @@ class TestTopKNeighbors:
         assert result[1]["indices"].shape == (2, 1)
 
     def test_raises_when_n1_exclude_self(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="exclude_self"):
             top_k_neighbors(np.array([[1.0, 0.0]]), ks=[1], exclude_self=True)
 
     def test_batching_matches_single_pass(self) -> None:

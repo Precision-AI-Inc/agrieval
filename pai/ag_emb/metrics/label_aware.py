@@ -53,10 +53,7 @@ def intra_inter_similarity_gap(
     n = emb.shape[0]
 
     if n != len(lbl):
-        raise ValueError(
-            f"embeddings and labels must have the same length. "
-            f"Got {n} and {len(lbl)}."
-        )
+        raise ValueError(f"embeddings and labels must have the same length. " f"Got {n} and {len(lbl)}.")
 
     rng = np.random.default_rng(random_seed)
 
@@ -82,8 +79,8 @@ def intra_inter_similarity_gap(
         "mean_intra_class_similarity": mean_intra,
         "mean_inter_class_similarity": mean_inter,
         "gap": gap,
-        "num_intra_pairs": int(len(intra)),
-        "num_inter_pairs": int(len(inter)),
+        "num_intra_pairs": len(intra),
+        "num_inter_pairs": len(inter),
     }
 
 
@@ -91,7 +88,7 @@ def knn_label_ndcg_at_k(
     neighbors_by_k: dict,
     labels: object,
 ) -> dict:
-    """nDCG at K using same-class membership as binary relevance.
+    """NDCG at K using same-class membership as binary relevance.
 
     For each item the ranked neighbor list is scored with relevance=1 for
     same-class neighbors and 0 otherwise.  The ideal DCG is computed from
@@ -223,8 +220,7 @@ def knn_confusion_matrix(
                 matrix[ci] /= total
 
         result[k] = {
-            c1: {c2: float(matrix[i, j]) for j, c2 in enumerate(unique_classes)}
-            for i, c1 in enumerate(unique_classes)
+            c1: {c2: float(matrix[i, j]) for j, c2 in enumerate(unique_classes)} for i, c1 in enumerate(unique_classes)
         }
     return result
 

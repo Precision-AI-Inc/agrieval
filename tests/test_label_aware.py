@@ -15,12 +15,12 @@ knn_label_purity_at_k, knn_label_ndcg_at_k, knn_map_at_k."""
 from __future__ import annotations
 
 import json
-import math
 import os
 
 import numpy as np
 import pytest
 
+from pai.ag_emb.api.config import get_dataset_root
 from pai.ag_emb.metrics import (
     intra_inter_similarity_gap,
     knn_label_ndcg_at_k,
@@ -30,10 +30,10 @@ from pai.ag_emb.metrics import (
 )
 from pai.ag_emb.services.evaluate import _jsonify, _parse_crop, extract_labels
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
 
 def _unit(v: list[float]) -> np.ndarray:
     a = np.array(v, dtype=np.float32)
@@ -42,8 +42,8 @@ def _unit(v: list[float]) -> np.ndarray:
 
 # Two well-separated classes: 4 corn + 4 soy in 4-D space
 _CORN = np.array([_unit([1, 0, 0, 0])] * 4, dtype=np.float32)
-_SOY  = np.array([_unit([0, 1, 0, 0])] * 4, dtype=np.float32)
-_MIXED = np.vstack([_CORN, _SOY])                     # [8, 4]
+_SOY = np.array([_unit([0, 1, 0, 0])] * 4, dtype=np.float32)
+_MIXED = np.vstack([_CORN, _SOY])  # [8, 4]
 _MIXED_LABELS = np.array(["corn"] * 4 + ["soy"] * 4)
 
 # Single-class dataset
@@ -54,6 +54,7 @@ _SINGLE_LABELS = np.array(["corn"] * 4)
 # ---------------------------------------------------------------------------
 # intra_inter_similarity_gap
 # ---------------------------------------------------------------------------
+
 
 class TestIntraInterSimilarityGap:
     def test_positive_gap_for_separated_classes(self) -> None:
@@ -69,8 +70,13 @@ class TestIntraInterSimilarityGap:
 
     def test_expected_keys(self) -> None:
         result = intra_inter_similarity_gap(_MIXED, _MIXED_LABELS)
-        for key in ("mean_intra_class_similarity", "mean_inter_class_similarity",
-                    "gap", "num_intra_pairs", "num_inter_pairs"):
+        for key in (
+            "mean_intra_class_similarity",
+            "mean_inter_class_similarity",
+            "gap",
+            "num_intra_pairs",
+            "num_inter_pairs",
+        ):
             assert key in result
 
     def test_exact_computation(self) -> None:
@@ -86,6 +92,7 @@ class TestIntraInterSimilarityGap:
 # ---------------------------------------------------------------------------
 # knn_label_purity_at_k
 # ---------------------------------------------------------------------------
+
 
 class TestKnnLabelPurityAtK:
     def test_perfect_purity_same_class(self) -> None:
@@ -105,13 +112,16 @@ class TestKnnLabelPurityAtK:
         neighbors = top_k_neighbors(_MIXED, ks=[3])
         result = knn_label_purity_at_k(neighbors, _MIXED_LABELS)
         entry = result[3]
-        assert "mean" in entry and "std" in entry and "per_item" in entry
+        assert "mean" in entry
+        assert "std" in entry
+        assert "per_item" in entry
         assert entry["per_item"].shape == (len(_MIXED),)
 
 
 # ---------------------------------------------------------------------------
 # knn_label_ndcg_at_k
 # ---------------------------------------------------------------------------
+
 
 class TestKnnLabelNdcgAtK:
     def test_perfect_ndcg_same_class(self) -> None:
@@ -130,7 +140,7 @@ class TestKnnLabelNdcgAtK:
     def test_values_in_unit_interval(self) -> None:
         neighbors = top_k_neighbors(_MIXED, ks=[3, 5])
         result = knn_label_ndcg_at_k(neighbors, _MIXED_LABELS)
-        for k, stats in result.items():
+        for _, stats in result.items():
             assert 0.0 <= stats["mean"] <= 1.0
             assert stats["per_item"].min() >= 0.0
             assert stats["per_item"].max() <= 1.0 + 1e-6
@@ -139,7 +149,9 @@ class TestKnnLabelNdcgAtK:
         neighbors = top_k_neighbors(_MIXED, ks=[3])
         result = knn_label_ndcg_at_k(neighbors, _MIXED_LABELS)
         entry = result[3]
-        assert "mean" in entry and "std" in entry and "per_item" in entry
+        assert "mean" in entry
+        assert "std" in entry
+        assert "per_item" in entry
         assert entry["per_item"].shape == (len(_MIXED),)
 
     def test_multiple_k_values(self) -> None:
@@ -160,6 +172,7 @@ class TestKnnLabelNdcgAtK:
 # knn_map_at_k
 # ---------------------------------------------------------------------------
 
+
 class TestKnnMapAtK:
     def test_perfect_map_same_class(self) -> None:
         neighbors = top_k_neighbors(_SINGLE, ks=[3])
@@ -176,7 +189,7 @@ class TestKnnMapAtK:
     def test_values_in_unit_interval(self) -> None:
         neighbors = top_k_neighbors(_MIXED, ks=[3, 5])
         result = knn_map_at_k(neighbors, _MIXED_LABELS)
-        for k, stats in result.items():
+        for _, stats in result.items():
             assert 0.0 <= stats["mean"] <= 1.0 + 1e-6
             assert stats["per_item"].min() >= 0.0
             assert stats["per_item"].max() <= 1.0 + 1e-6
@@ -185,7 +198,9 @@ class TestKnnMapAtK:
         neighbors = top_k_neighbors(_MIXED, ks=[3])
         result = knn_map_at_k(neighbors, _MIXED_LABELS)
         entry = result[3]
-        assert "mean" in entry and "std" in entry and "per_item" in entry
+        assert "mean" in entry
+        assert "std" in entry
+        assert "per_item" in entry
         assert entry["per_item"].shape == (len(_MIXED),)
 
     def test_multiple_k_values(self) -> None:
@@ -197,6 +212,7 @@ class TestKnnMapAtK:
 # ---------------------------------------------------------------------------
 # _jsonify
 # ---------------------------------------------------------------------------
+
 
 class TestJsonify:
     def test_numpy_array_dropped_from_dict(self) -> None:
@@ -249,6 +265,7 @@ class TestJsonify:
 # _parse_crop
 # ---------------------------------------------------------------------------
 
+
 class TestParseCrop:
     def test_crop_camera_bracket_format(self) -> None:
         assert _parse_crop("corn_[HB-25000SBC]") == "corn"
@@ -270,6 +287,7 @@ class TestParseCrop:
 # extract_labels
 # ---------------------------------------------------------------------------
 
+
 class TestExtractLabelsEdgeCases:
     def test_single_path(self) -> None:
         paths = ["dataset/corn_[HB-25000SBC]/img/img1.png"]
@@ -284,19 +302,18 @@ class TestExtractLabelsEdgeCases:
     def test_trailing_slash_on_root(self) -> None:
         paths = ["dataset/corn_[HB-25000SBC]/img/img1.png"]
         # dataset_root with or without trailing slash should give same result
-        assert (extract_labels(paths, dataset_root="dataset") ==
-                extract_labels(paths, dataset_root="dataset/"))
+        assert extract_labels(paths, dataset_root="dataset") == extract_labels(paths, dataset_root="dataset/")
 
 
 # ---------------------------------------------------------------------------
 # get_dataset_root
 # ---------------------------------------------------------------------------
 
+
 class TestGetDatasetRoot:
     def test_default_is_dataset(self) -> None:
         env_backup = os.environ.pop("PAI_DATASET_ROOT", None)
         try:
-            from pai.ag_emb.api.config import get_dataset_root
             assert get_dataset_root() == "dataset"
         finally:
             if env_backup is not None:
@@ -305,7 +322,6 @@ class TestGetDatasetRoot:
     def test_env_var_override(self) -> None:
         os.environ["PAI_DATASET_ROOT"] = "/mnt/storage/crops"
         try:
-            from pai.ag_emb.api.config import get_dataset_root
             assert get_dataset_root() == "/mnt/storage/crops"
         finally:
             del os.environ["PAI_DATASET_ROOT"]

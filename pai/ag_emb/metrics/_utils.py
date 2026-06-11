@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import itertools
+
 import numpy as np
 
 from pai.ag_emb.metrics.ranking import l2_normalize
@@ -50,7 +52,7 @@ def _validate_embeddings(embeddings: object, name: str = "embeddings") -> np.nda
 
 
 def _auto_batch_size(n: int, target_bytes: int = 1 << 30) -> int:
-    """Compute a row-batch size so that one batch × N similarity matrix fits in memory.
+    """Compute a row-batch size so that one batch x N similarity matrix fits in memory.
 
     The heuristic targets ``target_bytes`` of float32 storage for a
     ``[batch, N]`` similarity matrix, i.e. ``batch = target_bytes / (N * 4)``.
@@ -88,19 +90,32 @@ def _percentile_stats(values: np.ndarray) -> dict:
     if len(values) == 0:
         return {
             "count": 0,
-            "mean": None, "std": None, "min": None, "max": None,
-            "p01": None, "p05": None, "p25": None, "p50": None,
-            "p75": None, "p95": None, "p99": None,
+            "mean": None,
+            "std": None,
+            "min": None,
+            "max": None,
+            "p01": None,
+            "p05": None,
+            "p25": None,
+            "p50": None,
+            "p75": None,
+            "p95": None,
+            "p99": None,
         }
     pcts = np.percentile(values, [1, 5, 25, 50, 75, 95, 99]).tolist()
     return {
-        "count": int(len(values)),
+        "count": len(values),
         "mean": float(np.mean(values)),
         "std": float(np.std(values)),
         "min": float(np.min(values)),
         "max": float(np.max(values)),
-        "p01": pcts[0], "p05": pcts[1], "p25": pcts[2], "p50": pcts[3],
-        "p75": pcts[4], "p95": pcts[5], "p99": pcts[6],
+        "p01": pcts[0],
+        "p05": pcts[1],
+        "p25": pcts[2],
+        "p50": pcts[3],
+        "p75": pcts[4],
+        "p95": pcts[5],
+        "p99": pcts[6],
     }
 
 
@@ -121,7 +136,11 @@ def _neighbor_stats(per_item: np.ndarray) -> dict:
     if len(per_item) == 0:
         return {
             "per_item": per_item,
-            "mean": None, "std": None, "p05": None, "p50": None, "p95": None,
+            "mean": None,
+            "std": None,
+            "p05": None,
+            "p50": None,
+            "p95": None,
         }
     pcts = np.percentile(per_item, [5, 50, 95]).tolist()
     return {
@@ -224,6 +243,6 @@ def _rankdata(arr: np.ndarray) -> np.ndarray:
     ranks = np.empty(n, dtype=np.float64)
     ranked_vals = arr[order]
     changes = np.concatenate([[0], np.where(ranked_vals[1:] != ranked_vals[:-1])[0] + 1, [n]])
-    for s, e in zip(changes[:-1], changes[1:]):
+    for s, e in itertools.pairwise(changes):
         ranks[order[s:e]] = (s + e - 1) / 2.0 + 1.0
     return ranks

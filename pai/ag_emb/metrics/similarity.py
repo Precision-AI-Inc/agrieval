@@ -9,22 +9,21 @@
 #  fullest extent of the law.
 # ======================================================================
 
-"""P0 — Core cosine similarity primitives."""
+"""Core cosine similarity primitives and pairwise statistics."""
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 
-from pai.ag_emb.metrics.ranking import l2_normalize, normalize_ks
 from pai.ag_emb.metrics._utils import (
     _auto_batch_size,
     _get_pair_similarities,
     _percentile_stats,
     _prepare_embeddings,
-    _validate_embeddings,
 )
+from pai.ag_emb.metrics.ranking import normalize_ks
 
 
 def cosine_similarity_matrix(
@@ -90,9 +89,7 @@ def top_k_neighbors(
 
     pool_size = (n - 1) if exclude_self else n
     if pool_size < 1:
-        raise ValueError(
-            "Need at least 2 embeddings when exclude_self=True, else at least 1."
-        )
+        raise ValueError("Need at least 2 embeddings when exclude_self=True, else at least 1.")
 
     effective_ks = normalize_ks(list(ks), pool_size)
     max_k = effective_ks[-1]
@@ -162,7 +159,7 @@ def pairwise_similarity_stats(
     Returns
     -------
     dict
-        Keys: ``count``, ``mean``, ``std``, ``min``, ``max``, ``p01``–``p99``.
+        Keys: ``count``, ``mean``, ``std``, ``min``, ``max``, ``p01``-``p99``.
     """
     emb = _prepare_embeddings(embeddings, normalize)
     sims, _ = _get_pair_similarities(emb, sample_pairs, random_seed)

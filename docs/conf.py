@@ -28,6 +28,7 @@ def _get_version_from_git() -> str:
             text=True,
             cwd=_root,
             timeout=5,
+            check=False,
         )
         if out.returncode != 0 or not out.stdout:
             return "0.0.0"
@@ -95,7 +96,8 @@ latex_additional_files = ["assets/logo.png"] if os.path.isfile(_logo_path) else 
 _logo_latex = "logo" if latex_additional_files else ""
 
 _header_right = (
-    r"\raisebox{-0.2\height}{\includegraphics[height=0.45cm]{%s.png}}\quad Precision AI Ag Emb --- %s" % (_logo_latex, version)
+    r"\raisebox{-0.2\height}{\includegraphics[height=0.45cm]{%s.png}}\quad Precision AI Ag Emb --- %s"
+    % (_logo_latex, version)
     if _logo_latex
     else "Precision AI Ag Emb --- %s" % version
 )
@@ -132,7 +134,8 @@ _latex_preamble = r"""
 """ % (_header_right, _header_right)
 
 if _logo_latex:
-    _latex_maketitle = r"""
+    _latex_maketitle = (
+        r"""
 \makeatletter
 \begin{center}
 \includegraphics[width=4cm]{%s.png}\par
@@ -145,7 +148,9 @@ if _logo_latex:
 \@date
 \end{center}
 \makeatother
-""" % _logo_latex
+"""
+        % _logo_latex
+    )
 else:
     _latex_maketitle = r"""
 \makeatletter

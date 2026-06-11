@@ -13,16 +13,14 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
-import numpy as np
-
-from pai.ag_emb.metrics._utils import _prepare_embeddings, _validate_embeddings
+from pai.ag_emb.metrics._utils import _validate_embeddings
 from pai.ag_emb.metrics.cross_model import (
     knn_jaccard_at_k,
     knn_overlap_at_k,
-    per_item_neighbor_disagreement,
     pairwise_similarity_correlation,
+    per_item_neighbor_disagreement,
 )
 from pai.ag_emb.metrics.duplicates import (
     duplicate_groups_at_threshold,
@@ -98,9 +96,7 @@ def analyze_embedding_space(
         "embedding_dim": d,
         "ks": list(ks),
         "thresholds": list(thresholds),
-        "pairwise_similarity_stats": pairwise_similarity_stats(
-            emb, normalize=normalize, sample_pairs=sample_pairs
-        ),
+        "pairwise_similarity_stats": pairwise_similarity_stats(emb, normalize=normalize, sample_pairs=sample_pairs),
         "similarity_threshold_counts": similarity_threshold_counts(
             emb, thresholds, normalize=normalize, sample_pairs=sample_pairs
         ),
@@ -128,9 +124,7 @@ def analyze_embedding_space(
         dup_pairs = duplicate_pairs_at_threshold(emb, thresholds, normalize=normalize)
         result["duplicates"] = {
             "duplicate_pairs_at_threshold": dup_pairs,
-            "duplicate_groups_at_threshold": duplicate_groups_at_threshold(
-                dup_pairs, n_items=n
-            ),
+            "duplicate_groups_at_threshold": duplicate_groups_at_threshold(dup_pairs, n_items=n),
         }
 
     if labels is not None:
@@ -140,9 +134,7 @@ def analyze_embedding_space(
             ),
         }
         if neighbors is not None:
-            label_result["knn_label_purity_at_k"] = knn_label_purity_at_k(
-                neighbors, labels
-            )
+            label_result["knn_label_purity_at_k"] = knn_label_purity_at_k(neighbors, labels)
         result["label_aware"] = label_result
 
     return result
@@ -204,7 +196,8 @@ def compare_embedding_spaces(
         "embedding_dim_a": int(emb_a.shape[1]),
         "embedding_dim_b": int(emb_b.shape[1]),
         "pairwise_similarity_correlation": pairwise_similarity_correlation(
-            emb_a, emb_b,
+            emb_a,
+            emb_b,
             normalize=normalize,
             sample_pairs=sample_pairs,
             random_seed=random_seed,
@@ -212,8 +205,6 @@ def compare_embedding_spaces(
         "neighbor_agreement": {
             "knn_overlap_at_k": knn_overlap_at_k(neighbors_a, neighbors_b),
             "knn_jaccard_at_k": knn_jaccard_at_k(neighbors_a, neighbors_b),
-            "per_item_neighbor_disagreement": per_item_neighbor_disagreement(
-                neighbors_a, neighbors_b
-            ),
+            "per_item_neighbor_disagreement": per_item_neighbor_disagreement(neighbors_a, neighbors_b),
         },
     }

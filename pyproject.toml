@@ -66,18 +66,48 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "UP", "B", "SIM"]
-ignore = [
-    "E501",   # line too long — handled by ruff-format
-    "B008",   # function calls in default args (FastAPI uses this pattern)
-    "SIM108", # ternary operator — sometimes less readable
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "N",    # pep8-naming
+    "C90",  # mccabe complexity
+    "D",    # pydocstyle
+    "PT",   # flake8-pytest-style
+    "RUF",  # ruff-specific rules
+    "PL",   # pylint
 ]
-per-file-ignores = {"**/__init__.py" = ["F401"]}
+ignore = [
+    "E501",    # line too long — enforced by ruff-format at 120 chars
+    "B008",    # function calls in default args (FastAPI uses this pattern)
+    "SIM108",  # ternary operator — sometimes less readable
+    "D100",    # missing docstring in public module
+    "D104",    # missing docstring in public package
+    "D203",    # one-blank-line-before-class (conflicts with D211)
+    "D213",    # multi-line-summary-second-line (conflicts with D212)
+    "PLR0913", # too many arguments — common in evaluation functions
+    "PLR2004", # magic value comparisons — acceptable in tests/metrics
+]
+per-file-ignores = {"**/__init__.py" = ["F401"], "tests/**" = ["D", "PLR"], "docs/conf.py" = ["E402", "UP031"]}
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["pai"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+docstring-code-format = true

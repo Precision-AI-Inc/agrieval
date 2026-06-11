@@ -62,11 +62,11 @@ class TestNormalizeKs:
         assert normalize_ks([10, 1, 5], 20) == [1, 5, 10]
 
     def test_raises_on_empty_pool(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="candidate"):
             normalize_ks([1], 0)
 
     def test_raises_on_non_positive_k(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="positive"):
             normalize_ks([0], 10)
 
 

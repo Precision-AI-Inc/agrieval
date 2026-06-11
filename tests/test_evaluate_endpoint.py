@@ -13,8 +13,9 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
-import pytest
 from fastapi.testclient import TestClient
 
 from pai.ag_emb.api.app import app
@@ -26,6 +27,7 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_embeddings(
     class_vecs: dict[str, np.ndarray],
@@ -59,6 +61,7 @@ GOOD_EMBEDDINGS = _make_embeddings({"corn": _CORN_PROTO, "soy": _SOY_PROTO})
 # Label extraction
 # ---------------------------------------------------------------------------
 
+
 class TestExtractLabels:
     def test_crop_camera_bracket_convention(self) -> None:
         """Real dataset layout: {root}/{crop}_[{camera}]/img/{image}."""
@@ -68,9 +71,7 @@ class TestExtractLabels:
             "dummy/soybean_[HB-25000SBC]/img/220608-img3.png",
             "dummy/soybean_[anafi]/img/210625-img4.jpg",
         ]
-        assert extract_labels(paths, dataset_root="dummy") == [
-            "corn", "corn", "soybean", "soybean"
-        ]
+        assert extract_labels(paths, dataset_root="dummy") == ["corn", "corn", "soybean", "soybean"]
 
     def test_crop_camera_auto_root(self) -> None:
         """Root inferred from common prefix when dataset_root is not given."""
@@ -128,40 +129,50 @@ class TestExtractLabels:
 # Service layer
 # ---------------------------------------------------------------------------
 
+
 class TestRunAnalysis:
     def test_returns_expected_top_level_keys(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
-        for key in ("n_items", "embedding_dim", "classes", "k_values",
-                    "global_metrics", "per_class"):
+        for key in ("n_items", "embedding_dim", "classes", "k_values", "global_metrics", "per_class"):
             assert key in result
 
     def test_n_items_correct(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         assert result["n_items"] == len(GOOD_EMBEDDINGS)
 
     def test_classes_detected(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         assert sorted(result["classes"]) == ["corn", "soy"]
 
     def test_per_class_keys_match_classes(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         assert set(result["per_class"].keys()) == {"corn", "soy"}
 
     def test_per_class_n_items(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         assert result["per_class"]["corn"]["n_items"] == 5
@@ -169,18 +180,28 @@ class TestRunAnalysis:
 
     def test_global_metrics_keys(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         gm = result["global_metrics"]
-        for key in ("pairwise_similarity_stats", "intra_inter_similarity_gap",
-                    "knn_label_purity", "knn_label_ndcg", "knn_map",
-                    "effective_rank", "centroid_similarity_stats"):
+        for key in (
+            "pairwise_similarity_stats",
+            "intra_inter_similarity_gap",
+            "knn_label_purity",
+            "knn_label_ndcg",
+            "knn_map",
+            "effective_rank",
+            "centroid_similarity_stats",
+        ):
             assert key in gm, f"Missing key: {key}"
 
     def test_separated_classes_positive_gap(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         gap = result["global_metrics"]["intra_inter_similarity_gap"]["gap"]
@@ -189,7 +210,9 @@ class TestRunAnalysis:
 
     def test_high_knn_purity_for_separated_classes(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         purity = result["global_metrics"]["knn_label_purity"]["3"]["mean"]
@@ -197,9 +220,10 @@ class TestRunAnalysis:
         assert purity > 0.8, "KNN purity should be high for well-separated classes"
 
     def test_no_numpy_arrays_in_output(self) -> None:
-        import json
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         # Should not raise
@@ -207,20 +231,29 @@ class TestRunAnalysis:
 
     def test_per_class_metrics_keys(self) -> None:
         result = run_evaluation(
-            GOOD_EMBEDDINGS, k_values=[3], dataset_root="dummy",
+            GOOD_EMBEDDINGS,
+            k_values=[3],
+            dataset_root="dummy",
             sample_pairs=50,
         )
         for cls in ("corn", "soy"):
             cls_data = result["per_class"][cls]
-            for key in ("n_items", "pairwise_similarity_stats",
-                        "centroid_similarity_stats", "effective_rank",
-                        "knn_label_purity", "knn_label_ndcg", "knn_map"):
+            for key in (
+                "n_items",
+                "pairwise_similarity_stats",
+                "centroid_similarity_stats",
+                "effective_rank",
+                "knn_label_purity",
+                "knn_label_ndcg",
+                "knn_map",
+            ):
                 assert key in cls_data, f"Missing per-class key {key!r} for {cls!r}"
 
 
 # ---------------------------------------------------------------------------
 # API endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestAnalyzeEndpoint:
     def test_returns_200(self) -> None:
@@ -268,7 +301,6 @@ class TestAnalyzeEndpoint:
         assert response.status_code == 422
 
     def test_output_is_valid_json(self) -> None:
-        import json
         response = client.post(
             "/v1/embeddings/evaluate",
             json={"embeddings": GOOD_EMBEDDINGS, "dataset_root": "dummy", "k_values": [3]},

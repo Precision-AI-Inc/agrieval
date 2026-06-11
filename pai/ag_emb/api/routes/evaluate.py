@@ -9,8 +9,11 @@
 #  fullest extent of the law.
 # ======================================================================
 
-"""Embedding evaluation route: ingests image-path→embedding dicts and returns
-a fixed JSON report broken down by crop class."""
+"""Embedding evaluation route.
+
+Ingests image-path→embedding dicts and returns a fixed JSON report broken
+down by crop class.
+"""
 
 from __future__ import annotations
 

@@ -40,12 +40,10 @@ _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _collect_paths() -> list[Path]:
     """Return all image paths under tests/data/ sorted for reproducibility."""
-    return sorted(
-        p for p in TESTS_DATA.rglob("*")
-        if p.is_file() and p.suffix.lower() in _IMAGE_EXTS
-    )
+    return sorted(p for p in TESTS_DATA.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTS)
 
 
 def _crop_from_path(path: Path) -> str:
@@ -87,6 +85,7 @@ def _make_embedding(path: Path, prototype: np.ndarray) -> list[float]:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="session")
 def image_embeddings() -> dict[str, list[float]]:
     """Map of ``tests/data``-relative image path → 16-D embedding.
@@ -101,7 +100,4 @@ def image_embeddings() -> dict[str, list[float]]:
     crops = sorted({_crop_from_path(p) for p in paths})
     protos = _class_prototypes(crops)
 
-    return {
-        str(p.relative_to(_PROJECT_ROOT)): _make_embedding(p, protos[_crop_from_path(p)])
-        for p in paths
-    }
+    return {str(p.relative_to(_PROJECT_ROOT)): _make_embedding(p, protos[_crop_from_path(p)]) for p in paths}

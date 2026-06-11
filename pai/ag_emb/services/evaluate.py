@@ -17,11 +17,9 @@ import math
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import numpy as np
-
-# Matches folder names of the form  crop_[camera]  e.g.  corn_[HB-25000SBC]
-_CROP_CAMERA_RE = re.compile(r"^(.+?)_\[.+\]$")
 
 from pai.ag_emb.metrics import (
     centroid_similarity_stats,
@@ -35,10 +33,13 @@ from pai.ag_emb.metrics import (
     top_k_neighbors,
 )
 
+# Matches folder names of the form  crop_[camera]  e.g.  corn_[HB-25000SBC]
+_CROP_CAMERA_RE = re.compile(r"^(.+?)_\[.+\]$")
 
 # ---------------------------------------------------------------------------
 # Path parsing
 # ---------------------------------------------------------------------------
+
 
 def _parse_crop(folder_name: str) -> str:
     """Extract the crop name from a folder that may follow the ``crop_[camera]`` convention.
@@ -90,7 +91,7 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
 
     labels: list[str] = []
     for path in paths:
-        remainder = path[len(root_prefix):] if path.startswith(root_prefix) else path
+        remainder = path[len(root_prefix) :] if path.startswith(root_prefix) else path
         parts = Path(remainder).parts
         folder = parts[0] if parts else "unknown"
         labels.append(_parse_crop(folder))
@@ -102,7 +103,8 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
 # JSON serialisation
 # ---------------------------------------------------------------------------
 
-def _jsonify(obj: object) -> object:
+
+def _jsonify(obj: object) -> Any:  # noqa: PLR0911
     """Recursively convert a metrics result to JSON-serialisable types.
 
     numpy arrays are dropped because they are per-item visualisation artefacts
@@ -137,7 +139,7 @@ def _jsonify(obj: object) -> object:
         return bool(obj)
     if isinstance(obj, np.integer):
         return int(obj)
-    if isinstance(obj, (np.floating, float)):
+    if isinstance(obj, np.floating | float):
         f = float(obj)
         return None if (math.isnan(f) or math.isinf(f)) else f
     return obj
@@ -146,6 +148,7 @@ def _jsonify(obj: object) -> object:
 # ---------------------------------------------------------------------------
 # Core analysis
 # ---------------------------------------------------------------------------
+
 
 def run_evaluation(
     image_embeddings: dict[str, list[float]],
@@ -190,24 +193,14 @@ def run_evaluation(
     map_raw = knn_map_at_k(neighbors, labels_arr)
 
     # Preserve per_item arrays before _jsonify strips them (needed for per-class slices)
-    purity_per_item: dict[int, np.ndarray] = {
-        k: stats["per_item"] for k, stats in purity_raw.items()
-    }
-    ndcg_per_item: dict[int, np.ndarray] = {
-        k: stats["per_item"] for k, stats in ndcg_raw.items()
-    }
-    map_per_item: dict[int, np.ndarray] = {
-        k: stats["per_item"] for k, stats in map_raw.items()
-    }
+    purity_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in purity_raw.items()}
+    ndcg_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in ndcg_raw.items()}
+    map_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in map_raw.items()}
 
     # --- Global metrics ---
     global_metrics: dict = {
-        "pairwise_similarity_stats": pairwise_similarity_stats(
-            embeddings, sample_pairs=sample_pairs
-        ),
-        "intra_inter_similarity_gap": intra_inter_similarity_gap(
-            embeddings, labels_arr, sample_pairs=sample_pairs
-        ),
+        "pairwise_similarity_stats": pairwise_similarity_stats(embeddings, sample_pairs=sample_pairs),
+        "intra_inter_similarity_gap": intra_inter_similarity_gap(embeddings, labels_arr, sample_pairs=sample_pairs),
         "knn_label_purity": purity_raw,
         "knn_label_ndcg": ndcg_raw,
         "knn_map": map_raw,
@@ -226,21 +219,17 @@ def run_evaluation(
         cls_metrics: dict = {"n_items": cls_n}
 
         if cls_n >= 2:
-            cls_sample = (
-                min(sample_pairs, 100_000) if sample_pairs is not None else None
-            )
+            cls_sample = min(sample_pairs, 100_000) if sample_pairs is not None else None
             cls_metrics["pairwise_similarity_stats"] = pairwise_similarity_stats(
                 cls_embeddings, sample_pairs=cls_sample
             )
-            cls_metrics["centroid_similarity_stats"] = centroid_similarity_stats(
-                cls_embeddings
-            )
+            cls_metrics["centroid_similarity_stats"] = centroid_similarity_stats(cls_embeddings)
             cls_metrics["effective_rank"] = effective_rank(cls_embeddings)
 
-        def _slice_per_item(per_item_by_k: dict[int, np.ndarray]) -> dict:
+        def _slice_per_item(per_item_by_k: dict[int, np.ndarray], _idx: np.ndarray = cls_indices) -> dict:
             out: dict = {}
             for k, per_item in per_item_by_k.items():
-                vals = per_item[cls_indices].astype(np.float64)
+                vals = per_item[_idx].astype(np.float64)
                 p05, p50, p95 = np.percentile(vals, [5, 50, 95]).tolist()
                 out[str(k)] = {
                     "mean": float(np.mean(vals)),

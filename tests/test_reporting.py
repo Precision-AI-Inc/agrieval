@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 
 from pai.ag_emb.services.evaluate import run_evaluation
@@ -28,10 +30,10 @@ from pai.ag_emb.services.reporting import (
     print_result,
 )
 
-
 # ---------------------------------------------------------------------------
 # Shared fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def result(image_embeddings):
@@ -46,6 +48,7 @@ def result(image_embeddings):
 # ---------------------------------------------------------------------------
 # print_result / _print_global / _print_per_class
 # ---------------------------------------------------------------------------
+
 
 class TestPrintResult:
     def test_outputs_header(self, capsys, result):
@@ -104,9 +107,9 @@ class TestPrintResult:
 # _write_plotly
 # ---------------------------------------------------------------------------
 
+
 class TestWritePlotly:
     def test_writes_html(self, tmp_path):
-        import plotly.graph_objects as go
         fig = go.Figure(data=go.Scatter(x=[1, 2], y=[3, 4]))
         out = tmp_path / "test.html"
         _write_plotly(fig, str(out))
@@ -115,7 +118,6 @@ class TestWritePlotly:
         assert "plotly" in content.lower()
 
     def test_falls_back_to_html_when_kaleido_missing(self, tmp_path, capsys):
-        import plotly.graph_objects as go
         fig = go.Figure(data=go.Scatter(x=[1], y=[1]))
         out = tmp_path / "test.png"
         html_out = tmp_path / "test.html"
@@ -129,6 +131,7 @@ class TestWritePlotly:
 # ---------------------------------------------------------------------------
 # plot_knn_confusion
 # ---------------------------------------------------------------------------
+
 
 class TestPlotKnnConfusion:
     def test_writes_html(self, tmp_path, result):
@@ -162,6 +165,7 @@ class TestPlotKnnConfusion:
 # plot_cosine_similarity
 # ---------------------------------------------------------------------------
 
+
 class TestPlotCosineSimilarity:
     def test_writes_html(self, tmp_path, image_embeddings, result):
         out = tmp_path / "cosine.html"
@@ -172,9 +176,8 @@ class TestPlotCosineSimilarity:
     def test_sorted_by_class(self, tmp_path, image_embeddings, result):
         out = tmp_path / "cosine.html"
         plot_cosine_similarity(image_embeddings, result, output_path=str(out))
-        content = out.read_text()
-        for cls in result["classes"]:
-            assert cls in content or True  # tick labels are filenames, not class names
+        # tick labels are filenames, not class names — just verify the file was written
+        assert out.exists()
 
     def test_prints_saved_path(self, tmp_path, image_embeddings, result, capsys):
         out = tmp_path / "cosine.html"
@@ -186,11 +189,9 @@ class TestPlotCosineSimilarity:
 # _build_scatter3d
 # ---------------------------------------------------------------------------
 
+
 class TestBuildScatter3d:
     def test_adds_traces_per_class(self, image_embeddings, result):
-        import numpy as np
-        import plotly.graph_objects as go
-
         paths = list(image_embeddings.keys())
         n = len(paths)
         coords = np.zeros((n, 3), dtype=np.float64)
@@ -202,9 +203,6 @@ class TestBuildScatter3d:
         assert len(fig.data) == len(classes)
 
     def test_trace_names_match_classes(self, image_embeddings, result):
-        import numpy as np
-        import plotly.graph_objects as go
-
         paths = list(image_embeddings.keys())
         n = len(paths)
         coords = np.zeros((n, 3), dtype=np.float64)
@@ -221,6 +219,7 @@ class TestBuildScatter3d:
 # plot_tsne
 # ---------------------------------------------------------------------------
 
+
 class TestPlotTsne:
     def test_writes_html_3d(self, tmp_path, image_embeddings, result):
         out = tmp_path / "tsne3d.html"
@@ -235,8 +234,7 @@ class TestPlotTsne:
 
     def test_invalid_dimensions_raises(self, tmp_path, image_embeddings, result):
         with pytest.raises(ValueError, match="dimensions must be 2 or 3"):
-            plot_tsne(image_embeddings, result,
-                      output_path=str(tmp_path / "x.html"), dimensions=4)
+            plot_tsne(image_embeddings, result, output_path=str(tmp_path / "x.html"), dimensions=4)
 
     def test_prints_saved_path(self, tmp_path, image_embeddings, result, capsys):
         out = tmp_path / "tsne.html"
@@ -253,6 +251,7 @@ class TestPlotTsne:
 # ---------------------------------------------------------------------------
 # plot_lle
 # ---------------------------------------------------------------------------
+
 
 class TestPlotLle:
     def test_writes_html(self, tmp_path, image_embeddings, result):

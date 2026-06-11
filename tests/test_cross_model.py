@@ -16,6 +16,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from pai.ag_emb.metrics.analysis import analyze_embedding_space, compare_embedding_spaces
 from pai.ag_emb.metrics.cross_model import (
     knn_jaccard_at_k,
     knn_overlap_at_k,
@@ -26,7 +27,6 @@ from pai.ag_emb.metrics.duplicates import (
     duplicate_groups_at_threshold,
     duplicate_pairs_at_threshold,
 )
-from pai.ag_emb.metrics.analysis import analyze_embedding_space, compare_embedding_spaces
 from pai.ag_emb.metrics.similarity import top_k_neighbors
 
 FIXTURE = np.array(
@@ -41,16 +41,12 @@ VECS_B = RNG.random((30, 16)).astype(np.float32)  # different D
 
 class TestPairwiseSimCorrelation:
     def test_identical_embeddings_high_correlation(self) -> None:
-        result = pairwise_similarity_correlation(
-            VECS_A, VECS_A, sample_pairs=500, random_seed=0
-        )
+        result = pairwise_similarity_correlation(VECS_A, VECS_A, sample_pairs=500, random_seed=0)
         assert result["pearson"] == pytest.approx(1.0, abs=1e-3)
         assert result["spearman"] == pytest.approx(1.0, abs=1e-3)
 
     def test_different_dimensions_accepted(self) -> None:
-        result = pairwise_similarity_correlation(
-            VECS_A, VECS_B, sample_pairs=500, random_seed=0
-        )
+        result = pairwise_similarity_correlation(VECS_A, VECS_B, sample_pairs=500, random_seed=0)
         assert -1.0 <= result["pearson"] <= 1.0
         assert -1.0 <= result["spearman"] <= 1.0
 
@@ -65,23 +61,19 @@ class TestPairwiseSimCorrelation:
 
 
 class TestKnnOverlapAndJaccard:
-    @pytest.fixture
+    @pytest.fixture()
     def neighbors_a(self) -> dict:
         return top_k_neighbors(VECS_A, ks=[3])
 
-    @pytest.fixture
+    @pytest.fixture()
     def neighbors_same(self) -> dict:
         return top_k_neighbors(VECS_A, ks=[3])
 
-    def test_overlap_identical_neighbors_is_one(
-        self, neighbors_a: dict, neighbors_same: dict
-    ) -> None:
+    def test_overlap_identical_neighbors_is_one(self, neighbors_a: dict, neighbors_same: dict) -> None:
         result = knn_overlap_at_k(neighbors_a, neighbors_same)
         assert result[3]["mean"] == pytest.approx(1.0, abs=1e-5)
 
-    def test_jaccard_identical_neighbors_is_one(
-        self, neighbors_a: dict, neighbors_same: dict
-    ) -> None:
+    def test_jaccard_identical_neighbors_is_one(self, neighbors_a: dict, neighbors_same: dict) -> None:
         result = knn_jaccard_at_k(neighbors_a, neighbors_same)
         assert result[3]["mean"] == pytest.approx(1.0, abs=1e-5)
 
@@ -94,7 +86,7 @@ class TestKnnOverlapAndJaccard:
         neighbors_b = top_k_neighbors(VECS_B, ks=[3])
         overlap = knn_overlap_at_k(neighbors_a, neighbors_b)[3]["mean"]
         jaccard = knn_jaccard_at_k(neighbors_a, neighbors_b)[3]["mean"]
-        # Jaccard ≤ overlap always (|A∩B|/|A∪B| ≤ |A∩B|/k)
+        # Jaccard <= overlap always (|A&B|/|AuB| <= |A&B|/k)
         assert jaccard <= overlap + 1e-5
 
 
@@ -215,7 +207,6 @@ class TestCompareEmbeddingSpaces:
         assert "neighbor_agreement" in result
 
     def test_zero_vectors_raise(self) -> None:
-        bad = np.zeros((5, 4), dtype=np.float32)
         # zero vectors pass l2_normalize (they stay zero) — no error expected here
         # but NaN/inf should raise
         bad_nan = np.full((5, 4), np.nan, dtype=np.float32)

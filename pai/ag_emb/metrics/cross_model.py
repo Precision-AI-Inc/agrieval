@@ -9,13 +9,20 @@
 #  fullest extent of the law.
 # ======================================================================
 
-"""P3 — Cross-model comparison metrics for two embedding spaces over the same N items."""
+"""Cross-model comparison metrics for two embedding spaces over the same items."""
 
 from __future__ import annotations
 
 import numpy as np
 
 from pai.ag_emb.metrics._utils import _neighbor_stats, _prepare_embeddings, _rankdata
+
+try:
+    from scipy.stats import pearsonr, spearmanr  # type: ignore[import]
+
+    _SCIPY_AVAILABLE = True
+except ImportError:
+    _SCIPY_AVAILABLE = False
 
 
 def _validate_cross_model(emb_a: np.ndarray, emb_b: np.ndarray) -> None:
@@ -82,16 +89,15 @@ def pairwise_similarity_correlation(
     sims_a = np.einsum("ij,ij->i", emb_a[pairs_i], emb_a[pairs_j]).astype(np.float64)
     sims_b = np.einsum("ij,ij->i", emb_b[pairs_i], emb_b[pairs_j]).astype(np.float64)
 
-    try:
-        from scipy.stats import pearsonr, spearmanr  # type: ignore[import]
+    if _SCIPY_AVAILABLE:
         pearson = float(pearsonr(sims_a, sims_b).statistic)
         spearman = float(spearmanr(sims_a, sims_b).statistic)
-    except ImportError:
+    else:
         pearson = float(np.corrcoef(sims_a, sims_b)[0, 1])
         spearman = float(np.corrcoef(_rankdata(sims_a), _rankdata(sims_b))[0, 1])
 
     return {
-        "sample_pairs": int(len(sims_a)),
+        "sample_pairs": len(sims_a),
         "pearson": pearson,
         "spearman": spearman,
     }
@@ -221,9 +227,7 @@ def per_item_neighbor_disagreement(
     if metric not in ("jaccard", "overlap"):
         raise ValueError(f"Unknown metric {metric!r}. Use 'jaccard' or 'overlap'.")
 
-    agreement = _knn_set_metric(
-        neighbors_a_by_k, neighbors_b_by_k, metric=metric
-    )
+    agreement = _knn_set_metric(neighbors_a_by_k, neighbors_b_by_k, metric=metric)
     result = {}
     for k, stats in agreement.items():
         agreement_scores = stats["per_item"]
@@ -234,8 +238,6 @@ def per_item_neighbor_disagreement(
             "per_item": per_item,
             "mean": float(np.mean(per_item)),
             "p95": float(np.percentile(per_item, 95)),
-            "top_disagreements": [
-                {"index": int(i), "score": float(per_item[i])} for i in top_idx
-            ],
+            "top_disagreements": [{"index": int(i), "score": float(per_item[i])} for i in top_idx],
         }
     return result

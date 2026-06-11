@@ -75,13 +75,12 @@ class EmbeddingEvaluateRequest(BaseModel):
     @field_validator("embeddings")
     @classmethod
     def validate_embeddings(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
+        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalised."""
         if len(v) < 2:
             raise ValueError("At least 2 embeddings are required.")
         dims = {len(vec) for vec in v.values()}
         if len(dims) > 1:
-            raise ValueError(
-                f"All embeddings must have the same dimension. Found: {sorted(dims)}"
-            )
+            raise ValueError(f"All embeddings must have the same dimension. Found: {sorted(dims)}")
         dim = next(iter(dims))
         if dim == 0:
             raise ValueError("Embedding vectors must not be empty.")
@@ -98,9 +97,11 @@ class EmbeddingEvaluateRequest(BaseModel):
     @field_validator("k_values")
     @classmethod
     def validate_k_values(cls, v: list[int]) -> list[int]:
+        """Validate that all K values are positive integers."""
         if any(k <= 0 for k in v):
             raise ValueError("All K values must be positive.")
         return v
+
 
 class EmbeddingEvaluateResponse(BaseModel):
     """Fixed JSON report returned by POST /v1/embeddings/evaluate."""

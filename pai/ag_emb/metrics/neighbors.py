@@ -9,7 +9,7 @@
 #  fullest extent of the law.
 # ======================================================================
 
-"""P1 — Nearest-neighbor diagnostics derived from top_k_neighbors output."""
+"""Nearest-neighbor diagnostics derived from top_k_neighbors output."""
 
 from __future__ import annotations
 
@@ -131,10 +131,7 @@ def outlier_score_at_k(
         ``p99``, ``top_outliers``.
     """
     if method not in ("one_minus_mean_top_k", "one_minus_kth_similarity"):
-        raise ValueError(
-            f"Unknown method {method!r}. "
-            "Use 'one_minus_mean_top_k' or 'one_minus_kth_similarity'."
-        )
+        raise ValueError(f"Unknown method {method!r}. " "Use 'one_minus_mean_top_k' or 'one_minus_kth_similarity'.")
 
     result = {}
     for k, data in neighbors_by_k.items():
@@ -154,9 +151,7 @@ def outlier_score_at_k(
             "std": float(np.std(per_item)),
             "p95": p95,
             "p99": p99,
-            "top_outliers": [
-                {"index": int(i), "score": float(per_item[i])} for i in top_idx
-            ],
+            "top_outliers": [{"index": int(i), "score": float(per_item[i])} for i in top_idx],
         }
     return result
 
@@ -203,10 +198,6 @@ def hubness_at_k(
             "gini": gini_coefficient(hub_counts),
             "skewness": _skewness(hub_counts.astype(np.float64)),
             "anti_hub_count": int(np.sum(hub_counts == 0)),
-            "top_hubs": [
-                {"index": int(i), "count": int(hub_counts[i])}
-                for i in top_idx
-                if hub_counts[i] > 0
-            ],
+            "top_hubs": [{"index": int(i), "count": int(hub_counts[i])} for i in top_idx if hub_counts[i] > 0],
         }
     return result

@@ -31,7 +31,7 @@ FIXTURE = np.array(
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def neighbors() -> dict:
     return top_k_neighbors(FIXTURE, ks=[1, 3])
 
@@ -69,9 +69,7 @@ class TestMeanTopKSimilarity:
     def test_k1_mean_equals_radius(self, neighbors: dict) -> None:
         mean_result = mean_top_k_similarity(neighbors)
         radius_result = knn_radius_at_k(neighbors)
-        np.testing.assert_allclose(
-            mean_result[1]["per_item"], radius_result[1]["per_item"], atol=1e-5
-        )
+        np.testing.assert_allclose(mean_result[1]["per_item"], radius_result[1]["per_item"], atol=1e-5)
 
 
 class TestKnnRadiusAtK:
@@ -119,7 +117,7 @@ class TestHubnessAtK:
 
     def test_hand_built_example(self) -> None:
         # v0 = [1,0,0]; v1,v2,v3 each have cos-sim 0.8 with v0
-        # but only 0.28–0.64 with each other, so all point to v0
+        # but only 0.28-0.64 with each other, so all point to v0
         vectors = np.array(
             [[1.0, 0.0, 0.0], [0.8, 0.6, 0.0], [0.8, 0.0, 0.6], [0.8, -0.6, 0.0]],
             dtype=np.float32,

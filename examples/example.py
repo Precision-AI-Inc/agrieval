@@ -29,6 +29,15 @@ from pathlib import Path
 # Allow running without `pip install -e .`
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from pai.ag_emb.services.evaluate import run_evaluation
+from pai.ag_emb.services.reporting import (
+    plot_cosine_similarity,
+    plot_knn_confusion,
+    plot_lle,
+    plot_tsne,
+    print_result,
+)
+
 
 def main() -> None:
     """Load ``dummy_input.json``, run the evaluation service, and print results.
@@ -53,12 +62,21 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-root", default="dataset")
     parser.add_argument("--k-values", nargs="+", type=int, default=[5, 10])
-    parser.add_argument("--sample-pairs", type=int, default=None,
-                        help="Max pairs for pairwise similarity stats; omit for exact (default: None)")
-    parser.add_argument("--output-dir", default="output", metavar="DIR",
-                        help="Directory to write visualizations (confusion matrix + t-SNE)")
-    parser.add_argument("--tsne-dimensions", type=int, default=3, choices=[2, 3],
-                        help="t-SNE dimensionality: 2 or 3 (default: 3)")
+    parser.add_argument(
+        "--sample-pairs",
+        type=int,
+        default=None,
+        help="Max pairs for pairwise similarity stats; omit for exact (default: None)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="output",
+        metavar="DIR",
+        help="Directory to write visualizations (confusion matrix + t-SNE)",
+    )
+    parser.add_argument(
+        "--tsne-dimensions", type=int, default=3, choices=[2, 3], help="t-SNE dimensionality: 2 or 3 (default: 3)"
+    )
     args = parser.parse_args()
 
     payload_path = Path(__file__).parent.parent / "dummy_input.json"
@@ -66,12 +84,8 @@ def main() -> None:
         payload = json.load(f)
 
     embeddings: dict[str, list[float]] = payload["embeddings"]
-    print(f"Loaded {len(embeddings)} embeddings, "
-          f"dim={len(next(iter(embeddings.values())))}")
+    print(f"Loaded {len(embeddings)} embeddings, " f"dim={len(next(iter(embeddings.values())))}")
     print()
-
-    from pai.ag_emb.services.reporting import print_result
-    from pai.ag_emb.services.evaluate import run_evaluation
 
     result = run_evaluation(
         image_embeddings=embeddings,
@@ -83,18 +97,11 @@ def main() -> None:
     print_result(result)
 
     if args.output_dir:
-        from pai.ag_emb.services.reporting import (
-            plot_cosine_similarity,
-            plot_knn_confusion,
-            plot_lle,
-            plot_tsne,
-        )
         out = Path(args.output_dir)
         out.mkdir(parents=True, exist_ok=True)
         plot_knn_confusion(result, output_path=str(out / "class_confusion_matrix.html"))
         plot_cosine_similarity(embeddings, result, output_path=str(out / "cosine_similarity.html"))
-        plot_tsne(embeddings, result, output_path=str(out / "tsne.html"),
-                  dimensions=args.tsne_dimensions)
+        plot_tsne(embeddings, result, output_path=str(out / "tsne.html"), dimensions=args.tsne_dimensions)
         plot_lle(embeddings, result, output_path=str(out / "lle.html"))
 
 

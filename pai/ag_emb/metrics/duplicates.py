@@ -9,11 +9,12 @@
 #  fullest extent of the law.
 # ======================================================================
 
-"""P4 — Duplicate and near-duplicate detection."""
+"""Duplicate and near-duplicate detection at configurable similarity thresholds."""
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections import defaultdict
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -118,7 +119,7 @@ def duplicate_pairs_at_threshold(
 
         for local_i in range(end - start):
             global_i = start + local_i
-            row = sims[local_i, global_i + 1:]  # upper triangle only
+            row = sims[local_i, global_i + 1 :]  # upper triangle only
             if len(row) == 0:
                 continue
 
@@ -136,10 +137,8 @@ def duplicate_pairs_at_threshold(
                 total_by_t[t] += count
                 remaining = max_pairs_returned - len(pairs_by_t[t])
                 if remaining > 0 and count > 0:
-                    for j, s in zip(js[mask][:remaining].tolist(), ss[mask][:remaining].tolist()):
-                        pairs_by_t[t].append(
-                            {"i": global_i, "j": int(j), "similarity": float(s)}
-                        )
+                    for j, s in zip(js[mask][:remaining].tolist(), ss[mask][:remaining].tolist(), strict=False):
+                        pairs_by_t[t].append({"i": global_i, "j": int(j), "similarity": float(s)})
 
     return {
         float(t): {
@@ -176,7 +175,6 @@ def duplicate_groups_at_threshold(
         for pair in data["pairs"]:
             uf.union(pair["i"], pair["j"])
 
-        from collections import defaultdict
         components: dict = defaultdict(list)
         for idx in range(n_items):
             components[uf.find(idx)].append(idx)

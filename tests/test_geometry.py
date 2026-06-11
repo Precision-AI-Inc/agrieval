@@ -32,8 +32,7 @@ FIXTURE = np.array(
 class TestCentroidSimilarityStats:
     def test_expected_keys(self) -> None:
         result = centroid_similarity_stats(FIXTURE)
-        for key in ("mean_cosine_to_centroid", "std_cosine_to_centroid",
-                    "p05", "p50", "p95", "centroid_norm"):
+        for key in ("mean_cosine_to_centroid", "std_cosine_to_centroid", "p05", "p50", "p95", "centroid_norm"):
             assert key in result
 
     def test_identical_vectors_high_centroid_sim(self) -> None:
@@ -54,8 +53,7 @@ class TestPcaExplainedVariance:
         rng = np.random.default_rng(0)
         vectors = rng.random((20, 8)).astype(np.float32)
         result = pca_explained_variance(vectors)
-        for key in ("embedding_dim", "n_components", "explained_variance_ratio",
-                    "pc1", "top_5"):
+        for key in ("embedding_dim", "n_components", "explained_variance_ratio", "pc1", "top_5"):
             assert key in result
 
     def test_evr_sums_to_at_most_one(self) -> None:
@@ -118,6 +116,10 @@ class TestAnisotropySummary:
         rng = np.random.default_rng(4)
         vectors = rng.random((20, 8)).astype(np.float32)
         result = anisotropy_summary(vectors)
-        for key in ("pairwise_similarity_stats", "centroid_similarity_stats",
-                    "pca_explained_variance", "effective_rank"):
+        for key in (
+            "pairwise_similarity_stats",
+            "centroid_similarity_stats",
+            "pca_explained_variance",
+            "effective_rank",
+        ):
             assert key in result

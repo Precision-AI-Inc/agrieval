@@ -91,7 +91,7 @@ def main() -> None:
         default="dataset",
         metavar="PATH",
         help="Default dataset root used when the request omits dataset_root. "
-             "Can also be set via PAI_DATASET_ROOT env var. (default: dataset)",
+        "Can also be set via PAI_DATASET_ROOT env var. (default: dataset)",
     )
     parser.add_argument("--host", default="0.0.0.0", metavar="HOST")
     parser.add_argument("--port", type=int, default=8000, metavar="PORT")
