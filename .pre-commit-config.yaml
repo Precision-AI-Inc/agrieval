@@ -1,0 +1,44 @@
+repos:
+  # ── File hygiene ────────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: debug-statements
+
+  # ── Ruff: lint + format + import sorting (replaces black + flake8 + isort) ─
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.5
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # ── Type checking ───────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - numpy>=1.26
+          - pydantic>=2.0
+        args: ["--ignore-missing-imports", "--no-strict-optional"]
+
+  # ── Tests + coverage (≥ 90%) ────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (coverage ≥ 90%)
+        entry: python -m pytest
+        language: system
+        args: ["tests/", "-q", "--tb=short", "--no-header"]
+        pass_filenames: false
+        always_run: true
