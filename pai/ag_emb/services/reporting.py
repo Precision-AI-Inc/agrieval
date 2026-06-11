@@ -15,7 +15,16 @@ from __future__ import annotations
 
 
 def print_result(result: dict) -> None:
-    """Pretty-print the output of :func:`~pai.ag_emb.services.evaluate.run_evaluation`."""
+    """Pretty-print the output of :func:`~pai.ag_emb.services.evaluate.run_evaluation`.
+
+    Writes a human-readable summary to stdout, including a header line with
+    dataset dimensions, global metrics, and per-class breakdowns.
+
+    Parameters
+    ----------
+    result : dict
+        Return value of ``run_evaluation()``.
+    """
     print(f"n_items      : {result['n_items']}")
     print(f"embedding_dim: {result['embedding_dim']}")
     print(f"classes      : {result['classes']}")
@@ -28,6 +37,13 @@ def print_result(result: dict) -> None:
 
 
 def _print_global(gm: dict) -> None:
+    """Print the global metrics section of an evaluation result.
+
+    Parameters
+    ----------
+    gm : dict
+        The ``global_metrics`` sub-dict from a ``run_evaluation()`` result.
+    """
     print("── global_metrics ──────────────────────────────────────────────────────")
 
     # Pairwise cosine similarity across all embeddings
@@ -73,6 +89,14 @@ def _print_global(gm: dict) -> None:
 
 
 def _print_per_class(per_class: dict) -> None:
+    """Print the per-class metrics section of an evaluation result.
+
+    Parameters
+    ----------
+    per_class : dict
+        The ``per_class`` sub-dict from a ``run_evaluation()`` result, keyed
+        by crop class name.
+    """
     print("── per_class ───────────────────────────────────────────────────────────")
     for cls, m in per_class.items():
         print(f"\n  [{cls}]  n={m['n_items']}")
@@ -111,7 +135,19 @@ def _print_per_class(per_class: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _write_plotly(fig: object, output_path: str) -> None:
-    """Write a Plotly figure to HTML or static image (requires kaleido for non-HTML)."""
+    """Write a Plotly figure to an HTML or static-image file.
+
+    HTML output uses a CDN-hosted Plotly bundle.  Static image formats
+    (``.png``, ``.pdf``, etc.) require the ``kaleido`` package; if it is
+    absent the figure is saved as ``.html`` instead and a notice is printed.
+
+    Parameters
+    ----------
+    fig : plotly.graph_objects.Figure
+        Plotly figure to write.
+    output_path : str
+        Destination file path.  The extension determines the format.
+    """
     if output_path.lower().endswith(".html"):
         fig.write_html(output_path, include_plotlyjs="cdn")  # type: ignore[attr-defined]
     else:
@@ -307,7 +343,24 @@ def _build_scatter3d(
     paths: list,
     axis_prefix: str,
 ) -> None:
-    """Add one Scatter3d trace per class to a Plotly figure."""
+    """Add one ``Scatter3d`` trace per class to an existing Plotly figure.
+
+    Parameters
+    ----------
+    fig : plotly.graph_objects.Figure
+        Figure to which traces are appended in-place.
+    coords : array-like
+        Shape ``[N, 3]`` low-dimensional coordinates (e.g., t-SNE or LLE).
+    classes : list
+        Ordered list of unique class names.
+    label_arr : array-like
+        Shape ``[N]`` class label per item (same order as ``paths``).
+    paths : list[str]
+        Image paths used as hover text.
+    axis_prefix : str
+        Short string prepended to axis labels in hover tooltips (e.g.,
+        ``"t-SNE"`` or ``"LLE"``).
+    """
     import numpy as np
     import plotly.graph_objects as go  # type: ignore[import]
 

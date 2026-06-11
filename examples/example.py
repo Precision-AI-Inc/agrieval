@@ -31,6 +31,25 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def main() -> None:
+    """Load ``dummy_input.json``, run the evaluation service, and print results.
+
+    Optionally writes visualization HTML files to an output directory.
+
+    Recognised arguments
+    --------------------
+    --dataset-root : str
+        Dataset root for label extraction.  Defaults to ``"dataset"``.
+    --k-values : list[int]
+        One or more K cutoffs for nearest-neighbour metrics.  Defaults to
+        ``[5, 10]``.
+    --sample-pairs : int | None
+        Maximum number of pairs for pairwise similarity stats.  Omit for an
+        exact (exhaustive) computation.
+    --output-dir : str
+        Directory to write visualization files.  Defaults to ``"output"``.
+    --tsne-dimensions : {2, 3}
+        Dimensionality for the t-SNE scatter plot.  Defaults to ``3``.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-root", default="dataset")
     parser.add_argument("--k-values", nargs="+", type=int, default=[5, 10])

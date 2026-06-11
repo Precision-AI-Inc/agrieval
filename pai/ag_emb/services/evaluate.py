@@ -105,9 +105,21 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
 def _jsonify(obj: object) -> object:
     """Recursively convert a metrics result to JSON-serialisable types.
 
-    numpy arrays are dropped (they are per-item visualisation artefacts that
-    do not belong in a summary JSON).  numpy scalars are converted to Python
-    native types.  NaN / inf become ``None``.
+    numpy arrays are dropped because they are per-item visualisation artefacts
+    that do not belong in a summary JSON.  numpy scalars are converted to
+    Python native types.  ``NaN`` and ``inf`` become ``None``.
+
+    Parameters
+    ----------
+    obj : object
+        Arbitrary metrics result object — dict, list, numpy array/scalar, or
+        Python scalar.
+
+    Returns
+    -------
+    object
+        JSON-serialisable equivalent of ``obj``.  ``None`` is returned for
+        numpy arrays (sentinel value; callers omit these keys).
     """
     if isinstance(obj, np.ndarray):
         return None  # sentinel — callers filter this key out

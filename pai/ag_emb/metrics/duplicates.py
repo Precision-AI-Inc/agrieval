@@ -24,16 +24,48 @@ class _UnionFind:
     """Union-Find with path compression and union by rank."""
 
     def __init__(self, n: int) -> None:
+        """Initialise a disjoint-set forest for ``n`` elements.
+
+        Parameters
+        ----------
+        n : int
+            Number of elements.  Each element starts as its own root.
+        """
         self.parent = list(range(n))
         self.rank = [0] * n
 
     def find(self, x: int) -> int:
+        """Return the root of the component containing ``x``.
+
+        Uses path-halving compression to keep the tree shallow.
+
+        Parameters
+        ----------
+        x : int
+            Element index.
+
+        Returns
+        -------
+        int
+            Root index of the component.
+        """
         while self.parent[x] != x:
             self.parent[x] = self.parent[self.parent[x]]
             x = self.parent[x]
         return x
 
     def union(self, x: int, y: int) -> None:
+        """Merge the components containing ``x`` and ``y``.
+
+        Uses union-by-rank to keep trees balanced.
+
+        Parameters
+        ----------
+        x : int
+            First element index.
+        y : int
+            Second element index.
+        """
         px, py = self.find(x), self.find(y)
         if px == py:
             return

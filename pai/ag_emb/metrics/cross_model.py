@@ -19,6 +19,20 @@ from pai.ag_emb.metrics._utils import _neighbor_stats, _prepare_embeddings, _ran
 
 
 def _validate_cross_model(emb_a: np.ndarray, emb_b: np.ndarray) -> None:
+    """Assert that two embedding matrices have the same number of rows.
+
+    Parameters
+    ----------
+    emb_a : np.ndarray
+        First embedding matrix, shape ``[N, D1]``.
+    emb_b : np.ndarray
+        Second embedding matrix, shape ``[N, D2]``.
+
+    Raises
+    ------
+    ValueError
+        If the row counts of ``emb_a`` and ``emb_b`` differ.
+    """
     if emb_a.shape[0] != emb_b.shape[0]:
         raise ValueError(
             "embeddings_a and embeddings_b must have the same number of items. "
@@ -89,7 +103,27 @@ def _knn_set_metric(
     *,
     metric: str,
 ) -> dict:
-    """Shared implementation for knn_overlap_at_k and knn_jaccard_at_k."""
+    """Compute per-item set similarity between two models' K-NN index lists.
+
+    Parameters
+    ----------
+    neighbors_a_by_k : dict
+        Output of :func:`~pai.ag_emb.metrics.similarity.top_k_neighbors` for
+        model A.
+    neighbors_b_by_k : dict
+        Output of :func:`~pai.ag_emb.metrics.similarity.top_k_neighbors` for
+        model B.
+    metric : str
+        ``"overlap"`` — intersection size divided by K.
+        ``"jaccard"`` — intersection size divided by union size.
+
+    Returns
+    -------
+    dict
+        Keyed by K (only Ks present in both inputs).  Each value is a stats
+        dict with keys ``per_item``, ``mean``, ``std``, ``p05``, ``p50``,
+        ``p95``.
+    """
     shared_ks = sorted(set(neighbors_a_by_k) & set(neighbors_b_by_k))
     result = {}
 

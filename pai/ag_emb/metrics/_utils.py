@@ -19,6 +19,26 @@ from pai.ag_emb.metrics.ranking import l2_normalize
 
 
 def _validate_embeddings(embeddings: object, name: str = "embeddings") -> np.ndarray:
+    """Convert ``embeddings`` to a validated float32 numpy array.
+
+    Parameters
+    ----------
+    embeddings : array-like
+        Input to convert.  Must be 2-D, non-empty, and contain only finite
+        values.
+    name : str
+        Variable name used in error messages.
+
+    Returns
+    -------
+    np.ndarray
+        Shape ``[N, D]`` float32 array.
+
+    Raises
+    ------
+    ValueError
+        If the result is not 2-D, is empty, or contains NaN / inf.
+    """
     arr = np.asarray(embeddings, dtype=np.float32)
     if arr.ndim != 2:
         raise ValueError(f"{name} must be a 2D array, got shape {arr.shape}.")
@@ -30,12 +50,41 @@ def _validate_embeddings(embeddings: object, name: str = "embeddings") -> np.nda
 
 
 def _auto_batch_size(n: int, target_bytes: int = 1 << 30) -> int:
-    """Rows per batch that keep a batch @ full-matrix product under target_bytes."""
+    """Compute a row-batch size so that one batch × N similarity matrix fits in memory.
+
+    The heuristic targets ``target_bytes`` of float32 storage for a
+    ``[batch, N]`` similarity matrix, i.e. ``batch = target_bytes / (N * 4)``.
+
+    Parameters
+    ----------
+    n : int
+        Total number of items (columns of the similarity matrix).
+    target_bytes : int
+        Memory budget in bytes.  Defaults to 1 GiB.
+
+    Returns
+    -------
+    int
+        Batch size, always at least 1.
+    """
     return max(1, target_bytes // max(1, n * 4))
 
 
 def _percentile_stats(values: np.ndarray) -> dict:
-    """Full descriptive stats dict (count, mean, std, min, max, p01–p99)."""
+    """Build a full descriptive-statistics dict for a 1-D array.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        1-D array of numeric values.
+
+    Returns
+    -------
+    dict
+        Keys: ``count``, ``mean``, ``std``, ``min``, ``max``, ``p01``,
+        ``p05``, ``p25``, ``p50``, ``p75``, ``p95``, ``p99``.  All scalar
+        values are ``None`` when ``values`` is empty.
+    """
     if len(values) == 0:
         return {
             "count": 0,
@@ -56,7 +105,19 @@ def _percentile_stats(values: np.ndarray) -> dict:
 
 
 def _neighbor_stats(per_item: np.ndarray) -> dict:
-    """Stats dict used by mean_top_k_similarity and knn_radius_at_k."""
+    """Build a compact per-item statistics dict for nearest-neighbor metrics.
+
+    Parameters
+    ----------
+    per_item : np.ndarray
+        1-D array of per-item scalar values (e.g., mean neighbor similarity).
+
+    Returns
+    -------
+    dict
+        Keys: ``per_item``, ``mean``, ``std``, ``p05``, ``p50``, ``p95``.
+        Scalar statistics are ``None`` when the array is empty.
+    """
     if len(per_item) == 0:
         return {
             "per_item": per_item,
@@ -74,6 +135,22 @@ def _neighbor_stats(per_item: np.ndarray) -> dict:
 
 
 def _prepare_embeddings(embeddings: object, normalize: bool, name: str = "embeddings") -> np.ndarray:
+    """Validate and optionally L2-normalize an embedding array.
+
+    Parameters
+    ----------
+    embeddings : array-like
+        Input embeddings to prepare.
+    normalize : bool
+        When ``True``, L2-normalize each row before returning.
+    name : str
+        Variable name used in validation error messages.
+
+    Returns
+    -------
+    np.ndarray
+        Shape ``[N, D]`` float32 array, optionally row-normalized.
+    """
     emb = _validate_embeddings(embeddings, name)
     return l2_normalize(emb) if normalize else emb
 
@@ -83,9 +160,28 @@ def _get_pair_similarities(
     sample_pairs: int | None,
     random_seed: int,
 ) -> tuple[np.ndarray, int]:
-    """Return (sampled_or_all_similarities, total_unique_pairs_in_dataset).
+    """Compute pairwise cosine similarities, either exhaustively or by sampling.
 
-    embeddings must already be normalized by the caller.
+    ``embeddings`` must already be L2-normalized by the caller.
+
+    Parameters
+    ----------
+    embeddings : np.ndarray
+        Shape ``[N, D]`` row-normalized float32 embedding matrix.
+    sample_pairs : int | None
+        ``None`` computes all ``N*(N-1)/2`` unique upper-triangle pairs.
+        An integer randomly samples that many (i, j) pairs with ``i != j``.
+    random_seed : int
+        Seed for the random number generator used when sampling.
+
+    Returns
+    -------
+    tuple[np.ndarray, int]
+        A 2-tuple of:
+
+        * **sims** — float32 array of sampled (or all) pairwise similarities.
+        * **total_unique** — exact total number of unique pairs in the full
+          dataset, regardless of sampling.
     """
     n = len(embeddings)
     total_unique = n * (n - 1) // 2
@@ -106,7 +202,23 @@ def _get_pair_similarities(
 
 
 def _rankdata(arr: np.ndarray) -> np.ndarray:
-    """Vectorized average-tie ranking (Spearman-safe)."""
+    """Assign average ranks to a 1-D array, handling ties correctly.
+
+    Tied values receive the mean of the ranks they would occupy, matching the
+    behaviour of ``scipy.stats.rankdata`` with ``method='average'``.  Used as
+    a fallback for Spearman correlation when scipy is not installed.
+
+    Parameters
+    ----------
+    arr : np.ndarray
+        1-D array of values to rank.
+
+    Returns
+    -------
+    np.ndarray
+        Float64 array of average ranks (1-based) with the same length as
+        ``arr``.
+    """
     n = len(arr)
     order = np.argsort(arr, kind="stable")
     ranks = np.empty(n, dtype=np.float64)

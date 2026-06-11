@@ -70,6 +70,21 @@ app.include_router(evaluate_router, prefix="/v1")
 
 
 def main() -> None:
+    """Parse CLI arguments and start the uvicorn ASGI server.
+
+    Recognised arguments
+    --------------------
+    --dataset-root : str
+        Default dataset root passed to the evaluation service when a request
+        does not supply one.  Also settable via the ``PAI_DATASET_ROOT``
+        environment variable.  Defaults to ``"dataset"``.
+    --host : str
+        Bind address for the server.  Defaults to ``"0.0.0.0"``.
+    --port : int
+        TCP port to listen on.  Defaults to ``8000``.
+    --no-reload : flag
+        Disable uvicorn auto-reload (recommended in production).
+    """
     parser = argparse.ArgumentParser(description="pai-ag-emb API server")
     parser.add_argument(
         "--dataset-root",

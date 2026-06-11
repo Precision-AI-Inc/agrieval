@@ -25,5 +25,15 @@ import os
 
 
 def get_dataset_root() -> str:
-    """Return the server-level default dataset root (read at request time)."""
+    """Return the server-level default dataset root.
+
+    The value is read from the ``PAI_DATASET_ROOT`` environment variable at
+    request time so that it reflects any changes made after server start.
+
+    Returns
+    -------
+    str
+        Dataset root path, defaulting to ``"dataset"`` when the environment
+        variable is not set.
+    """
     return os.environ.get("PAI_DATASET_ROOT", "dataset")

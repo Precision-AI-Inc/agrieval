@@ -43,6 +43,19 @@ def gini_coefficient(values: object) -> float | None:
 
 
 def _skewness(values: np.ndarray) -> float | None:
+    """Sample skewness using the standard unbiased formula (ddof=1).
+
+    Parameters
+    ----------
+    values : np.ndarray
+        1-D array of numeric values.
+
+    Returns
+    -------
+    float | None
+        Skewness of ``values``, or ``None`` if fewer than 3 elements are
+        present.  Returns ``0.0`` when the standard deviation is zero.
+    """
     n = len(values)
     if n < 3:
         return None
