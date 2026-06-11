@@ -64,12 +64,19 @@ def main() -> None:
     print_result(result)
 
     if args.output_dir:
-        from pai.ag_emb.services.reporting import plot_knn_confusion, plot_tsne
+        from pai.ag_emb.services.reporting import (
+            plot_cosine_similarity,
+            plot_knn_confusion,
+            plot_lle,
+            plot_tsne,
+        )
         out = Path(args.output_dir)
         out.mkdir(parents=True, exist_ok=True)
         plot_knn_confusion(result, output_path=str(out / "class_confusion_matrix.html"))
+        plot_cosine_similarity(embeddings, result, output_path=str(out / "cosine_similarity.html"))
         plot_tsne(embeddings, result, output_path=str(out / "tsne.html"),
                   dimensions=args.tsne_dimensions)
+        plot_lle(embeddings, result, output_path=str(out / "lle.html"))
 
 
 if __name__ == "__main__":

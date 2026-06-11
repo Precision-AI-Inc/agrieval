@@ -200,6 +200,204 @@ def plot_knn_confusion(
     _write_plotly(fig, output_path)
 
 
+def plot_cosine_similarity(
+    image_embeddings: dict,
+    result: dict,
+    output_path: str = "cosine_similarity.html",
+) -> None:
+    """Save an interactive pairwise cosine similarity heatmap (Plotly).
+
+    Embeddings are sorted by class label so within-class blocks appear on the
+    diagonal.  Hover shows the two image paths and their cosine similarity.
+
+    Parameters
+    ----------
+    image_embeddings : dict
+        The same ``{path: vector}`` dict passed to ``run_evaluation()``.
+    result : dict
+        Output of ``run_evaluation()``.
+    output_path : str
+        Destination file path.  ``.html`` produces an interactive page.
+    """
+    try:
+        import numpy as np
+        import plotly.graph_objects as go
+    except ImportError:
+        raise ImportError("plotly is required: pip install plotly")
+
+    paths = list(image_embeddings.keys())
+    vectors = np.array(list(image_embeddings.values()), dtype=np.float32)
+    n = len(vectors)
+
+    item_labels = result.get("item_labels")
+    if item_labels is None:
+        from pai.ag_emb.services.evaluate import extract_labels
+        item_labels = extract_labels(paths)
+
+    label_arr = np.array(item_labels)
+    classes = result["classes"]
+
+    # Sort by class so within-class blocks sit on the diagonal
+    sort_order = np.argsort(label_arr, kind="stable")
+    sorted_labels = label_arr[sort_order]
+    sorted_paths = [paths[i] for i in sort_order]
+    sorted_vectors = vectors[sort_order]
+
+    # L2-normalised → cosine sim = dot product
+    sim = (sorted_vectors @ sorted_vectors.T).astype(np.float64)
+    np.clip(sim, -1.0, 1.0, out=sim)
+
+    tick_labels = [p.split("/")[-1] for p in sorted_paths]
+
+    fig = go.Figure(data=go.Heatmap(
+        z=sim.tolist(),
+        x=tick_labels,
+        y=tick_labels,
+        colorscale="RdBu_r",
+        zmin=-1.0,
+        zmax=1.0,
+        hovertemplate=(
+            "Row: %{y}<br>Col: %{x}<br>Cosine similarity: %{z:.4f}<extra></extra>"
+        ),
+        colorbar=dict(title="Cosine<br>similarity", thickness=18),
+    ))
+
+    # Class boundary lines
+    shapes = []
+    prev = 0
+    for cls in classes:
+        count = int(np.sum(sorted_labels == cls))
+        if prev > 0:
+            boundary = prev - 0.5
+            for is_vertical in (True, False):
+                shapes.append(dict(
+                    type="line",
+                    x0=boundary if is_vertical else -0.5,
+                    x1=boundary if is_vertical else n - 0.5,
+                    y0=boundary if not is_vertical else -0.5,
+                    y1=boundary if not is_vertical else n - 0.5,
+                    line=dict(color="black", width=2),
+                ))
+        prev += count
+
+    cell_px = max(18, min(40, 800 // n))
+    fig.update_layout(
+        title=dict(
+            text=f"Pairwise Cosine Similarity  (n={n}, sorted by class)",
+            font=dict(size=17),
+        ),
+        xaxis=dict(tickfont=dict(size=max(7, 11 - n // 10)), tickangle=45),
+        yaxis=dict(tickfont=dict(size=max(7, 11 - n // 10)), autorange="reversed"),
+        shapes=shapes,
+        width=max(500, n * cell_px + 180),
+        height=max(450, n * cell_px + 160),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(l=140, r=60, t=70, b=140),
+    )
+
+    _write_plotly(fig, output_path)
+
+
+def _build_scatter3d(
+    fig: object,
+    coords: object,
+    classes: list,
+    label_arr: object,
+    paths: list,
+    axis_prefix: str,
+) -> None:
+    """Add one Scatter3d trace per class to a Plotly figure."""
+    import numpy as np
+    import plotly.graph_objects as go  # type: ignore[import]
+
+    n = len(paths)
+    for cls in classes:
+        mask = label_arr == cls
+        cls_paths = [paths[i] for i in range(n) if mask[i]]
+        fig.add_trace(go.Scatter3d(  # type: ignore[attr-defined]
+            x=coords[mask, 0].tolist(),
+            y=coords[mask, 1].tolist(),
+            z=coords[mask, 2].tolist(),
+            mode="markers",
+            name=cls,
+            text=cls_paths,
+            hovertemplate="%{text}<extra>" + cls + "</extra>",
+            marker=dict(size=7, opacity=0.85, line=dict(width=1, color="white")),
+        ))
+
+
+def plot_lle(
+    image_embeddings: dict,
+    result: dict,
+    output_path: str = "lle.html",
+    n_neighbors: int | None = None,
+) -> None:
+    """Save an interactive 3D LLE (Locally Linear Embedding) scatter (Plotly).
+
+    LLE preserves local neighbourhood structure rather than global distances,
+    complementing t-SNE.  Requires ``scikit-learn``.
+
+    Parameters
+    ----------
+    image_embeddings : dict
+        The same ``{path: vector}`` dict passed to ``run_evaluation()``.
+    result : dict
+        Output of ``run_evaluation()``.
+    output_path : str
+        Destination file path.  ``.html`` produces a rotatable 3D page.
+    n_neighbors : int | None
+        LLE neighbourhood size.  Defaults to ``max(5, n // 3)`` clamped to
+        ``n - 1``.
+    """
+    try:
+        import numpy as np
+        import plotly.graph_objects as go
+    except ImportError:
+        raise ImportError("plotly is required: pip install plotly")
+
+    try:
+        from sklearn.manifold import LocallyLinearEmbedding
+    except ImportError:
+        raise ImportError("scikit-learn is required for LLE: pip install scikit-learn")
+
+    paths = list(image_embeddings.keys())
+    vectors = np.array(list(image_embeddings.values()), dtype=np.float32)
+    n = len(vectors)
+
+    item_labels = result.get("item_labels")
+    if item_labels is None:
+        from pai.ag_emb.services.evaluate import extract_labels
+        item_labels = extract_labels(paths)
+
+    classes = result["classes"]
+    label_arr = np.array(item_labels)
+
+    k = min(n - 1, n_neighbors if n_neighbors is not None else max(5, n // 3))
+    coords = LocallyLinearEmbedding(
+        n_components=3, n_neighbors=k, random_state=42,
+    ).fit_transform(vectors.astype(np.float64))
+
+    fig = go.Figure()
+    _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="LLE")
+
+    fig.update_layout(
+        title=dict(text=f"LLE 3D  (n={n},  n_neighbors={k})", font=dict(size=17)),
+        scene=dict(
+            xaxis_title="LLE 1",
+            yaxis_title="LLE 2",
+            zaxis_title="LLE 3",
+            bgcolor="white",
+        ),
+        legend=dict(title="Class", font=dict(size=12)),
+        width=950,
+        height=750,
+        paper_bgcolor="white",
+    )
+
+    _write_plotly(fig, output_path)
+
+
 def plot_tsne(
     image_embeddings: dict,
     result: dict,
@@ -262,31 +460,19 @@ def plot_tsne(
     )
     fig = go.Figure()
 
-    for cls in classes:
-        mask = label_arr == cls
-        cls_paths = [paths[i] for i in range(n) if mask[i]]
-        marker = dict(size=7, opacity=0.85, line=dict(width=1, color="white"))
-        hover = "%{text}<extra>" + cls + "</extra>"
-
-        if dimensions == 3:
-            fig.add_trace(go.Scatter3d(
-                x=coords[mask, 0].tolist(),
-                y=coords[mask, 1].tolist(),
-                z=coords[mask, 2].tolist(),
-                mode="markers",
-                name=cls,
-                text=cls_paths,
-                hovertemplate=hover,
-                marker=marker,
-            ))
-        else:
+    if dimensions == 3:
+        _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="t-SNE")
+    else:
+        for cls in classes:
+            mask = label_arr == cls
+            cls_paths = [paths[i] for i in range(n) if mask[i]]
             fig.add_trace(go.Scatter(
                 x=coords[mask, 0].tolist(),
                 y=coords[mask, 1].tolist(),
                 mode="markers",
                 name=cls,
                 text=cls_paths,
-                hovertemplate=hover,
+                hovertemplate="%{text}<extra>" + cls + "</extra>",
                 marker=dict(size=10, opacity=0.85, line=dict(width=1, color="white")),
             ))
 
