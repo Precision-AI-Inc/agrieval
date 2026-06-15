@@ -6,6 +6,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -21,9 +24,10 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -q --tb=short --no-header --cov-report=xml
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+      - name: Coverage badge
+        uses: py-cov-action/python-coverage-comment-action@v3
         with:
-          name: coverage-report
-          path: coverage.xml
-          retention-days: 1
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Coverage summary
+        run: python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
