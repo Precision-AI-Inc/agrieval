@@ -49,6 +49,7 @@ ignore = [
     "PLR0913","PLR2004",    # arg count + magic values common in metrics/tests
     "ANN401",              # Any is allowed for genuinely dynamic types
     "S311",                # pseudo-random generators are intentional in scientific code
+    "S104",                # binding to 0.0.0.0 is intentional for a configurable server host
 ]
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
@@ -91,13 +92,13 @@ reportMissingModuleSource = false
 ```yaml
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks: [check-added-large-files (--maxkb=1000), check-yaml, check-json,
             check-toml, end-of-file-fixer, trailing-whitespace,
             check-merge-conflict, detect-private-key, debug-statements]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.5
+    rev: v0.15.17
     hooks: [ruff (--fix), ruff-format]
 
   - repo: local

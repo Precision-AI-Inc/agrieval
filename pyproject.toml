@@ -35,6 +35,7 @@ dev = [
     "httpx2>=0.28",
     "pre-commit>=3.7",
     "pyright>=1.1",
+    "coverage-badge>=1.1",
 ]
 
 [project.scripts]
