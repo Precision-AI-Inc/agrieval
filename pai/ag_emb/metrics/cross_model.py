@@ -22,6 +22,8 @@ try:
 
     _SCIPY_AVAILABLE = True
 except ImportError:
+    pearsonr = None  # type: ignore[assignment]
+    spearmanr = None  # type: ignore[assignment]
     _SCIPY_AVAILABLE = False
 
 
@@ -89,9 +91,9 @@ def pairwise_similarity_correlation(
     sims_a = np.einsum("ij,ij->i", emb_a[pairs_i], emb_a[pairs_j]).astype(np.float64)
     sims_b = np.einsum("ij,ij->i", emb_b[pairs_i], emb_b[pairs_j]).astype(np.float64)
 
-    if _SCIPY_AVAILABLE:
-        pearson = float(pearsonr(sims_a, sims_b).statistic)
-        spearman = float(spearmanr(sims_a, sims_b).statistic)
+    if pearsonr is not None and spearmanr is not None:
+        pearson = float(pearsonr(sims_a, sims_b)[0])  # type: ignore[arg-type]
+        spearman = float(spearmanr(sims_a, sims_b)[0])  # type: ignore[arg-type]
     else:
         pearson = float(np.corrcoef(sims_a, sims_b)[0, 1])
         spearman = float(np.corrcoef(_rankdata(sims_a), _rankdata(sims_b))[0, 1])

@@ -39,7 +39,7 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E","W","F","I","UP","B","SIM","N","C90","D","PT","RUF","PL"]
+select = ["E","W","F","I","UP","B","SIM","N","C90","D","PT","RUF","PL","ANN","PERF","S"]
 ignore = [
     "E501",    # enforced by ruff-format
     "B008",    # FastAPI default-arg pattern
@@ -47,12 +47,13 @@ ignore = [
     "D100","D104",          # module/package docstrings optional
     "D203","D213",          # pydocstyle conflicts — always ignore these two
     "PLR0913","PLR2004",    # arg count + magic values common in metrics/tests
+    "ANN401",              # Any is allowed for genuinely dynamic types
+    "S311",                # pseudo-random generators are intentional in scientific code
 ]
-per-file-ignores = {
-    "**/__init__.py" = ["F401"],
-    "tests/**"       = ["D","PLR"],
-    "docs/conf.py"   = ["E402","UP031"],
-}
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"tests/**"       = ["D","PLR","ANN","S"]
+"docs/conf.py"   = ["E402","UP031","ANN","S"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"          # enforces NumPy docstring style
@@ -75,6 +76,12 @@ addopts = "--cov=pai --cov-report=term-missing --cov-fail-under=90"
 fail_under = 90
 exclude_lines = ["pragma: no cover","if __name__ == .__main__.:",
                  "raise ImportError","except ImportError"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+reportMissingImports = false
+reportMissingModuleSource = false
 ```
 
 ---
@@ -93,11 +100,14 @@ repos:
     rev: v0.4.5
     hooks: [ruff (--fix), ruff-format]
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+  - repo: local
     hooks:
-      - id: mypy
-        args: [--ignore-missing-imports, --no-strict-optional]
+      - id: pyright
+        name: pyright
+        entry: python -m pyright
+        language: system
+        types: [python]
+        pass_filenames: false
 
   - repo: local
     hooks:
@@ -139,9 +149,10 @@ if not _PLOTLY_AVAILABLE:
 - Blank line between summary and extended description (D205)
 
 ### Type hints
-- Required on all public function signatures
+- Required on **all** function signatures (public and private) — enforced by ruff (`ANN`) and pyright
 - Use `X | Y` union syntax (Python 3.10+), not `Union[X, Y]` or `(X, Y)` in isinstance
 - Use `Any` from `typing` for genuinely dynamic types — don't use `object` when methods will be called on it
+- pyright config lives in `[tool.pyright]` in `pyproject.toml` — never pass type-checker flags inline
 
 ### Comments
 - Only when the **why** is non-obvious

@@ -22,6 +22,7 @@ try:
 
     _PCA_AVAILABLE = True
 except ImportError:
+    PCA = None  # type: ignore[assignment]
     _PCA_AVAILABLE = False
 from pai.ag_emb.metrics.similarity import pairwise_similarity_stats
 
@@ -117,7 +118,7 @@ def pca_explained_variance(
 
     actual = min(n - 1, d, n_components)
 
-    if _PCA_AVAILABLE:
+    if PCA is not None:
         pca = PCA(n_components=actual)
         pca.fit(emb.astype(np.float64))
         evr = pca.explained_variance_ratio_.tolist()

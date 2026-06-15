@@ -31,7 +31,7 @@ FIXTURE = np.array(
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def neighbors() -> dict:
     return top_k_neighbors(FIXTURE, ks=[1, 3])
 

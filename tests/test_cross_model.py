@@ -61,11 +61,11 @@ class TestPairwiseSimCorrelation:
 
 
 class TestKnnOverlapAndJaccard:
-    @pytest.fixture()
+    @pytest.fixture
     def neighbors_a(self) -> dict:
         return top_k_neighbors(VECS_A, ks=[3])
 
-    @pytest.fixture()
+    @pytest.fixture
     def neighbors_same(self) -> dict:
         return top_k_neighbors(VECS_A, ks=[3])
 

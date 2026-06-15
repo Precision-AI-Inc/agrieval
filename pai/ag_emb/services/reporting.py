@@ -26,7 +26,17 @@ try:
 
     _PLOTLY_AVAILABLE = True
 except ImportError:
+    go = None  # type: ignore[assignment]
     _PLOTLY_AVAILABLE = False
+
+try:
+    from IPython.display import HTML, display  # type: ignore[import]
+
+    _IPYTHON_AVAILABLE = True
+except ImportError:
+    HTML = None  # type: ignore[assignment]
+    display = None  # type: ignore[assignment]
+    _IPYTHON_AVAILABLE = False
 
 try:
     from sklearn.manifold import TSNE, LocallyLinearEmbedding  # type: ignore[import]
@@ -35,6 +45,9 @@ try:
     _TSNE_ITER_PARAM = "max_iter" if "max_iter" in inspect.signature(TSNE.__init__).parameters else "n_iter"
     _SKLEARN_AVAILABLE = True
 except ImportError:
+    TSNE = None  # type: ignore[assignment]
+    LocallyLinearEmbedding = None  # type: ignore[assignment]
+    _TSNE_ITER_PARAM = "max_iter"
     _SKLEARN_AVAILABLE = False
 
 
@@ -141,16 +154,13 @@ def _print_per_class(per_class: dict) -> None:
             cs = m["centroid_similarity_stats"]
             if cs["mean_cosine_to_centroid"] is not None:
                 print(
-                    f"    centroid cosine  : mean={cs['mean_cosine_to_centroid']:.4f}"
-                    f"  norm={cs['centroid_norm']:.4f}"
+                    f"    centroid cosine  : mean={cs['mean_cosine_to_centroid']:.4f}  norm={cs['centroid_norm']:.4f}"
                 )
 
         if "effective_rank" in m:
             er = m["effective_rank"]
             if er.get("effective_rank") is not None:
-                print(
-                    f"    effective_rank   : {er['effective_rank']:.2f}" f"  (ratio={er['effective_rank_ratio']:.4f})"
-                )
+                print(f"    effective_rank   : {er['effective_rank']:.2f}  (ratio={er['effective_rank_ratio']:.4f})")
 
         for k, stats in m.get("knn_label_purity", {}).items():
             print(
@@ -192,11 +202,9 @@ def _write_plotly(fig: Any, output_path: str | None) -> None:
         Pass ``None`` to display the figure inline (e.g. in a Jupyter notebook).
     """
     if output_path is None:
-        try:
-            from IPython.display import HTML, display  # type: ignore[import]
-
+        if display is not None and HTML is not None:
             display(HTML(fig.to_html(full_html=False, include_plotlyjs="cdn")))
-        except ImportError:
+        else:
             fig.show()
         return
     if output_path.lower().endswith(".html"):
@@ -235,7 +243,7 @@ def plot_knn_confusion(
         ``.png``/``.pdf`` requires ``kaleido`` (``pip install kaleido``).
         Pass ``None`` to display inline (e.g. in a Jupyter notebook).
     """
-    if not _PLOTLY_AVAILABLE:
+    if go is None:
         raise ImportError("plotly is required: pip install plotly") from None
 
     if k is None:
@@ -262,7 +270,7 @@ def plot_knn_confusion(
             texttemplate="%{text}",
             textfont={"size": 13},
             hovertemplate=(
-                "True class: <b>%{y}</b><br>" "Neighbor class: <b>%{x}</b><br>" "Fraction: %{z:.4f}<extra></extra>"
+                "True class: <b>%{y}</b><br>Neighbor class: <b>%{x}</b><br>Fraction: %{z:.4f}<extra></extra>"
             ),
             colorbar=dict(title=f"KNN@{k}<br>neighbor<br>fraction", thickness=18),
         )
@@ -303,7 +311,7 @@ def plot_cosine_similarity(
         Destination file path.  ``.html`` produces an interactive page.
         Pass ``None`` to display inline (e.g. in a Jupyter notebook).
     """
-    if not _PLOTLY_AVAILABLE:
+    if go is None:
         raise ImportError("plotly is required: pip install plotly") from None
 
     paths = list(image_embeddings.keys())
@@ -349,17 +357,17 @@ def plot_cosine_similarity(
         count = int(np.sum(sorted_labels == cls))
         if prev > 0:
             boundary = prev - 0.5
-            for is_vertical in (True, False):
-                shapes.append(
-                    dict(
-                        type="line",
-                        x0=boundary if is_vertical else -0.5,
-                        x1=boundary if is_vertical else n - 0.5,
-                        y0=boundary if not is_vertical else -0.5,
-                        y1=boundary if not is_vertical else n - 0.5,
-                        line=dict(color="black", width=2),
-                    )
+            shapes.extend(
+                dict(
+                    type="line",
+                    x0=boundary if is_vertical else -0.5,
+                    x1=boundary if is_vertical else n - 0.5,
+                    y0=boundary if not is_vertical else -0.5,
+                    y1=boundary if not is_vertical else n - 0.5,
+                    line=dict(color="black", width=2),
                 )
+                for is_vertical in (True, False)
+            )
         prev += count
 
     cell_px = max(18, min(40, 800 // n))
@@ -407,6 +415,8 @@ def _build_scatter3d(
         Short string prepended to axis labels in hover tooltips (e.g.,
         ``"t-SNE"`` or ``"LLE"``).
     """
+    if go is None:
+        raise ImportError("plotly is required: pip install plotly") from None
     n = len(paths)
     for cls in classes:
         mask = label_arr == cls
@@ -449,9 +459,9 @@ def plot_lle(
         LLE neighbourhood size.  Defaults to ``max(5, n // 3)`` clamped to
         ``n - 1``.
     """
-    if not _PLOTLY_AVAILABLE:
+    if go is None:
         raise ImportError("plotly is required: pip install plotly") from None
-    if not _SKLEARN_AVAILABLE:
+    if LocallyLinearEmbedding is None:
         raise ImportError("scikit-learn is required for LLE: pip install scikit-learn") from None
 
     paths = list(image_embeddings.keys())
@@ -523,9 +533,9 @@ def plot_tsne(
     if dimensions not in (2, 3):
         raise ValueError("dimensions must be 2 or 3")
 
-    if not _PLOTLY_AVAILABLE:
+    if go is None:
         raise ImportError("plotly is required: pip install plotly") from None
-    if not _SKLEARN_AVAILABLE:
+    if TSNE is None:
         raise ImportError("scikit-learn is required for t-SNE: pip install scikit-learn") from None
 
     paths = list(image_embeddings.keys())
@@ -545,12 +555,13 @@ def plot_tsne(
     # Double the iteration budget for 3D to ensure convergence.
     n_iter = 1000 if dimensions == 2 else 2000
     tqdm.write(f"  t-SNE {dimensions}D — fitting {n} samples (perplexity={effective_perplexity}, iter={n_iter})...")
+    tsne_kwargs: dict[str, Any] = {_TSNE_ITER_PARAM: n_iter}
     coords = TSNE(
         n_components=dimensions,
         perplexity=effective_perplexity,
         metric="cosine",
         random_state=42,
-        **{_TSNE_ITER_PARAM: n_iter},
+        **tsne_kwargs,
     ).fit_transform(vectors.astype(np.float64))
 
     title_text = f"t-SNE {dimensions}D  (n={n},  perplexity={effective_perplexity},  iter={n_iter})"

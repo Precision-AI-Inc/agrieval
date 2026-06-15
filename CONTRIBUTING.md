@@ -33,9 +33,9 @@ If a hook auto-fixes files (ruff lint/format), stage the changes and commit agai
 | Hook | What it checks |
 |---|---|
 | File hygiene | Large files (>1000 KB), trailing whitespace, merge conflicts, private keys, debug statements |
-| `ruff` | Linting and import sorting (auto-fix) |
+| `ruff` | Linting and import sorting (auto-fix); includes `ANN` rules that enforce PEP 484 annotations |
 | `ruff-format` | Code formatting (auto-fix) |
-| `mypy` | Static type checking |
+| `pyright` | Static type checking (pylance engine) — config in `[tool.pyright]` in `pyproject.toml` |
 | `pytest` | Full test suite with ≥ 90% coverage |
 
 To run all hooks manually without committing:
@@ -47,7 +47,7 @@ pre-commit run --all-files
 ## Code style
 
 - **Formatter / linter:** ruff (`line-length = 120`, Python 3.10 target).
-- **Type hints:** all public functions should have type annotations.
+- **Type hints:** all functions (public and private) must have complete PEP 484 type annotations. Enforced at lint time by ruff (`ANN` rules) and statically by pyright. `Any` is allowed for genuinely dynamic types; explicit `Any` is preferred over `object` when methods will be called on a value.
 - **Docstrings:** NumPy style for all public functions, classes, and modules.
 - **Comments:** only where the _why_ is non-obvious. No inline narration of what the code does.
 

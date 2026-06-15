@@ -200,7 +200,7 @@ class TestBuildScatter3d:
 
         fig = go.Figure()
         _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="test")
-        assert len(fig.data) == len(classes)
+        assert len(fig.data) == len(classes)  # type: ignore[arg-type]
 
     def test_trace_names_match_classes(self, image_embeddings, result):
         paths = list(image_embeddings.keys())
@@ -211,7 +211,7 @@ class TestBuildScatter3d:
 
         fig = go.Figure()
         _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="test")
-        trace_names = [t.name for t in fig.data]
+        trace_names = [t.name for t in fig.data]  # type: ignore[union-attr]
         assert set(trace_names) == set(classes)
 
 

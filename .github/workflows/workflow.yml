@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    uses: ./.github/workflows/unit-test.yml
+
+  coverage:
+    needs: unit-tests
+    uses: ./.github/workflows/coverage.yml
+    secrets: inherit

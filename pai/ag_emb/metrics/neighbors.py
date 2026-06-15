@@ -131,7 +131,7 @@ def outlier_score_at_k(
         ``p99``, ``top_outliers``.
     """
     if method not in ("one_minus_mean_top_k", "one_minus_kth_similarity"):
-        raise ValueError(f"Unknown method {method!r}. " "Use 'one_minus_mean_top_k' or 'one_minus_kth_similarity'.")
+        raise ValueError(f"Unknown method {method!r}. Use 'one_minus_mean_top_k' or 'one_minus_kth_similarity'.")
 
     result = {}
     for k, data in neighbors_by_k.items():

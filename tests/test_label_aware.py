@@ -140,7 +140,7 @@ class TestKnnLabelNdcgAtK:
     def test_values_in_unit_interval(self) -> None:
         neighbors = top_k_neighbors(_MIXED, ks=[3, 5])
         result = knn_label_ndcg_at_k(neighbors, _MIXED_LABELS)
-        for _, stats in result.items():
+        for stats in result.values():
             assert 0.0 <= stats["mean"] <= 1.0
             assert stats["per_item"].min() >= 0.0
             assert stats["per_item"].max() <= 1.0 + 1e-6
@@ -189,7 +189,7 @@ class TestKnnMapAtK:
     def test_values_in_unit_interval(self) -> None:
         neighbors = top_k_neighbors(_MIXED, ks=[3, 5])
         result = knn_map_at_k(neighbors, _MIXED_LABELS)
-        for _, stats in result.items():
+        for stats in result.values():
             assert 0.0 <= stats["mean"] <= 1.0 + 1e-6
             assert stats["per_item"].min() >= 0.0
             assert stats["per_item"].max() <= 1.0 + 1e-6

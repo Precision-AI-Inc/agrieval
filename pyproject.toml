@@ -34,6 +34,7 @@ dev = [
     "pytest-cov>=5.0",
     "httpx2>=0.28",
     "pre-commit>=3.7",
+    "pyright>=1.1",
 ]
 
 [project.scripts]
@@ -66,6 +67,12 @@ exclude_lines = [
     "except ImportError",
 ]
 
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+reportMissingImports = false
+reportMissingModuleSource = false
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
@@ -85,6 +92,9 @@ select = [
     "PT",   # flake8-pytest-style
     "RUF",  # ruff-specific rules
     "PL",   # pylint
+    "ANN",  # flake8-annotations — enforce PEP 484 type hints
+    "PERF", # perflint — performance anti-patterns
+    "S",    # flake8-bandit — security linting
 ]
 ignore = [
     "E501",    # line too long — enforced by ruff-format at 120 chars
@@ -96,8 +106,14 @@ ignore = [
     "D213",    # multi-line-summary-second-line (conflicts with D212)
     "PLR0913", # too many arguments — common in evaluation functions
     "PLR2004", # magic value comparisons — acceptable in tests/metrics
+    "ANN401",  # typing.Any is allowed for genuinely dynamic types
+    "S311",    # pseudo-random generators are intentional in scientific code
+    "S104",    # binding to 0.0.0.0 is intentional for a configurable server host
 ]
-per-file-ignores = {"**/__init__.py" = ["F401"], "tests/**" = ["D", "PLR"], "docs/conf.py" = ["E402", "UP031"]}
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"tests/**" = ["D", "PLR", "ANN", "S"]
+"docs/conf.py" = ["E402", "UP031", "ANN", "S"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

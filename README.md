@@ -2,6 +2,8 @@
 
 Agricultural embedding evaluation API for Precision AI. Measures how well image model embeddings cluster by crop class using KNN-based metrics, geometry diagnostics, and interactive visualizations.
 
+[![Tests](https://github.com/Precision-AI-Inc/pai-ag-emb/actions/workflows/workflow.yml/badge.svg)](https://github.com/Precision-AI-Inc/pai-ag-emb/actions/workflows/workflow.yml) [![Coverage](https://codecov.io/github/Precision-AI-Inc/pai-ag-emb/coverage.svg?branch=main)](https://codecov.io/gh/Precision-AI-Inc/pai-ag-emb)
+
 ---
 
 ## Installation

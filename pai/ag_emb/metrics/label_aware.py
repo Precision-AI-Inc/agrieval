@@ -54,7 +54,7 @@ def intra_inter_similarity_gap(
     n = emb.shape[0]
 
     if n != len(lbl):
-        raise ValueError(f"embeddings and labels must have the same length. " f"Got {n} and {len(lbl)}.")
+        raise ValueError(f"embeddings and labels must have the same length. Got {n} and {len(lbl)}.")
 
     rng = np.random.default_rng(random_seed)
 
