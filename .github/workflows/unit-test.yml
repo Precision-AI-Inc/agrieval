@@ -28,6 +28,7 @@ jobs:
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ github.token }}
+          BRANCH_NAME: actions/coverage
 
       - name: Coverage summary
         run: python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
