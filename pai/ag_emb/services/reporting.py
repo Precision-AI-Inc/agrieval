@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from pai.ag_emb.services.evaluate import extract_labels
 
@@ -31,11 +31,10 @@ except ImportError:
     _PLOTLY_AVAILABLE = False
 
 try:
-    from IPython.display import HTML, display  # type: ignore[import]
+    from IPython.display import display  # type: ignore[import]
 
     _IPYTHON_AVAILABLE = True
 except ImportError:
-    HTML = None  # type: ignore[assignment]
     display = None  # type: ignore[assignment]
     _IPYTHON_AVAILABLE = False
 
@@ -287,6 +286,10 @@ def _print_group_analysis(group_analysis: dict) -> None:
 def _write_plotly(fig: Any, output_path: str | None) -> None:
     """Write a Plotly figure to an HTML or static-image file, or display it inline.
 
+    When ``output_path`` is ``None`` the figure is emitted via
+    ``IPython.display.display(fig)``, which stores the native
+    ``application/vnd.plotly.v1+json`` MIME type in the notebook cell output.
+    This renders interactively both locally and on GitHub's notebook viewer.
     HTML output uses a CDN-hosted Plotly bundle.  Static image formats
     (``.png``, ``.pdf``, etc.) require the ``kaleido`` package; if it is
     absent the figure is saved as ``.html`` instead and a notice is printed.
@@ -300,8 +303,8 @@ def _write_plotly(fig: Any, output_path: str | None) -> None:
         Pass ``None`` to display the figure inline (e.g. in a Jupyter notebook).
     """
     if output_path is None:
-        if display is not None and HTML is not None:
-            display(HTML(fig.to_html(full_html=False, include_plotlyjs="cdn")))
+        if display is not None:
+            display(fig)
         else:
             fig.show()
         return

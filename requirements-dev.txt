@@ -15,3 +15,6 @@ httpx2>=0.28
 
 # Pre-commit
 pre-commit>=3.7
+
+# Jupyter notebook widgets (enables tqdm notebook progress bars; suppresses IProgress warning)
+ipywidgets>=8.0

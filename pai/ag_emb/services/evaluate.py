@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 try:
     from sklearn.cluster import HDBSCAN as _HDBSCAN  # type: ignore[import]

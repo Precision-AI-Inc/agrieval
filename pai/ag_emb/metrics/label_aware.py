@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from pai.ag_emb.metrics._utils import _prepare_embeddings
 from pai.ag_emb.metrics.ranking import (
