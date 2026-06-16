@@ -1,0 +1,17 @@
+{
+  "class_name": "corn",
+  "attributes": {
+    "camera": "HB-25000SBC",
+    "growth_stage": "medium"
+  },
+  "images": [
+    "images/corn_HB-25000SBC/220622-225403-corn-HB-25000SBC-54e94639.png",
+    "images/corn_HB-25000SBC/220622-225403-corn-HB-25000SBC-af33e7ca.png",
+    "images/corn_HB-25000SBC/220622-225403-corn-HB-25000SBC-fda2adee.png",
+    "images/corn_HB-25000SBC/220622-225404-corn-HB-25000SBC-58235c1f.png",
+    "images/corn_HB-25000SBC/220622-225405-corn-HB-25000SBC-328a4c61.png",
+    "images/corn_HB-25000SBC/220622-225405-corn-HB-25000SBC-68fd040c.png",
+    "images/corn_HB-25000SBC/220622-225405-corn-HB-25000SBC-7a2bde6a.png",
+    "images/corn_HB-25000SBC/220622-225405-corn-HB-25000SBC-a45a936e.png"
+  ]
+}

@@ -17,10 +17,12 @@ import numpy as np
 import pytest
 
 from pai.ag_emb.metrics.geometry import (
+    alignment,
     anisotropy_summary,
     centroid_similarity_stats,
     effective_rank,
     pca_explained_variance,
+    uniformity,
 )
 
 FIXTURE = np.array(
@@ -123,3 +125,77 @@ class TestAnisotropySummary:
             "effective_rank",
         ):
             assert key in result
+
+
+# ---------------------------------------------------------------------------
+# uniformity
+# ---------------------------------------------------------------------------
+
+
+class TestUniformity:
+    def test_returns_float(self) -> None:
+        result = uniformity(FIXTURE)
+        assert isinstance(result, float)
+
+    def test_non_positive(self) -> None:
+        # log(mean(exp(-t * ||u-v||²))) with t > 0 produces values in (-∞, 0]
+        result = uniformity(FIXTURE)
+        assert result <= 0.0
+
+    def test_collapsed_worse_than_spread(self) -> None:
+        # Identical vectors → all pairwise distances are 0 → uniformity = log(1) = 0
+        # Orthogonal vectors → large distances → uniformity much less than 0
+        collapsed = np.tile(np.array([[1.0, 0.0]], dtype=np.float32), (4, 1))
+        spread = np.array([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]], dtype=np.float32)
+        assert uniformity(collapsed) > uniformity(spread)
+
+    def test_temperature_changes_value(self) -> None:
+        result_t2 = uniformity(FIXTURE, t=2.0)
+        result_t4 = uniformity(FIXTURE, t=4.0)
+        assert result_t2 != pytest.approx(result_t4)
+
+    def test_two_vectors(self) -> None:
+        emb = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        result = uniformity(emb)
+        assert isinstance(result, float)
+
+
+# ---------------------------------------------------------------------------
+# alignment
+# ---------------------------------------------------------------------------
+
+
+class TestAlignment:
+    def test_empty_pairs_returns_none(self) -> None:
+        assert alignment(FIXTURE, []) is None
+
+    def test_identical_embeddings_zero_alignment(self) -> None:
+        emb = np.array([[1.0, 0.0], [1.0, 0.0]], dtype=np.float32)
+        result = alignment(emb, [(0, 1)])
+        assert result == pytest.approx(0.0, abs=1e-5)
+
+    def test_orthogonal_pair_alignment_equals_two(self) -> None:
+        # L2-normalised orthogonal vectors: ||u - v||² = 2(1 - 0) = 2
+        emb = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        result = alignment(emb, [(0, 1)])
+        assert result == pytest.approx(2.0, abs=1e-4)
+
+    def test_returns_mean_over_pairs(self) -> None:
+        # pair (0,1): dist=0; pair (0,2): dist=2 → mean=1
+        emb = np.array([[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        result = alignment(emb, [(0, 1), (0, 2)])
+        assert result == pytest.approx(1.0, abs=1e-4)
+
+    def test_non_negative(self) -> None:
+        result = alignment(FIXTURE, [(0, 1), (1, 2)])
+        assert result is not None
+        assert result >= 0.0
+
+    def test_alpha_parameter(self) -> None:
+        emb = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        # alpha=2: ||u-v||² = 2; alpha=1: ||u-v|| = sqrt(2)
+        a2 = alignment(emb, [(0, 1)], alpha=2.0)
+        a1 = alignment(emb, [(0, 1)], alpha=1.0)
+        assert a2 is not None
+        assert a1 is not None
+        assert a2 != pytest.approx(a1)

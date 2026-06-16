@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -389,6 +390,20 @@ def plot_cosine_similarity(
     _write_plotly(fig, output_path)
 
 
+def _subgroup_labels(paths: list[str]) -> list[str]:
+    """Extract the subgroup name from each embedding path.
+
+    For canonical paths of the form ``images/class_subgroup/filename``, this
+    returns ``class_subgroup`` (the parent directory).  For flat paths that
+    have no parent component the path itself is returned as a fallback.
+    """
+    labels = []
+    for p in paths:
+        parts = Path(p).parts
+        labels.append(parts[-2] if len(parts) >= 2 else p)
+    return labels
+
+
 def _build_scatter3d(
     fig: Any,
     coords: Any,
@@ -468,14 +483,12 @@ def plot_lle(
     vectors = np.array(list(image_embeddings.values()), dtype=np.float32)
     n = len(vectors)
 
-    item_labels = result.get("item_labels")
-    if item_labels is None:
-        item_labels = extract_labels(paths)
+    groups = _subgroup_labels(paths)
+    unique_groups = sorted(set(groups))
+    label_arr = np.array(groups)
+    n_groups = len(unique_groups)
 
-    classes = result["classes"]
-    label_arr = np.array(item_labels)
-
-    k = min(n - 1, n_neighbors if n_neighbors is not None else max(5, n // 3))
+    k = min(n - 1, n_neighbors if n_neighbors is not None else max(3, n // (n_groups + 2)))
     tqdm.write(f"  LLE 3D — fitting {n} samples (n_neighbors={k})...")
     coords = LocallyLinearEmbedding(
         n_components=3,
@@ -484,7 +497,7 @@ def plot_lle(
     ).fit_transform(vectors.astype(np.float64))
 
     fig = go.Figure()
-    _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="LLE")
+    _build_scatter3d(fig, coords, unique_groups, label_arr, paths, axis_prefix="LLE")
 
     fig.update_layout(
         title=dict(text=f"LLE 3D  (n={n},  n_neighbors={k})", font=dict(size=17)),
@@ -494,7 +507,7 @@ def plot_lle(
             zaxis_title="LLE 3",
             bgcolor="white",
         ),
-        legend=dict(title="Class", font=dict(size=12)),
+        legend=dict(title="Subgroup", font=dict(size=12)),
         width=950,
         height=750,
         paper_bgcolor="white",
@@ -542,17 +555,18 @@ def plot_tsne(
     vectors = np.array(list(image_embeddings.values()), dtype=np.float32)
     n = len(vectors)
 
-    item_labels = result.get("item_labels")
-    if item_labels is None:
-        item_labels = extract_labels(paths)
+    # Color by subgroup (path parent dir) rather than class so all 4 clusters
+    # are visible as distinct colours instead of collapsing corn↔corn and
+    # soybean↔soybean into single blobs.
+    groups = _subgroup_labels(paths)
+    unique_groups = sorted(set(groups))
+    label_arr = np.array(groups)
+    n_groups = len(unique_groups)
 
-    classes = result["classes"]
-    label_arr = np.array(item_labels)
-
-    effective_perplexity = min(perplexity, max(5, n // 3))
-    # 3D t-SNE has more degrees of freedom than 2D, so the repulsion forces
-    # can spread tight clusters along the z-axis with too few iterations.
-    # Double the iteration budget for 3D to ensure convergence.
+    # Perplexity must be < cluster size.  With n_groups clusters of roughly
+    # equal size, each cluster has ~n/n_groups points, so cap at half that.
+    effective_perplexity = min(perplexity, max(3, n // (n_groups + 2)))
+    # 3D t-SNE needs more iterations than 2D to converge the extra degree of freedom.
     n_iter = 1000 if dimensions == 2 else 2000
     tqdm.write(f"  t-SNE {dimensions}D — fitting {n} samples (perplexity={effective_perplexity}, iter={n_iter})...")
     tsne_kwargs: dict[str, Any] = {_TSNE_ITER_PARAM: n_iter}
@@ -568,19 +582,19 @@ def plot_tsne(
     fig = go.Figure()
 
     if dimensions == 3:
-        _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="t-SNE")
+        _build_scatter3d(fig, coords, unique_groups, label_arr, paths, axis_prefix="t-SNE")
     else:
-        for cls in classes:
-            mask = label_arr == cls
-            cls_paths = [paths[i] for i in range(n) if mask[i]]
+        for grp in unique_groups:
+            mask = label_arr == grp
+            grp_paths = [paths[i] for i in range(n) if mask[i]]
             fig.add_trace(
                 go.Scatter(
                     x=coords[mask, 0].tolist(),
                     y=coords[mask, 1].tolist(),
                     mode="markers",
-                    name=cls,
-                    text=cls_paths,
-                    hovertemplate="%{text}<extra>" + cls + "</extra>",
+                    name=grp,
+                    text=grp_paths,
+                    hovertemplate="%{text}<extra>" + grp + "</extra>",
                     marker=dict(size=10, opacity=0.85, line=dict(width=1, color="white")),
                 )
             )
@@ -594,7 +608,7 @@ def plot_tsne(
                 zaxis_title="t-SNE 3",
                 bgcolor="white",
             ),
-            legend=dict(title="Class", font=dict(size=12)),
+            legend=dict(title="Subgroup", font=dict(size=12)),
             width=950,
             height=750,
             paper_bgcolor="white",
@@ -604,7 +618,7 @@ def plot_tsne(
             title=dict(text=title_text, font=dict(size=17)),
             xaxis=dict(title="t-SNE 1", showgrid=True, gridcolor="#e8e8e8", zeroline=False),
             yaxis=dict(title="t-SNE 2", showgrid=True, gridcolor="#e8e8e8", zeroline=False),
-            legend=dict(title="Class", font=dict(size=12)),
+            legend=dict(title="Subgroup", font=dict(size=12)),
             width=950,
             height=680,
             plot_bgcolor="white",

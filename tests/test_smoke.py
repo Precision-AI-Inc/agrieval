@@ -26,7 +26,7 @@ from pai.ag_emb.api.app import app
 
 client = TestClient(app)
 
-DATASET_ROOT = "tests/data"
+DATASET_ROOT = "tests/data/images"
 
 
 class TestSmokeAnalyze:

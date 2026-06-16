@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from pai.ag_emb.api.config import get_dataset_root
 from pai.ag_emb.schemas.evaluate import (
     EmbeddingEvaluateRequest,
     EmbeddingEvaluateResponse,
@@ -45,11 +44,11 @@ def evaluate_embeddings(request: EmbeddingEvaluateRequest) -> EmbeddingEvaluateR
       KNN label purity, effective rank, centroid similarity, duplicate counts.
     - **per_class** — the same metrics broken down per crop class.
     """
-    dataset_root = request.dataset_root if request.dataset_root is not None else get_dataset_root()
     result = run_evaluation(
         image_embeddings=request.embeddings,
         k_values=request.k_values,
-        dataset_root=dataset_root,
+        dataset_root=request.dataset_root,
         sample_pairs=request.sample_pairs,
+        metadata=request.metadata,
     )
     return EmbeddingEvaluateResponse(**result)

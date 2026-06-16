@@ -33,7 +33,7 @@ from pai.ag_emb.services.evaluate import _parse_crop
 TESTS_DATA = Path(__file__).parent / "data"
 _PROJECT_ROOT = Path(__file__).parent.parent
 EMB_DIM = 16
-_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
+_IMAGE_EXTS = {".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"}
 
 
 # ---------------------------------------------------------------------------
@@ -48,10 +48,11 @@ def _collect_paths() -> list[Path]:
 
 def _crop_from_path(path: Path) -> str:
     """Extract crop label from a tests/data/ path using the service convention."""
-    # First component after tests/data/ is the crop_[camera] folder
+    # Layout: tests/data/images/class_subgroup/filename
+    # parts[0] = "images", parts[1] = "corn_HB-25000SBC", etc.
     rel = path.relative_to(TESTS_DATA)
-    folder = rel.parts[0]
-    return _parse_crop(folder)
+    idx = 1 if len(rel.parts) > 1 and rel.parts[0] == "images" else 0
+    return _parse_crop(rel.parts[idx])
 
 
 def _class_prototypes(classes: list[str]) -> dict[str, np.ndarray]:
