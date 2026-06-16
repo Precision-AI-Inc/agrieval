@@ -214,7 +214,7 @@ def build_image_items(
 # ---------------------------------------------------------------------------
 
 
-def _jsonify(obj: object) -> Any:  # noqa: PLR0911
+def _jsonify(obj: Any) -> Any:  # noqa: PLR0911
     """Recursively convert a metrics result to JSON-serialisable types.
 
     numpy arrays are dropped because they are per-item visualisation artefacts
@@ -223,7 +223,7 @@ def _jsonify(obj: object) -> Any:  # noqa: PLR0911
 
     Parameters
     ----------
-    obj : object
+    obj : Any
         Arbitrary metrics result object — dict, list, numpy array/scalar, or
         Python scalar.
 
