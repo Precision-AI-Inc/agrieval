@@ -55,8 +55,9 @@ except ImportError:
 def print_result(result: dict) -> None:
     """Pretty-print the output of :func:`~pai.ag_emb.services.evaluate.run_evaluation`.
 
-    Writes a human-readable summary to stdout, including a header line with
-    dataset dimensions, global metrics, and per-class breakdowns.
+    Writes a human-readable summary to stdout covering both operating modes:
+    embeddings-only (label KPIs) and embeddings+metadata (graded-relevance KPIs,
+    alignment, neighbour diagnostics, and group analysis).
 
     Parameters
     ----------
@@ -73,25 +74,60 @@ def print_result(result: dict) -> None:
     print()
     _print_per_class(result["per_class"])
 
+    if result.get("group_analysis"):
+        print()
+        _print_group_analysis(result["group_analysis"])
 
-def _print_global(gm: dict) -> None:
-    """Print the global metrics section of an evaluation result.
 
-    Parameters
-    ----------
-    gm : dict
-        The ``global_metrics`` sub-dict from a ``run_evaluation()`` result.
-    """
-    print("── global_metrics ──────────────────────────────────────────────────────")
+def _fmt_kv(stats: dict) -> str:
+    """Format a mean/std/p05/p95 stats dict as a compact string."""
+    parts = [f"mean={stats['mean']:.4f}", f"std={stats['std']:.4f}"]
+    if "p05" in stats:
+        parts.append(f"p05={stats['p05']:.4f}")
+    if "p95" in stats:
+        parts.append(f"p95={stats['p95']:.4f}")
+    return "  ".join(parts)
 
-    # Pairwise cosine similarity across all embeddings
+
+_LABEL_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_label_purity", "KNN purity"),
+    ("knn_label_ndcg", "nDCG (label)"),
+    ("knn_map", "MAP (label)"),
+    ("knn_label_mrr", "MRR (label)"),
+)
+_META_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_metadata_precision", "P@K (meta)"),
+    ("knn_metadata_ndcg", "nDCG (meta)"),
+    ("knn_metadata_map", "MAP (meta)"),
+    ("knn_metadata_mrr", "MRR (meta)"),
+)
+_CLASS_LABEL_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_label_purity", "purity"),
+    ("knn_label_ndcg", "nDCG"),
+    ("knn_map", "MAP"),
+    ("knn_label_mrr", "MRR"),
+)
+_CLASS_META_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_metadata_precision", "P@K"),
+    ("knn_metadata_ndcg", "nDCG"),
+    ("knn_metadata_map", "MAP"),
+    ("knn_metadata_mrr", "MRR"),
+)
+_DIAG_KEYS: tuple[tuple[str, str], ...] = (
+    ("hubness", "hubness"),
+    ("knn_radius", "knn_radius"),
+    ("mean_top_k_sim", "mean_top_k_sim"),
+    ("outlier_score", "outlier_score"),
+)
+
+
+def _print_geometry_block(gm: dict) -> None:
+    """Print pairwise cosine, centroid, intra/inter gap, effective rank, uniformity, alignment."""
     ps = gm["pairwise_similarity_stats"]
     print(
         f"  pairwise cosine    : mean={ps['mean']:.4f}  std={ps['std']:.4f}"
         f"  (p05={ps['p05']:.4f}  p50={ps['p50']:.4f}  p95={ps['p95']:.4f})"
     )
-
-    # Cosine similarity of each embedding to the dataset centroid (anisotropy signal)
     cs = gm["centroid_similarity_stats"]
     if cs["mean_cosine_to_centroid"] is not None:
         print(
@@ -99,8 +135,6 @@ def _print_global(gm: dict) -> None:
             f"  std={cs['std_cosine_to_centroid']:.4f}"
             f"  norm={cs['centroid_norm']:.4f}"
         )
-
-    # Intra vs inter-class separation
     gap = gm["intra_inter_similarity_gap"]
     if gap["gap"] is not None:
         print(
@@ -108,30 +142,101 @@ def _print_global(gm: dict) -> None:
             f"  (intra={gap['mean_intra_class_similarity']:.4f}"
             f"  inter={gap['mean_inter_class_similarity']:.4f})"
         )
-
-    print()
-
-    # KNN label purity: fraction of k neighbors sharing the same class label
-    for k, stats in gm["knn_label_purity"].items():
-        print(f"  KNN purity@{k:<4}   : mean={stats['mean']:.4f}  std={stats['std']:.4f}")
-
-    # nDCG: ranking quality — relevant (same-class) neighbors ranked first scores higher
-    for k, stats in gm["knn_label_ndcg"].items():
-        print(f"  nDCG@{k:<10}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}")
-
-    # MAP: mean average precision — rewards finding all relevant neighbors early
-    for k, stats in gm["knn_map"].items():
-        print(f"  MAP@{k:<11}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}")
-
-    print()
-
     er = gm["effective_rank"]
     if er["effective_rank"] is not None:
         print(
             f"  effective_rank     : {er['effective_rank']:.2f}"
-            f"  (ratio={er['effective_rank_ratio']:.4f},"
+            f"  (ratio={er['effective_rank_ratio']:.4f}"
             f"  dim={er['embedding_dim']})"
         )
+    if "uniformity" in gm:
+        print(f"  uniformity         : {gm['uniformity']:.4f}")
+    if "alignment" in gm:
+        print(f"  alignment          : {gm['alignment']:.4f}")
+
+
+def _print_diag_entry(label: str, entry: dict) -> None:
+    """Print one neighbour-diagnostic entry (per-k dict or flat scalar dict)."""
+    if isinstance(entry, dict) and all(str(k).isdigit() for k in entry):
+        for k, stats in entry.items():
+            print(f"  {label}@{k:<8}  : {_fmt_kv(stats)}")
+    elif isinstance(entry, dict):
+        vals = "  ".join(f"{k}={v:.4f}" for k, v in entry.items() if isinstance(v, float))
+        print(f"  {label:<20}: {vals}")
+
+
+def _print_diag_block(gm: dict) -> None:
+    """Print neighbour diagnostics (hubness, knn_radius, mean_top_k_sim, outlier_score)."""
+    printed = False
+    for key, label in _DIAG_KEYS:
+        if key not in gm:
+            continue
+        if not printed:
+            print()
+            printed = True
+        _print_diag_entry(label, gm[key])
+
+
+def _print_kpi_tier(
+    d: dict,
+    kpi_keys: tuple[tuple[str, str], ...],
+    r_prec_key: str,
+    r_prec_label: str = "R-Precision",
+    indent: str = "  ",
+) -> None:
+    """Print one tier of KPI metrics: k-keyed stats rows then an optional R-Precision row."""
+    for key, label in kpi_keys:
+        for k, stats in d.get(key, {}).items():
+            print(f"{indent}{label}@{k:<8}  : {_fmt_kv(stats)}")
+    if r_prec_key in d:
+        print(f"{indent}{r_prec_label:<20}: {_fmt_kv(d[r_prec_key])}")
+
+
+def _print_attr_ndcg(gm: dict) -> None:
+    """Print per-attribute nDCG breakdown when present in the global metrics dict."""
+    if "knn_attribute_ndcg" not in gm:
+        return
+    print()
+    for attr_key, by_k in gm["knn_attribute_ndcg"].items():
+        for k, stats in by_k.items():
+            print(f"  attr_nDCG[{attr_key}]@{k} : {_fmt_kv(stats)}")
+
+
+def _print_class_geometry(m: dict) -> None:
+    """Print per-class geometry diagnostics (pairwise cosine, centroid cosine, effective rank)."""
+    if "pairwise_similarity_stats" in m:
+        ps = m["pairwise_similarity_stats"]
+        print(f"    pairwise cosine  : mean={ps['mean']:.4f}  std={ps['std']:.4f}")
+    if "centroid_similarity_stats" in m:
+        cs = m["centroid_similarity_stats"]
+        if cs["mean_cosine_to_centroid"] is not None:
+            print(f"    centroid cosine  : mean={cs['mean_cosine_to_centroid']:.4f}  norm={cs['centroid_norm']:.4f}")
+    if "effective_rank" in m:
+        er = m["effective_rank"]
+        if er.get("effective_rank") is not None:
+            print(f"    effective_rank   : {er['effective_rank']:.2f}  (ratio={er['effective_rank_ratio']:.4f})")
+
+
+def _print_global(gm: dict) -> None:
+    """Print the global metrics section of an evaluation result.
+
+    Handles both operating modes: when ``metadata`` was supplied the label-based
+    KPIs are replaced by graded-relevance metadata KPIs.  Geometry diagnostics,
+    Wang & Isola uniformity/alignment, and neighbour diagnostics are always shown
+    when present.
+
+    Parameters
+    ----------
+    gm : dict
+        The ``global_metrics`` sub-dict from a ``run_evaluation()`` result.
+    """
+    print("── global_metrics ──────────────────────────────────────────────────────")
+    _print_geometry_block(gm)
+    _print_diag_block(gm)
+    print()
+    _print_kpi_tier(gm, _LABEL_KPI_KEYS, "knn_label_r_precision", "R-Precision (label)")
+    _print_kpi_tier(gm, _META_KPI_KEYS, "knn_metadata_r_precision", "R-Precision (meta)")
+    _print_attr_ndcg(gm)
 
 
 def _print_per_class(per_class: dict) -> None:
@@ -146,40 +251,32 @@ def _print_per_class(per_class: dict) -> None:
     print("── per_class ───────────────────────────────────────────────────────────")
     for cls, m in per_class.items():
         print(f"\n  [{cls}]  n={m['n_items']}")
+        _print_class_geometry(m)
+        _print_kpi_tier(m, _CLASS_LABEL_KPI_KEYS, "knn_label_r_precision", indent="    ")
+        _print_kpi_tier(m, _CLASS_META_KPI_KEYS, "knn_metadata_r_precision", indent="    ")
 
-        if "pairwise_similarity_stats" in m:
-            ps = m["pairwise_similarity_stats"]
-            print(f"    pairwise cosine  : mean={ps['mean']:.4f}  std={ps['std']:.4f}")
 
-        if "centroid_similarity_stats" in m:
-            cs = m["centroid_similarity_stats"]
-            if cs["mean_cosine_to_centroid"] is not None:
-                print(
-                    f"    centroid cosine  : mean={cs['mean_cosine_to_centroid']:.4f}  norm={cs['centroid_norm']:.4f}"
-                )
+def _print_group_analysis(group_analysis: dict) -> None:
+    """Print the HDBSCAN group analysis section of an evaluation result.
 
-        if "effective_rank" in m:
-            er = m["effective_rank"]
-            if er.get("effective_rank") is not None:
-                print(f"    effective_rank   : {er['effective_rank']:.2f}  (ratio={er['effective_rank_ratio']:.4f})")
-
-        for k, stats in m.get("knn_label_purity", {}).items():
-            print(
-                f"    KNN purity@{k:<4}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}"
-                f"  (p05={stats['p05']:.4f}  p95={stats['p95']:.4f})"
-            )
-
-        for k, stats in m.get("knn_label_ndcg", {}).items():
-            print(
-                f"    nDCG@{k:<9}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}"
-                f"  (p05={stats['p05']:.4f}  p95={stats['p95']:.4f})"
-            )
-
-        for k, stats in m.get("knn_map", {}).items():
-            print(
-                f"    MAP@{k:<10}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}"
-                f"  (p05={stats['p05']:.4f}  p95={stats['p95']:.4f})"
-            )
+    Parameters
+    ----------
+    group_analysis : dict
+        The ``group_analysis`` sub-dict from a ``run_evaluation()`` result.
+    """
+    print("── group_analysis ──────────────────────────────────────────────────────")
+    for group_key, entry in group_analysis.items():
+        flag = "  *** suggested_split ***" if entry.get("suggested_split") else ""
+        sil = entry.get("silhouette_score")
+        sil_str = f"{sil:.4f}" if sil is not None else "n/a"
+        print(
+            f"\n  [{group_key}]  n={entry['n_images']}{flag}\n"
+            f"    intra cosine     : mean={entry['mean_intra_cosine']:.4f}"
+            f"  std={entry['std_intra_cosine']:.4f}\n"
+            f"    clusters         : {entry['cluster_count']}"
+            f"  noise={entry['noise_count']}"
+            f"  silhouette={sil_str}"
+        )
 
 
 # ---------------------------------------------------------------------------
