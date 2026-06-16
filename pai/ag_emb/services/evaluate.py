@@ -112,16 +112,18 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
     if not paths:
         return []
 
+    posix_paths = [Path(p).as_posix() for p in paths]
+
     if dataset_root is not None:
-        root_prefix = dataset_root.rstrip("/") + "/"
+        root_prefix = Path(dataset_root).as_posix().rstrip("/") + "/"
     else:
-        raw = os.path.commonprefix(paths)
+        raw = os.path.commonprefix(posix_paths)
         # Trim to the last directory separator so we don't clip mid-word
         root_prefix = raw[: raw.rfind("/") + 1] if "/" in raw else ""
 
     labels: list[str] = []
-    for path in paths:
-        remainder = path[len(root_prefix) :] if path.startswith(root_prefix) else path
+    for posix_path in posix_paths:
+        remainder = posix_path[len(root_prefix) :] if posix_path.startswith(root_prefix) else posix_path
         parts = Path(remainder).parts
         folder = parts[0] if parts else "unknown"
         labels.append(_parse_crop(folder))
