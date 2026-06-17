@@ -14,10 +14,11 @@
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 from typing import Any
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from pai.ag_emb.services.evaluate import extract_labels
 
@@ -30,11 +31,10 @@ except ImportError:
     _PLOTLY_AVAILABLE = False
 
 try:
-    from IPython.display import HTML, display  # type: ignore[import]
+    from IPython.display import display  # type: ignore[import]
 
     _IPYTHON_AVAILABLE = True
 except ImportError:
-    HTML = None  # type: ignore[assignment]
     display = None  # type: ignore[assignment]
     _IPYTHON_AVAILABLE = False
 
@@ -50,12 +50,39 @@ except ImportError:
     _TSNE_ITER_PARAM = "max_iter"
     _SKLEARN_AVAILABLE = False
 
+# Fixed palette for small class counts (≤10); for larger counts _scatter_colors()
+# falls back to evenly-spaced HSL hues so no two classes ever share a color.
+_SCATTER_PALETTE = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#17becf",
+    "#bcbd22",
+    "#7f7f7f",
+]
+
+
+def _scatter_colors(n: int) -> list[str]:
+    """Return ``n`` perceptually distinct hex colors.
+
+    Uses the fixed ``_SCATTER_PALETTE`` for up to 10 classes; for larger ``n``
+    generates evenly-spaced HSL hues so every class is guaranteed a unique color.
+    """
+    if n <= len(_SCATTER_PALETTE):
+        return _SCATTER_PALETTE[:n]
+    return [f"hsl({round(i * 360 / n)},70%,45%)" for i in range(n)]
+
 
 def print_result(result: dict) -> None:
     """Pretty-print the output of :func:`~pai.ag_emb.services.evaluate.run_evaluation`.
 
-    Writes a human-readable summary to stdout, including a header line with
-    dataset dimensions, global metrics, and per-class breakdowns.
+    Writes a human-readable summary to stdout covering both operating modes:
+    embeddings-only (label KPIs) and embeddings+metadata (graded-relevance KPIs,
+    alignment, neighbour diagnostics, and group analysis).
 
     Parameters
     ----------
@@ -72,25 +99,60 @@ def print_result(result: dict) -> None:
     print()
     _print_per_class(result["per_class"])
 
+    if result.get("group_analysis"):
+        print()
+        _print_group_analysis(result["group_analysis"])
 
-def _print_global(gm: dict) -> None:
-    """Print the global metrics section of an evaluation result.
 
-    Parameters
-    ----------
-    gm : dict
-        The ``global_metrics`` sub-dict from a ``run_evaluation()`` result.
-    """
-    print("── global_metrics ──────────────────────────────────────────────────────")
+def _fmt_kv(stats: dict) -> str:
+    """Format a mean/std/p05/p95 stats dict as a compact string."""
+    parts = [f"mean={stats['mean']:.4f}", f"std={stats['std']:.4f}"]
+    if "p05" in stats:
+        parts.append(f"p05={stats['p05']:.4f}")
+    if "p95" in stats:
+        parts.append(f"p95={stats['p95']:.4f}")
+    return "  ".join(parts)
 
-    # Pairwise cosine similarity across all embeddings
+
+_LABEL_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_label_purity", "KNN purity"),
+    ("knn_label_ndcg", "nDCG (label)"),
+    ("knn_map", "MAP (label)"),
+    ("knn_label_mrr", "MRR (label)"),
+)
+_META_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_metadata_precision", "P@K (meta)"),
+    ("knn_metadata_ndcg", "nDCG (meta)"),
+    ("knn_metadata_map", "MAP (meta)"),
+    ("knn_metadata_mrr", "MRR (meta)"),
+)
+_CLASS_LABEL_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_label_purity", "purity"),
+    ("knn_label_ndcg", "nDCG"),
+    ("knn_map", "MAP"),
+    ("knn_label_mrr", "MRR"),
+)
+_CLASS_META_KPI_KEYS: tuple[tuple[str, str], ...] = (
+    ("knn_metadata_precision", "P@K"),
+    ("knn_metadata_ndcg", "nDCG"),
+    ("knn_metadata_map", "MAP"),
+    ("knn_metadata_mrr", "MRR"),
+)
+_DIAG_KEYS: tuple[tuple[str, str], ...] = (
+    ("hubness", "hubness"),
+    ("knn_radius", "knn_radius"),
+    ("mean_top_k_sim", "mean_top_k_sim"),
+    ("outlier_score", "outlier_score"),
+)
+
+
+def _print_geometry_block(gm: dict) -> None:
+    """Print pairwise cosine, centroid, intra/inter gap, effective rank, uniformity, alignment."""
     ps = gm["pairwise_similarity_stats"]
     print(
         f"  pairwise cosine    : mean={ps['mean']:.4f}  std={ps['std']:.4f}"
         f"  (p05={ps['p05']:.4f}  p50={ps['p50']:.4f}  p95={ps['p95']:.4f})"
     )
-
-    # Cosine similarity of each embedding to the dataset centroid (anisotropy signal)
     cs = gm["centroid_similarity_stats"]
     if cs["mean_cosine_to_centroid"] is not None:
         print(
@@ -98,8 +160,6 @@ def _print_global(gm: dict) -> None:
             f"  std={cs['std_cosine_to_centroid']:.4f}"
             f"  norm={cs['centroid_norm']:.4f}"
         )
-
-    # Intra vs inter-class separation
     gap = gm["intra_inter_similarity_gap"]
     if gap["gap"] is not None:
         print(
@@ -107,30 +167,101 @@ def _print_global(gm: dict) -> None:
             f"  (intra={gap['mean_intra_class_similarity']:.4f}"
             f"  inter={gap['mean_inter_class_similarity']:.4f})"
         )
-
-    print()
-
-    # KNN label purity: fraction of k neighbors sharing the same class label
-    for k, stats in gm["knn_label_purity"].items():
-        print(f"  KNN purity@{k:<4}   : mean={stats['mean']:.4f}  std={stats['std']:.4f}")
-
-    # nDCG: ranking quality — relevant (same-class) neighbors ranked first scores higher
-    for k, stats in gm["knn_label_ndcg"].items():
-        print(f"  nDCG@{k:<10}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}")
-
-    # MAP: mean average precision — rewards finding all relevant neighbors early
-    for k, stats in gm["knn_map"].items():
-        print(f"  MAP@{k:<11}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}")
-
-    print()
-
     er = gm["effective_rank"]
     if er["effective_rank"] is not None:
         print(
             f"  effective_rank     : {er['effective_rank']:.2f}"
-            f"  (ratio={er['effective_rank_ratio']:.4f},"
+            f"  (ratio={er['effective_rank_ratio']:.4f}"
             f"  dim={er['embedding_dim']})"
         )
+    if "uniformity" in gm:
+        print(f"  uniformity         : {gm['uniformity']:.4f}")
+    if "alignment" in gm:
+        print(f"  alignment          : {gm['alignment']:.4f}")
+
+
+def _print_diag_entry(label: str, entry: dict) -> None:
+    """Print one neighbour-diagnostic entry (per-k dict or flat scalar dict)."""
+    if isinstance(entry, dict) and all(str(k).isdigit() for k in entry):
+        for k, stats in entry.items():
+            print(f"  {label}@{k:<8}  : {_fmt_kv(stats)}")
+    elif isinstance(entry, dict):
+        vals = "  ".join(f"{k}={v:.4f}" for k, v in entry.items() if isinstance(v, float))
+        print(f"  {label:<20}: {vals}")
+
+
+def _print_diag_block(gm: dict) -> None:
+    """Print neighbour diagnostics (hubness, knn_radius, mean_top_k_sim, outlier_score)."""
+    printed = False
+    for key, label in _DIAG_KEYS:
+        if key not in gm:
+            continue
+        if not printed:
+            print()
+            printed = True
+        _print_diag_entry(label, gm[key])
+
+
+def _print_kpi_tier(
+    d: dict,
+    kpi_keys: tuple[tuple[str, str], ...],
+    r_prec_key: str,
+    r_prec_label: str = "R-Precision",
+    indent: str = "  ",
+) -> None:
+    """Print one tier of KPI metrics: k-keyed stats rows then an optional R-Precision row."""
+    for key, label in kpi_keys:
+        for k, stats in d.get(key, {}).items():
+            print(f"{indent}{label}@{k:<8}  : {_fmt_kv(stats)}")
+    if r_prec_key in d:
+        print(f"{indent}{r_prec_label:<20}: {_fmt_kv(d[r_prec_key])}")
+
+
+def _print_attr_ndcg(gm: dict) -> None:
+    """Print per-attribute nDCG breakdown when present in the global metrics dict."""
+    if "knn_attribute_ndcg" not in gm:
+        return
+    print()
+    for attr_key, by_k in gm["knn_attribute_ndcg"].items():
+        for k, stats in by_k.items():
+            print(f"  attr_nDCG[{attr_key}]@{k} : {_fmt_kv(stats)}")
+
+
+def _print_class_geometry(m: dict) -> None:
+    """Print per-class geometry diagnostics (pairwise cosine, centroid cosine, effective rank)."""
+    if "pairwise_similarity_stats" in m:
+        ps = m["pairwise_similarity_stats"]
+        print(f"    pairwise cosine  : mean={ps['mean']:.4f}  std={ps['std']:.4f}")
+    if "centroid_similarity_stats" in m:
+        cs = m["centroid_similarity_stats"]
+        if cs["mean_cosine_to_centroid"] is not None:
+            print(f"    centroid cosine  : mean={cs['mean_cosine_to_centroid']:.4f}  norm={cs['centroid_norm']:.4f}")
+    if "effective_rank" in m:
+        er = m["effective_rank"]
+        if er.get("effective_rank") is not None:
+            print(f"    effective_rank   : {er['effective_rank']:.2f}  (ratio={er['effective_rank_ratio']:.4f})")
+
+
+def _print_global(gm: dict) -> None:
+    """Print the global metrics section of an evaluation result.
+
+    Handles both operating modes: when ``metadata`` was supplied the label-based
+    KPIs are replaced by graded-relevance metadata KPIs.  Geometry diagnostics,
+    Wang & Isola uniformity/alignment, and neighbour diagnostics are always shown
+    when present.
+
+    Parameters
+    ----------
+    gm : dict
+        The ``global_metrics`` sub-dict from a ``run_evaluation()`` result.
+    """
+    print("── global_metrics ──────────────────────────────────────────────────────")
+    _print_geometry_block(gm)
+    _print_diag_block(gm)
+    print()
+    _print_kpi_tier(gm, _LABEL_KPI_KEYS, "knn_label_r_precision", "R-Precision (label)")
+    _print_kpi_tier(gm, _META_KPI_KEYS, "knn_metadata_r_precision", "R-Precision (meta)")
+    _print_attr_ndcg(gm)
 
 
 def _print_per_class(per_class: dict) -> None:
@@ -145,40 +276,32 @@ def _print_per_class(per_class: dict) -> None:
     print("── per_class ───────────────────────────────────────────────────────────")
     for cls, m in per_class.items():
         print(f"\n  [{cls}]  n={m['n_items']}")
+        _print_class_geometry(m)
+        _print_kpi_tier(m, _CLASS_LABEL_KPI_KEYS, "knn_label_r_precision", indent="    ")
+        _print_kpi_tier(m, _CLASS_META_KPI_KEYS, "knn_metadata_r_precision", indent="    ")
 
-        if "pairwise_similarity_stats" in m:
-            ps = m["pairwise_similarity_stats"]
-            print(f"    pairwise cosine  : mean={ps['mean']:.4f}  std={ps['std']:.4f}")
 
-        if "centroid_similarity_stats" in m:
-            cs = m["centroid_similarity_stats"]
-            if cs["mean_cosine_to_centroid"] is not None:
-                print(
-                    f"    centroid cosine  : mean={cs['mean_cosine_to_centroid']:.4f}  norm={cs['centroid_norm']:.4f}"
-                )
+def _print_group_analysis(group_analysis: dict) -> None:
+    """Print the HDBSCAN group analysis section of an evaluation result.
 
-        if "effective_rank" in m:
-            er = m["effective_rank"]
-            if er.get("effective_rank") is not None:
-                print(f"    effective_rank   : {er['effective_rank']:.2f}  (ratio={er['effective_rank_ratio']:.4f})")
-
-        for k, stats in m.get("knn_label_purity", {}).items():
-            print(
-                f"    KNN purity@{k:<4}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}"
-                f"  (p05={stats['p05']:.4f}  p95={stats['p95']:.4f})"
-            )
-
-        for k, stats in m.get("knn_label_ndcg", {}).items():
-            print(
-                f"    nDCG@{k:<9}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}"
-                f"  (p05={stats['p05']:.4f}  p95={stats['p95']:.4f})"
-            )
-
-        for k, stats in m.get("knn_map", {}).items():
-            print(
-                f"    MAP@{k:<10}  : mean={stats['mean']:.4f}  std={stats['std']:.4f}"
-                f"  (p05={stats['p05']:.4f}  p95={stats['p95']:.4f})"
-            )
+    Parameters
+    ----------
+    group_analysis : dict
+        The ``group_analysis`` sub-dict from a ``run_evaluation()`` result.
+    """
+    print("── group_analysis ──────────────────────────────────────────────────────")
+    for group_key, entry in group_analysis.items():
+        flag = "  *** suggested_split ***" if entry.get("suggested_split") else ""
+        sil = entry.get("silhouette_score")
+        sil_str = f"{sil:.4f}" if sil is not None else "n/a"
+        print(
+            f"\n  [{group_key}]  n={entry['n_images']}{flag}\n"
+            f"    intra cosine     : mean={entry['mean_intra_cosine']:.4f}"
+            f"  std={entry['std_intra_cosine']:.4f}\n"
+            f"    clusters         : {entry['cluster_count']}"
+            f"  noise={entry['noise_count']}"
+            f"  silhouette={sil_str}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +312,10 @@ def _print_per_class(per_class: dict) -> None:
 def _write_plotly(fig: Any, output_path: str | None) -> None:
     """Write a Plotly figure to an HTML or static-image file, or display it inline.
 
+    When ``output_path`` is ``None`` the figure is emitted via
+    ``IPython.display.display(fig)``, which stores the native
+    ``application/vnd.plotly.v1+json`` MIME type in the notebook cell output.
+    This renders interactively both locally and on GitHub's notebook viewer.
     HTML output uses a CDN-hosted Plotly bundle.  Static image formats
     (``.png``, ``.pdf``, etc.) require the ``kaleido`` package; if it is
     absent the figure is saved as ``.html`` instead and a notice is printed.
@@ -202,8 +329,8 @@ def _write_plotly(fig: Any, output_path: str | None) -> None:
         Pass ``None`` to display the figure inline (e.g. in a Jupyter notebook).
     """
     if output_path is None:
-        if display is not None and HTML is not None:
-            display(HTML(fig.to_html(full_html=False, include_plotlyjs="cdn")))
+        if display is not None:
+            display(fig)
         else:
             fig.show()
         return
@@ -389,6 +516,20 @@ def plot_cosine_similarity(
     _write_plotly(fig, output_path)
 
 
+def _subgroup_labels(paths: list[str]) -> list[str]:
+    """Extract the subgroup name from each embedding path.
+
+    For canonical paths of the form ``images/class_subgroup/filename``, this
+    returns ``class_subgroup`` (the parent directory).  For flat paths that
+    have no parent component the path itself is returned as a fallback.
+    """
+    labels = []
+    for p in paths:
+        parts = Path(p).parts
+        labels.append(parts[-2] if len(parts) >= 2 else p)
+    return labels
+
+
 def _build_scatter3d(
     fig: Any,
     coords: Any,
@@ -418,9 +559,11 @@ def _build_scatter3d(
     if go is None:
         raise ImportError("plotly is required: pip install plotly") from None
     n = len(paths)
-    for cls in classes:
+    palette = _scatter_colors(len(classes))
+    for i, cls in enumerate(classes):
         mask = label_arr == cls
-        cls_paths = [paths[i] for i in range(n) if mask[i]]
+        cls_paths = [paths[j] for j in range(n) if mask[j]]
+        color = palette[i]
         fig.add_trace(
             go.Scatter3d(
                 x=coords[mask, 0].tolist(),
@@ -430,7 +573,7 @@ def _build_scatter3d(
                 name=cls,
                 text=cls_paths,
                 hovertemplate="%{text}<extra>" + cls + "</extra>",
-                marker=dict(size=7, opacity=0.85, line=dict(width=1, color="white")),
+                marker=dict(size=7, opacity=0.85, color=color, line=dict(width=1, color="white")),
             )
         )
 
@@ -468,14 +611,12 @@ def plot_lle(
     vectors = np.array(list(image_embeddings.values()), dtype=np.float32)
     n = len(vectors)
 
-    item_labels = result.get("item_labels")
-    if item_labels is None:
-        item_labels = extract_labels(paths)
+    groups = _subgroup_labels(paths)
+    unique_groups = sorted(set(groups))
+    label_arr = np.array(groups)
+    n_groups = len(unique_groups)
 
-    classes = result["classes"]
-    label_arr = np.array(item_labels)
-
-    k = min(n - 1, n_neighbors if n_neighbors is not None else max(5, n // 3))
+    k = min(n - 1, n_neighbors if n_neighbors is not None else max(3, n // (n_groups + 2)))
     tqdm.write(f"  LLE 3D — fitting {n} samples (n_neighbors={k})...")
     coords = LocallyLinearEmbedding(
         n_components=3,
@@ -484,7 +625,7 @@ def plot_lle(
     ).fit_transform(vectors.astype(np.float64))
 
     fig = go.Figure()
-    _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="LLE")
+    _build_scatter3d(fig, coords, unique_groups, label_arr, paths, axis_prefix="LLE")
 
     fig.update_layout(
         title=dict(text=f"LLE 3D  (n={n},  n_neighbors={k})", font=dict(size=17)),
@@ -494,7 +635,7 @@ def plot_lle(
             zaxis_title="LLE 3",
             bgcolor="white",
         ),
-        legend=dict(title="Class", font=dict(size=12)),
+        legend=dict(title="Subgroup", font=dict(size=12)),
         width=950,
         height=750,
         paper_bgcolor="white",
@@ -542,17 +683,18 @@ def plot_tsne(
     vectors = np.array(list(image_embeddings.values()), dtype=np.float32)
     n = len(vectors)
 
-    item_labels = result.get("item_labels")
-    if item_labels is None:
-        item_labels = extract_labels(paths)
+    # Color by subgroup (path parent dir) rather than class so all 4 clusters
+    # are visible as distinct colours instead of collapsing corn↔corn and
+    # soybean↔soybean into single blobs.
+    groups = _subgroup_labels(paths)
+    unique_groups = sorted(set(groups))
+    label_arr = np.array(groups)
+    n_groups = len(unique_groups)
 
-    classes = result["classes"]
-    label_arr = np.array(item_labels)
-
-    effective_perplexity = min(perplexity, max(5, n // 3))
-    # 3D t-SNE has more degrees of freedom than 2D, so the repulsion forces
-    # can spread tight clusters along the z-axis with too few iterations.
-    # Double the iteration budget for 3D to ensure convergence.
+    # Perplexity must be < cluster size.  With n_groups clusters of roughly
+    # equal size, each cluster has ~n/n_groups points, so cap at half that.
+    effective_perplexity = min(perplexity, max(3, n // (n_groups + 2)))
+    # 3D t-SNE needs more iterations than 2D to converge the extra degree of freedom.
     n_iter = 1000 if dimensions == 2 else 2000
     tqdm.write(f"  t-SNE {dimensions}D — fitting {n} samples (perplexity={effective_perplexity}, iter={n_iter})...")
     tsne_kwargs: dict[str, Any] = {_TSNE_ITER_PARAM: n_iter}
@@ -568,20 +710,22 @@ def plot_tsne(
     fig = go.Figure()
 
     if dimensions == 3:
-        _build_scatter3d(fig, coords, classes, label_arr, paths, axis_prefix="t-SNE")
+        _build_scatter3d(fig, coords, unique_groups, label_arr, paths, axis_prefix="t-SNE")
     else:
-        for cls in classes:
-            mask = label_arr == cls
-            cls_paths = [paths[i] for i in range(n) if mask[i]]
+        palette = _scatter_colors(len(unique_groups))
+        for i, grp in enumerate(unique_groups):
+            mask = label_arr == grp
+            grp_paths = [paths[j] for j in range(n) if mask[j]]
+            color = palette[i]
             fig.add_trace(
                 go.Scatter(
                     x=coords[mask, 0].tolist(),
                     y=coords[mask, 1].tolist(),
                     mode="markers",
-                    name=cls,
-                    text=cls_paths,
-                    hovertemplate="%{text}<extra>" + cls + "</extra>",
-                    marker=dict(size=10, opacity=0.85, line=dict(width=1, color="white")),
+                    name=grp,
+                    text=grp_paths,
+                    hovertemplate="%{text}<extra>" + grp + "</extra>",
+                    marker=dict(size=10, opacity=0.85, color=color, line=dict(width=1, color="white")),
                 )
             )
 
@@ -594,7 +738,7 @@ def plot_tsne(
                 zaxis_title="t-SNE 3",
                 bgcolor="white",
             ),
-            legend=dict(title="Class", font=dict(size=12)),
+            legend=dict(title="Subgroup", font=dict(size=12)),
             width=950,
             height=750,
             paper_bgcolor="white",
@@ -604,7 +748,7 @@ def plot_tsne(
             title=dict(text=title_text, font=dict(size=17)),
             xaxis=dict(title="t-SNE 1", showgrid=True, gridcolor="#e8e8e8", zeroline=False),
             yaxis=dict(title="t-SNE 2", showgrid=True, gridcolor="#e8e8e8", zeroline=False),
-            legend=dict(title="Class", font=dict(size=12)),
+            legend=dict(title="Subgroup", font=dict(size=12)),
             width=950,
             height=680,
             plot_bgcolor="white",

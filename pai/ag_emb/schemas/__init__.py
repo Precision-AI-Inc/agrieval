@@ -12,9 +12,11 @@
 from pai.ag_emb.schemas.evaluate import (
     EmbeddingEvaluateRequest,
     EmbeddingEvaluateResponse,
+    MetadataGroup,
 )
 
 __all__ = [
     "EmbeddingEvaluateRequest",
     "EmbeddingEvaluateResponse",
+    "MetadataGroup",
 ]

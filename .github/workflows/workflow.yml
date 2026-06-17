@@ -12,3 +12,7 @@ permissions:
 jobs:
   unit-tests:
     uses: ./.github/workflows/unit-test.yml
+
+  pre-commit:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/pre-commit.yml

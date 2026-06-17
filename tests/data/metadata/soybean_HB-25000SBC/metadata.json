@@ -1,0 +1,12 @@
+{
+  "class_name": "soybean",
+  "attributes": {
+    "camera": "HB-25000SBC",
+    "growth_stage": "medium"
+  },
+  "images": [
+    "images/soybean_HB-25000SBC/220608-143001-soybeans-HB-25000SBC-37dc1b2c.png",
+    "images/soybean_HB-25000SBC/220608-143001-soybeans-HB-25000SBC-754c6a11.png",
+    "images/soybean_HB-25000SBC/220608-143001-soybeans-HB-25000SBC-8235f317.png"
+  ]
+}

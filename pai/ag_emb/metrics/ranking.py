@@ -153,6 +153,54 @@ def average_precision_at_k(
     return float(sum(precisions) / len(relevant_ids))
 
 
+def r_precision(ranked_ids: Sequence[T], relevant_ids: set[T]) -> float | None:
+    """Precision at R where R equals the number of relevant items.
+
+    Parameters
+    ----------
+    ranked_ids : Sequence[T]
+        Retrieved item IDs in ranked order (most similar first).
+    relevant_ids : set[T]
+        Ground-truth relevant item IDs for the query.
+
+    Returns
+    -------
+    float | None
+        R-Precision, or None if ``relevant_ids`` is empty.
+        If fewer than R candidates are available the available prefix is used
+        and the denominator remains R (conservative estimate).
+    """
+    r = len(relevant_ids)
+    if r == 0:
+        return None
+    hits = sum(1 for cid in ranked_ids[:r] if cid in relevant_ids)
+    return hits / float(r)
+
+
+def reciprocal_rank(ranked_ids: Sequence[T], relevant_ids: set[T]) -> float | None:
+    """Reciprocal rank of the first relevant result.
+
+    Parameters
+    ----------
+    ranked_ids : Sequence[T]
+        Retrieved item IDs in ranked order (most similar first).
+    relevant_ids : set[T]
+        Ground-truth relevant item IDs for the query.
+
+    Returns
+    -------
+    float | None
+        ``1 / rank`` of the first hit, ``0.0`` if no hit is found in
+        ``ranked_ids``, or ``None`` if ``relevant_ids`` is empty.
+    """
+    if not relevant_ids:
+        return None
+    for rank, item_id in enumerate(ranked_ids, start=1):
+        if item_id in relevant_ids:
+            return 1.0 / rank
+    return 0.0
+
+
 def dcg_at_k(relevances: Sequence[int], k: int) -> float:
     """Discounted Cumulative Gain at rank K.
 

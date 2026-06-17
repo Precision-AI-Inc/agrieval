@@ -15,27 +15,52 @@ from __future__ import annotations
 
 import math
 import os
-import re
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm import tqdm
+
+try:
+    from sklearn.cluster import HDBSCAN as _HDBSCAN  # type: ignore[import]
+    from sklearn.metrics import silhouette_score as _silhouette_score  # type: ignore[import]
+
+    _SKLEARN_AVAILABLE = True
+except ImportError:
+    _HDBSCAN = None  # type: ignore[assignment]
+    _silhouette_score = None  # type: ignore[assignment]
+    _SKLEARN_AVAILABLE = False
 
 from pai.ag_emb.metrics import (
+    ImageItem,
+    alignment,
     centroid_similarity_stats,
     effective_rank,
+    hubness_at_k,
     intra_inter_similarity_gap,
     knn_confusion_matrix,
+    knn_label_mrr_at_k,
     knn_label_ndcg_at_k,
     knn_label_purity_at_k,
+    knn_label_r_precision,
     knn_map_at_k,
+    knn_metadata_map_at_k,
+    knn_metadata_mrr_at_k,
+    knn_metadata_ndcg_at_k,
+    knn_metadata_precision_at_k,
+    knn_metadata_r_precision,
+    knn_per_attribute_ndcg_at_k,
+    knn_radius_at_k,
+    mean_top_k_similarity,
+    outlier_score_at_k,
     pairwise_similarity_stats,
     top_k_neighbors,
+    uniformity,
 )
+from pai.ag_emb.schemas.evaluate import MetadataGroup
 
-# Matches folder names of the form  crop_[camera]  e.g.  corn_[HB-25000SBC]
-_CROP_CAMERA_RE = re.compile(r"^(.+?)_\[.+\]$")
+# Supported embedding path extensions — case-sensitive exact match.
+_SUPPORTED_EXTENSIONS = frozenset({".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"})
 
 # ---------------------------------------------------------------------------
 # Path parsing
@@ -43,16 +68,20 @@ _CROP_CAMERA_RE = re.compile(r"^(.+?)_\[.+\]$")
 
 
 def _parse_crop(folder_name: str) -> str:
-    """Extract the crop name from a folder that may follow the ``crop_[camera]`` convention.
+    """Extract the crop name from a subgroup folder name.
+
+    The expected naming convention is ``class_subgroup`` — everything before
+    the first ``_`` is the class name.
 
     Examples
     --------
-    ``corn_[HB-25000SBC]``  →  ``corn``
-    ``soybean_[anafi]``     →  ``soybean``
-    ``corn``                →  ``corn``   (plain folder, returned as-is)
+    ``corn_HB-25000SBC``  →  ``corn``
+    ``corn_nikon_d610``   →  ``corn``
+    ``corn``              →  ``corn``   (plain folder, returned as-is)
     """
-    match = _CROP_CAMERA_RE.match(folder_name)
-    return match.group(1) if match else folder_name
+    if "_" in folder_name:
+        return folder_name.split("_", maxsplit=1)[0]
+    return folder_name
 
 
 def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[str]:
@@ -83,16 +112,18 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
     if not paths:
         return []
 
+    posix_paths = [Path(p).as_posix() for p in paths]
+
     if dataset_root is not None:
-        root_prefix = dataset_root.rstrip("/") + "/"
+        root_prefix = Path(dataset_root).as_posix().rstrip("/") + "/"
     else:
-        raw = os.path.commonprefix(paths)
+        raw = os.path.commonprefix(posix_paths)
         # Trim to the last directory separator so we don't clip mid-word
         root_prefix = raw[: raw.rfind("/") + 1] if "/" in raw else ""
 
     labels: list[str] = []
-    for path in paths:
-        remainder = path[len(root_prefix) :] if path.startswith(root_prefix) else path
+    for posix_path in posix_paths:
+        remainder = posix_path[len(root_prefix) :] if posix_path.startswith(root_prefix) else posix_path
         parts = Path(remainder).parts
         folder = parts[0] if parts else "unknown"
         labels.append(_parse_crop(folder))
@@ -100,12 +131,92 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
     return labels
 
 
+def _labels_from_metadata(
+    paths: list[str],
+    metadata: dict[str, MetadataGroup],
+    fallback_labels: list[str],
+) -> list[str]:
+    """Return per-path class labels sourced from metadata, falling back to path-extracted labels.
+
+    Matching is performed by exact path key comparison.  The ``images`` entries
+    in each group must exactly match the keys used in the embeddings dictionary.
+
+    Parameters
+    ----------
+    paths : list[str]
+        Image paths as they appear in the embeddings dictionary.
+    metadata : dict[str, MetadataGroup]
+        Metadata groups keyed by arbitrary group ID.
+    fallback_labels : list[str]
+        Labels to use when a path has no matching metadata group.
+
+    Returns
+    -------
+    list[str]
+        One label per path, in the same order as ``paths``.
+    """
+    path_to_class: dict[str, str] = {}
+    for group in metadata.values():
+        for img in group.images:
+            path_to_class[img] = group.class_name
+
+    return [path_to_class.get(p, fallback) for p, fallback in zip(paths, fallback_labels, strict=True)]
+
+
+def build_image_items(
+    paths: list[str],
+    metadata: dict[str, MetadataGroup],
+) -> list[ImageItem]:
+    """Build :class:`~pai.ag_emb.metrics.ImageItem` objects from embedding paths and metadata.
+
+    Each item's ``image_id`` is the exact embedding path key.
+    The ``explicit_positive_ids`` are the exact paths of all other
+    images in the same metadata group.  Items with no matching group receive
+    empty ``explicit_positive_ids``, ``None`` for ``class_name``, and an
+    empty ``attributes`` dict.
+
+    Parameters
+    ----------
+    paths : list[str]
+        Image paths as they appear in the embeddings dictionary.
+    metadata : dict[str, MetadataGroup]
+        Metadata groups keyed by arbitrary group ID.
+
+    Returns
+    -------
+    list[ImageItem]
+        One :class:`~pai.ag_emb.metrics.ImageItem` per path, in the same order.
+    """
+    # exact path → (class_name, attributes, frozenset of all member paths)
+    path_to_group: dict[str, tuple[str, dict[str, str], frozenset[str]]] = {}
+    for group in metadata.values():
+        member_ids = frozenset(group.images)
+        for img in group.images:
+            path_to_group[img] = (group.class_name, group.attributes, member_ids)
+
+    items: list[ImageItem] = []
+    for path in paths:
+        if path in path_to_group:
+            class_name, attributes, member_ids = path_to_group[path]
+            items.append(
+                ImageItem(
+                    image_id=path,
+                    explicit_positive_ids=member_ids - {path},
+                    class_name=class_name,
+                    attributes=dict(attributes),
+                )
+            )
+        else:
+            items.append(ImageItem(image_id=path))
+    return items
+
+
 # ---------------------------------------------------------------------------
 # JSON serialisation
 # ---------------------------------------------------------------------------
 
 
-def _jsonify(obj: object) -> Any:  # noqa: PLR0911
+def _jsonify(obj: Any) -> Any:  # noqa: PLR0911
     """Recursively convert a metrics result to JSON-serialisable types.
 
     numpy arrays are dropped because they are per-item visualisation artefacts
@@ -114,7 +225,7 @@ def _jsonify(obj: object) -> Any:  # noqa: PLR0911
 
     Parameters
     ----------
-    obj : object
+    obj : Any
         Arbitrary metrics result object — dict, list, numpy array/scalar, or
         Python scalar.
 
@@ -154,6 +265,12 @@ def _jsonify(obj: object) -> Any:  # noqa: PLR0911
 def _validate_embeddings(paths: list[str], vectors: list[list[float]]) -> None:
     """Raise ``ValueError`` if the embeddings are not usable for evaluation.
 
+    Checks minimum count, consistent dimension, non-empty vectors, and that
+    every path ends with a supported extension.  Extensions are matched
+    case-sensitively — ``.JPG`` and ``.jpg`` are both valid but ``.Jpg`` is not.
+
+    Supported extensions: ``.jpg``, ``.JPG``, ``.jpeg``, ``.JPEG``, ``.png``, ``.PNG``.
+
     Parameters
     ----------
     paths : list[str]
@@ -168,6 +285,10 @@ def _validate_embeddings(paths: list[str], vectors: list[list[float]]) -> None:
         raise ValueError("Embedding vectors must not be empty.")
     if len(dims) > 1:
         raise ValueError(f"All embeddings must have the same dimension. Found: {sorted(dims)}")
+    bad = [p for p in paths if Path(p).suffix not in _SUPPORTED_EXTENSIONS]
+    if bad:
+        supported = ", ".join(sorted(_SUPPORTED_EXTENSIONS))
+        raise ValueError(f"Unsupported file extension(s) in embedding paths (supported: {supported}): {bad}")
 
 
 def _slice_knn_stats(per_item_by_k: dict[int, np.ndarray], indices: np.ndarray) -> dict:
@@ -199,14 +320,33 @@ def _slice_knn_stats(per_item_by_k: dict[int, np.ndarray], indices: np.ndarray) 
     return out
 
 
+def _slice_flat_stats(per_item: np.ndarray, indices: np.ndarray) -> dict:
+    """Summarise a flat per-item score array for a subset of items.
+
+    Parameters
+    ----------
+    per_item : np.ndarray
+        Full-dataset per-item scores (no K nesting).
+    indices : np.ndarray
+        Row indices of the subset to summarise.
+
+    Returns
+    -------
+    dict
+        Keys: ``mean``, ``std``, ``p05``, ``p50``, ``p95``.
+    """
+    vals = per_item[indices].astype(np.float64)
+    p05, p50, p95 = np.percentile(vals, [5, 50, 95]).tolist()
+    return {"mean": float(np.mean(vals)), "std": float(np.std(vals)), "p05": p05, "p50": p50, "p95": p95}
+
+
 def _build_per_class_metrics(
     unique_classes: list[str],
     embeddings: np.ndarray,
     labels_arr: np.ndarray,
     sample_pairs: int | None,
-    purity_per_item: dict[int, np.ndarray],
-    ndcg_per_item: dict[int, np.ndarray],
-    map_per_item: dict[int, np.ndarray],
+    label_metrics: dict,
+    meta_metrics: dict | None = None,
 ) -> dict:
     """Compute per-class embedding metrics.
 
@@ -220,12 +360,11 @@ def _build_per_class_metrics(
         Label per row, aligned with ``embeddings``.
     sample_pairs : int | None
         Pair-sampling budget (capped at 100 000 per class).
-    purity_per_item : dict[int, np.ndarray]
-        KNN purity scores indexed by k.
-    ndcg_per_item : dict[int, np.ndarray]
-        KNN nDCG scores indexed by k.
-    map_per_item : dict[int, np.ndarray]
-        KNN MAP scores indexed by k.
+    label_metrics : dict
+        Bundle returned by ``_compute_label_knn_metrics``.
+    meta_metrics : dict | None
+        Bundle returned by ``_compute_metadata_knn_metrics``.  When provided,
+        metadata KPIs replace the label-based KPIs in per-class output.
 
     Returns
     -------
@@ -246,9 +385,18 @@ def _build_per_class_metrics(
             )
             cls_metrics["centroid_similarity_stats"] = centroid_similarity_stats(cls_embeddings)
             cls_metrics["effective_rank"] = effective_rank(cls_embeddings)
-        cls_metrics["knn_label_purity"] = _slice_knn_stats(purity_per_item, cls_indices)
-        cls_metrics["knn_label_ndcg"] = _slice_knn_stats(ndcg_per_item, cls_indices)
-        cls_metrics["knn_map"] = _slice_knn_stats(map_per_item, cls_indices)
+        if meta_metrics is not None:
+            cls_metrics["knn_metadata_precision"] = _slice_knn_stats(meta_metrics["precision_per_item"], cls_indices)
+            cls_metrics["knn_metadata_ndcg"] = _slice_knn_stats(meta_metrics["ndcg_per_item"], cls_indices)
+            cls_metrics["knn_metadata_map"] = _slice_knn_stats(meta_metrics["map_per_item"], cls_indices)
+            cls_metrics["knn_metadata_mrr"] = _slice_knn_stats(meta_metrics["mrr_per_item"], cls_indices)
+            cls_metrics["knn_metadata_r_precision"] = _slice_flat_stats(meta_metrics["r_prec_per_item"], cls_indices)
+        else:
+            cls_metrics["knn_label_purity"] = _slice_knn_stats(label_metrics["purity_per_item"], cls_indices)
+            cls_metrics["knn_label_ndcg"] = _slice_knn_stats(label_metrics["ndcg_per_item"], cls_indices)
+            cls_metrics["knn_map"] = _slice_knn_stats(label_metrics["map_per_item"], cls_indices)
+            cls_metrics["knn_label_mrr"] = _slice_knn_stats(label_metrics["mrr_per_item"], cls_indices)
+            cls_metrics["knn_label_r_precision"] = _slice_flat_stats(label_metrics["r_prec_per_item"], cls_indices)
         per_class[cls] = cls_metrics
     return per_class
 
@@ -258,11 +406,295 @@ def _build_per_class_metrics(
 # ---------------------------------------------------------------------------
 
 
+def _compute_metadata_knn_metrics(
+    neighbors: dict[int, np.ndarray],
+    paths: list[str],
+    metadata: dict[str, MetadataGroup],
+) -> dict:
+    """Compute all metadata-aware KNN metrics and return them as a bundle.
+
+    Parameters
+    ----------
+    neighbors : dict[int, np.ndarray]
+        Precomputed top-K neighbour index arrays keyed by K.
+    paths : list[str]
+        Embedding path keys in the same index order as ``neighbors``.
+    metadata : dict[str, MetadataGroup]
+        Similarity groups from the evaluation request.
+
+    Returns
+    -------
+    dict
+        Keys: ndcg, precision, map, mrr, r_prec (raw + per_item),
+        attribute_ndcg_raw, positive_pairs.
+    """
+    items = build_image_items(paths, metadata)
+    ndcg_raw = knn_metadata_ndcg_at_k(neighbors, items)
+    precision_raw = knn_metadata_precision_at_k(neighbors, items)
+    map_raw = knn_metadata_map_at_k(neighbors, items)
+    mrr_raw = knn_metadata_mrr_at_k(neighbors, items)
+    r_prec_raw = knn_metadata_r_precision(neighbors, items)
+    return {
+        "ndcg_raw": ndcg_raw,
+        "ndcg_per_item": {k: s["per_item"] for k, s in ndcg_raw.items()},
+        "precision_raw": precision_raw,
+        "precision_per_item": {k: s["per_item"] for k, s in precision_raw.items()},
+        "map_raw": map_raw,
+        "map_per_item": {k: s["per_item"] for k, s in map_raw.items()},
+        "mrr_raw": mrr_raw,
+        "mrr_per_item": {k: s["per_item"] for k, s in mrr_raw.items()},
+        "r_prec_raw": r_prec_raw,
+        "r_prec_per_item": r_prec_raw["per_item"],
+        "attribute_ndcg_raw": knn_per_attribute_ndcg_at_k(neighbors, items),
+        "positive_pairs": _build_positive_pairs(items),
+    }
+
+
+def _compute_label_knn_metrics(
+    neighbors: dict[int, np.ndarray],
+    labels_arr: np.ndarray,
+) -> dict:
+    """Run all label-aware KNN metrics and return them as a bundle.
+
+    Parameters
+    ----------
+    neighbors : dict[int, np.ndarray]
+        Precomputed top-K neighbour index arrays keyed by K.
+    labels_arr : np.ndarray
+        Class label for every item in the same index order as ``neighbors``.
+
+    Returns
+    -------
+    dict
+        Keys: purity, ndcg, map, mrr, r_prec (raw + per_item).
+    """
+    purity_raw = knn_label_purity_at_k(neighbors, labels_arr)
+    ndcg_raw = knn_label_ndcg_at_k(neighbors, labels_arr)
+    map_raw = knn_map_at_k(neighbors, labels_arr)
+    mrr_raw = knn_label_mrr_at_k(neighbors, labels_arr)
+    r_prec_raw = knn_label_r_precision(neighbors, labels_arr)
+    return {
+        "purity_raw": purity_raw,
+        "purity_per_item": {k: s["per_item"] for k, s in purity_raw.items()},
+        "ndcg_raw": ndcg_raw,
+        "ndcg_per_item": {k: s["per_item"] for k, s in ndcg_raw.items()},
+        "map_raw": map_raw,
+        "map_per_item": {k: s["per_item"] for k, s in map_raw.items()},
+        "mrr_raw": mrr_raw,
+        "mrr_per_item": {k: s["per_item"] for k, s in mrr_raw.items()},
+        "r_prec_raw": r_prec_raw,
+        "r_prec_per_item": r_prec_raw["per_item"],
+    }
+
+
+def _build_positive_pairs(items: list[ImageItem]) -> list[tuple[int, int]]:
+    """Build a deduplicated list of (i, j) index pairs for explicit positives.
+
+    Parameters
+    ----------
+    items : list[ImageItem]
+        Items in embedding-row order.
+
+    Returns
+    -------
+    list[tuple[int, int]]
+        Unique pairs where both members are in the same metadata group.
+    """
+    id_to_idx = {item.image_id: i for i, item in enumerate(items)}
+    seen: set[tuple[int, int]] = set()
+    pairs: list[tuple[int, int]] = []
+    for item in items:
+        qi = id_to_idx.get(item.image_id)
+        if qi is None:
+            continue
+        for pos_id in item.explicit_positive_ids:
+            pi = id_to_idx.get(pos_id)
+            if pi is not None:
+                key = (min(qi, pi), max(qi, pi))
+                if key not in seen:
+                    seen.add(key)
+                    pairs.append(key)
+    return pairs
+
+
+def _compute_neighbor_diagnostics(
+    neighbors: dict[int, np.ndarray],
+    n: int,
+) -> dict:
+    """Surface pre-existing neighbour diagnostics as a named bundle.
+
+    Parameters
+    ----------
+    neighbors : dict[int, np.ndarray]
+        Output of :func:`~pai.ag_emb.metrics.similarity.top_k_neighbors`.
+    n : int
+        Total number of items (needed for hubness count array).
+
+    Returns
+    -------
+    dict
+        Keys: ``hubness``, ``knn_radius``, ``mean_top_k_sim``, ``outlier_score``.
+    """
+    return {
+        "hubness": hubness_at_k(neighbors, n_items=n),
+        "knn_radius": knn_radius_at_k(neighbors),
+        "mean_top_k_sim": mean_top_k_similarity(neighbors),
+        "outlier_score": outlier_score_at_k(neighbors),
+    }
+
+
+def _assemble_global_metrics(
+    embeddings: np.ndarray,
+    labels_arr: np.ndarray,
+    sample_pairs: int | None,
+    neighbor_diags: dict,
+    meta_metrics: dict | None,
+    label_metrics: dict,
+) -> dict:
+    """Compute geometry stats and assemble the global_metrics dict.
+
+    Parameters
+    ----------
+    embeddings : np.ndarray
+        Full embedding matrix.
+    labels_arr : np.ndarray
+        Class label per row.
+    sample_pairs : int | None
+        Pair-sampling budget for pairwise/intra-inter stats.
+    neighbor_diags : dict
+        Bundle from ``_compute_neighbor_diagnostics``.
+    meta_metrics : dict | None
+        Bundle from ``_compute_metadata_knn_metrics``, or ``None``.
+    label_metrics : dict
+        Bundle from ``_compute_label_knn_metrics``.
+
+    Returns
+    -------
+    dict
+        Complete global metrics dict ready for ``_jsonify``.
+    """
+    pairwise_s = pairwise_similarity_stats(embeddings, sample_pairs=sample_pairs)
+    intra_inter = intra_inter_similarity_gap(embeddings, labels_arr, sample_pairs=sample_pairs)
+    eff_rank = effective_rank(embeddings)
+    centroid_s = centroid_similarity_stats(embeddings)
+    gm: dict = {
+        "pairwise_similarity_stats": pairwise_s,
+        "intra_inter_similarity_gap": intra_inter,
+        "effective_rank": eff_rank,
+        "centroid_similarity_stats": centroid_s,
+        "uniformity": uniformity(embeddings),
+        "hubness": neighbor_diags["hubness"],
+        "knn_radius": neighbor_diags["knn_radius"],
+        "mean_top_k_sim": neighbor_diags["mean_top_k_sim"],
+        "outlier_score": neighbor_diags["outlier_score"],
+    }
+    if meta_metrics is not None:
+        gm["alignment"] = alignment(embeddings, meta_metrics["positive_pairs"])
+        gm["knn_metadata_precision"] = meta_metrics["precision_raw"]
+        gm["knn_metadata_ndcg"] = meta_metrics["ndcg_raw"]
+        gm["knn_metadata_map"] = meta_metrics["map_raw"]
+        gm["knn_metadata_mrr"] = meta_metrics["mrr_raw"]
+        gm["knn_metadata_r_precision"] = meta_metrics["r_prec_raw"]
+        if meta_metrics["attribute_ndcg_raw"]:
+            gm["knn_attribute_ndcg"] = meta_metrics["attribute_ndcg_raw"]
+    else:
+        gm["knn_label_purity"] = label_metrics["purity_raw"]
+        gm["knn_label_ndcg"] = label_metrics["ndcg_raw"]
+        gm["knn_map"] = label_metrics["map_raw"]
+        gm["knn_label_mrr"] = label_metrics["mrr_raw"]
+        gm["knn_label_r_precision"] = label_metrics["r_prec_raw"]
+    return gm
+
+
+def _compute_group_analysis(
+    embeddings: np.ndarray,
+    paths: list[str],
+    metadata: dict[str, MetadataGroup],
+) -> dict:
+    """Analyse the coherence of each declared metadata group using HDBSCAN.
+
+    For each group, compute pairwise intra-group cosine statistics and
+    attempt to detect natural sub-clusters.  Groups with ``cluster_count > 1``
+    and ``silhouette_score > 0.25`` are flagged with ``suggested_split: true``.
+
+    Parameters
+    ----------
+    embeddings : np.ndarray
+        Full embedding matrix, shape ``(n, d)``.
+    paths : list[str]
+        Embedding path keys in the same index order as ``embeddings``.
+    metadata : dict[str, MetadataGroup]
+        Declared similarity groups.
+
+    Returns
+    -------
+    dict
+        Keyed by group name.  Each value: ``n_images``, ``mean_intra_cosine``,
+        ``std_intra_cosine``, ``cluster_count``, ``noise_count``,
+        ``silhouette_score``, ``suggested_split``.
+    """
+    path_to_idx = {p: i for i, p in enumerate(paths)}
+    result: dict = {}
+    for group_key, group in metadata.items():
+        idxs = [path_to_idx[img] for img in group.images if img in path_to_idx]
+        n = len(idxs)
+        if n < 2:
+            result[group_key] = {
+                "n_images": n,
+                "mean_intra_cosine": None,
+                "std_intra_cosine": None,
+                "cluster_count": None,
+                "noise_count": 0,
+                "silhouette_score": None,
+                "suggested_split": False,
+            }
+            continue
+        g_emb = embeddings[np.array(idxs)]
+        sims = np.clip(g_emb @ g_emb.T, -1.0, 1.0)
+        cos_dist = np.maximum(1.0 - sims, 0.0).astype(np.float64)
+        np.fill_diagonal(cos_dist, 0.0)
+        triu = np.triu_indices(n, k=1)
+        mean_intra = float(np.mean(sims[triu]))
+        std_intra = float(np.std(sims[triu]))
+        cluster_count, noise_count, sil_score = 1, 0, None
+        if _SKLEARN_AVAILABLE and n >= 3:
+            min_cs = max(2, n // 3)
+            clusterer = _HDBSCAN(
+                min_cluster_size=min_cs,
+                metric="precomputed",
+                cluster_selection_method="leaf",
+                copy=True,  # type: ignore[arg-type]
+            )  # type: ignore[call]
+            labels = clusterer.fit_predict(cos_dist)
+            valid = labels[labels >= 0]
+            cluster_count = len(set(valid.tolist())) if len(valid) > 0 else 0
+            noise_count = int(np.sum(labels == -1))
+            if cluster_count >= 2:
+                non_noise = np.where(labels >= 0)[0]
+                if len(non_noise) >= 2 and _silhouette_score is not None:
+                    sil_score = float(
+                        _silhouette_score(
+                            cos_dist[np.ix_(non_noise, non_noise)], labels[non_noise], metric="precomputed"
+                        )
+                    )
+        result[group_key] = {
+            "n_images": n,
+            "mean_intra_cosine": mean_intra,
+            "std_intra_cosine": std_intra,
+            "cluster_count": cluster_count,
+            "noise_count": noise_count,
+            "silhouette_score": sil_score,
+            "suggested_split": cluster_count > 1 and (sil_score is None or sil_score > 0.25),
+        }
+    return result
+
+
 def run_evaluation(
     image_embeddings: dict[str, list[float]],
     k_values: list[int],
     dataset_root: str | None,
     sample_pairs: int | None,
+    metadata: dict[str, MetadataGroup] | None = None,
 ) -> dict:
     """Compute the full fixed-schema embedding evaluation.
 
@@ -273,9 +705,14 @@ def run_evaluation(
     k_values : list[int]
         K cutoffs for nearest-neighbour metrics.
     dataset_root : str | None
-        Optional explicit dataset root for label extraction.
+        Optional explicit dataset root for label extraction (ignored when
+        ``metadata`` is provided).
     sample_pairs : int | None
         Pair-sampling budget for global similarity stats.
+    metadata : dict[str, MetadataGroup] | None
+        Optional similarity groups.  When supplied, class labels are taken
+        from ``MetadataGroup.class_name`` and additional metadata-aware
+        metrics (``knn_metadata_ndcg``, ``knn_attribute_ndcg``) are computed.
 
     Returns
     -------
@@ -286,51 +723,51 @@ def run_evaluation(
     vectors = list(image_embeddings.values())
     _validate_embeddings(paths, vectors)
 
-    labels_list = extract_labels(paths, dataset_root)
+    path_labels = extract_labels(paths, dataset_root)
+    if metadata is not None:
+        labels_list = _labels_from_metadata(paths, metadata, path_labels)
+    else:
+        labels_list = path_labels
     labels_arr = np.array(labels_list)
     embeddings = np.array(vectors, dtype=np.float32)
     n, d = embeddings.shape
     unique_classes = sorted(set(labels_list))
 
-    with tqdm(total=7, desc="Neighbor graph", unit="step") as pbar:
+    n_steps = 10 if metadata is not None else 8
+    with tqdm(total=n_steps, desc="Neighbor graph", unit="step") as pbar:
         neighbors = top_k_neighbors(embeddings, ks=k_values)
         effective_ks = sorted(neighbors.keys())
         pbar.update(1)
 
-        pbar.set_description("KNN purity")
-        purity_raw = knn_label_purity_at_k(neighbors, labels_arr)
-        purity_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in purity_raw.items()}
+        pbar.set_description("KNN metrics")
+        label_metrics = _compute_label_knn_metrics(neighbors, labels_arr)
+        pbar.update(3)
+
+        meta_metrics: dict | None = None
+        if metadata is not None:
+            pbar.set_description("Metadata metrics")
+            meta_metrics = _compute_metadata_knn_metrics(neighbors, paths, metadata)
+            pbar.update(1)
+
+        pbar.set_description("Neighbor diagnostics")
+        neighbor_diags = _compute_neighbor_diagnostics(neighbors, n)
         pbar.update(1)
 
-        pbar.set_description("KNN nDCG")
-        ndcg_raw = knn_label_ndcg_at_k(neighbors, labels_arr)
-        ndcg_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in ndcg_raw.items()}
+        pbar.set_description("Geometry & global metrics")
+        global_metrics = _assemble_global_metrics(
+            embeddings, labels_arr, sample_pairs, neighbor_diags, meta_metrics, label_metrics
+        )
         pbar.update(1)
 
-        pbar.set_description("KNN MAP")
-        map_raw = knn_map_at_k(neighbors, labels_arr)
-        map_per_item: dict[int, np.ndarray] = {k: stats["per_item"] for k, stats in map_raw.items()}
-        pbar.update(1)
-
-        pbar.set_description("Similarity & geometry")
-        pairwise_s = pairwise_similarity_stats(embeddings, sample_pairs=sample_pairs)
-        intra_inter = intra_inter_similarity_gap(embeddings, labels_arr, sample_pairs=sample_pairs)
-        eff_rank = effective_rank(embeddings)
-        centroid_s = centroid_similarity_stats(embeddings)
-        global_metrics: dict = {
-            "pairwise_similarity_stats": pairwise_s,
-            "intra_inter_similarity_gap": intra_inter,
-            "knn_label_purity": purity_raw,
-            "knn_label_ndcg": ndcg_raw,
-            "knn_map": map_raw,
-            "effective_rank": eff_rank,
-            "centroid_similarity_stats": centroid_s,
-        }
-        pbar.update(1)
+        group_analysis: dict | None = None
+        if metadata is not None:
+            pbar.set_description("Group analysis")
+            group_analysis = _compute_group_analysis(embeddings, paths, metadata)
+            pbar.update(1)
 
         pbar.set_description("Per-class metrics")
         per_class = _build_per_class_metrics(
-            unique_classes, embeddings, labels_arr, sample_pairs, purity_per_item, ndcg_per_item, map_per_item
+            unique_classes, embeddings, labels_arr, sample_pairs, label_metrics, meta_metrics
         )
         pbar.update(1)
 
@@ -338,7 +775,7 @@ def run_evaluation(
         confusion_raw = knn_confusion_matrix(neighbors, labels_arr)
         pbar.update(1)
 
-    return {
+    result: dict = {
         "n_items": n,
         "embedding_dim": d,
         "classes": unique_classes,
@@ -349,3 +786,6 @@ def run_evaluation(
         "global_metrics": _jsonify(global_metrics),
         "per_class": {cls: _jsonify(m) for cls, m in per_class.items()},
     }
+    if group_analysis is not None:
+        result["group_analysis"] = _jsonify(group_analysis)
+    return result

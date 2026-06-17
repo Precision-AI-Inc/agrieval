@@ -10,19 +10,21 @@
 # ======================================================================
 """Run the evaluation service directly — no HTTP server required.
 
-Two example scenarios are bundled:
+Four example scenarios are bundled:
 
-* **tight** (default) — embeddings from each class cluster very closely
-  (intra-class cosine ≈ 0.99, inter-class ≈ 0.00).  Use this to see what
-  a well-trained model looks like.
-* **sparse** — class prototypes are close and per-image noise is large, so
-  the two classes heavily overlap (gap ≈ 0.07, purity@5 ≈ 0.56).  Use this
-  to see how the KPIs degrade for a weak or untrained model.
+* **tight** (default) — embeddings only, well-separated classes
+  (intra-class cosine ≈ 0.99, inter-class ≈ 0.00).
+* **sparse** — embeddings only, heavily overlapping classes
+  (gap ≈ 0.07, purity@5 ≈ 0.56).
+* **tight_meta** — same tight embeddings with metadata groups, enabling
+  graded nDCG and per-attribute KPIs.
+* **sparse_meta** — same sparse embeddings with metadata groups.
 
 Usage (from repo root):
     python examples/example.py
     python examples/example.py --scenario sparse
-    python examples/example.py --dataset-root /path/to/dataset
+    python examples/example.py --scenario tight_meta
+    python examples/example.py --scenario sparse_meta
     python examples/example.py --k-values 1 5 10
     python examples/example.py --output-dir output --tsne-dimensions 2
 """
@@ -37,6 +39,7 @@ from pathlib import Path
 # Allow running without `pip install -e .`
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from pai.ag_emb.schemas.evaluate import MetadataGroup
 from pai.ag_emb.services.evaluate import run_evaluation
 from pai.ag_emb.services.reporting import (
     plot_cosine_similarity,
@@ -47,8 +50,10 @@ from pai.ag_emb.services.reporting import (
 )
 
 _SCENARIO_FILES: dict[str, str] = {
-    "tight": "example_tight.json",
-    "sparse": "example_sparse.json",
+    "tight": "emb_tight.json",
+    "sparse": "emb_sparse.json",
+    "tight_meta": "emb_tight_meta.json",
+    "sparse_meta": "emb_sparse_meta.json",
 }
 
 
@@ -59,12 +64,13 @@ def main() -> None:
 
     Recognised arguments
     --------------------
-    --scenario : {tight, sparse}
-        Which bundled example to run.  ``tight`` (default) shows a
-        well-separated embedding space; ``sparse`` shows a weak model where
-        classes heavily overlap.
+    --scenario : {tight, sparse, tight_meta, sparse_meta}
+        Which bundled scenario to run.  ``tight``/``sparse`` use embeddings
+        only; ``tight_meta``/``sparse_meta`` additionally supply metadata
+        groups for graded nDCG and per-attribute KPIs.
     --dataset-root : str
-        Dataset root for label extraction.  Defaults to ``"dataset"``.
+        Dataset root for Wiring 1 label extraction.  Defaults to ``"images"``
+        to match the ``images/class_subgroup/`` embedding key prefix.
     --k-values : list[int]
         One or more K cutoffs for nearest-neighbour metrics.  Defaults to
         ``[5, 10]``.
@@ -81,9 +87,13 @@ def main() -> None:
         "--scenario",
         choices=list(_SCENARIO_FILES),
         default="tight",
-        help="Embedding scenario: 'tight' (well-separated) or 'sparse' (overlapping classes). Default: tight",
+        help="Scenario to run (default: tight)",
     )
-    parser.add_argument("--dataset-root", default="dataset")
+    parser.add_argument(
+        "--dataset-root",
+        default="images",
+        help="Root prefix for Wiring 1 label extraction (default: images)",
+    )
     parser.add_argument("--k-values", nargs="+", type=int, default=[5, 10])
     parser.add_argument(
         "--sample-pairs",
@@ -95,7 +105,7 @@ def main() -> None:
         "--output-dir",
         default="output",
         metavar="DIR",
-        help="Directory to write visualizations (confusion matrix + t-SNE)",
+        help="Directory to write visualizations",
     )
     parser.add_argument(
         "--tsne-dimensions", type=int, default=3, choices=[2, 3], help="t-SNE dimensionality: 2 or 3 (default: 3)"
@@ -107,8 +117,14 @@ def main() -> None:
         payload = json.load(f)
 
     embeddings: dict[str, list[float]] = payload["embeddings"]
-    print(f"Scenario : {args.scenario}")
-    print(f"Loaded {len(embeddings)} embeddings, dim={len(next(iter(embeddings.values())))}")
+    metadata: dict[str, MetadataGroup] | None = None
+    if "metadata" in payload:
+        metadata = {key: MetadataGroup(**group) for key, group in payload["metadata"].items()}
+
+    print(f"Scenario  : {args.scenario}")
+    print(f"Embeddings: {len(embeddings)} items, dim={len(next(iter(embeddings.values())))}")
+    if metadata is not None:
+        print(f"Metadata  : {len(metadata)} groups")
     print()
 
     result = run_evaluation(
@@ -116,6 +132,7 @@ def main() -> None:
         k_values=args.k_values,
         dataset_root=args.dataset_root,
         sample_pairs=args.sample_pairs,
+        metadata=metadata,
     )
 
     print_result(result)

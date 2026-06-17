@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from pai.ag_emb.metrics._utils import (
     _auto_batch_size,

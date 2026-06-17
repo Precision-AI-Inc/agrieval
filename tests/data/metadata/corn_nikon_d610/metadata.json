@@ -1,0 +1,17 @@
+{
+  "class_name": "corn",
+  "attributes": {
+    "camera": "nikon_d610",
+    "growth_stage": "medium"
+  },
+  "images": [
+    "images/corn_nikon_d610/190627-090900-corn-nikon_d610-bded43cb.JPG",
+    "images/corn_nikon_d610/190627-090901-corn-nikon_d610-67679dac.JPG",
+    "images/corn_nikon_d610/190627-091105-corn-nikon_d610-8d6b86d0.JPG",
+    "images/corn_nikon_d610/190627-091202-corn-nikon_d610-b7725cb0.JPG",
+    "images/corn_nikon_d610/190627-091205-corn-nikon_d610-b5c4a168.JPG",
+    "images/corn_nikon_d610/190627-091303-corn-nikon_d610-13b3dfab.JPG",
+    "images/corn_nikon_d610/190627-091304-corn-nikon_d610-ca08d3d6.JPG",
+    "images/corn_nikon_d610/190627-091403-corn-nikon_d610-06a023f6.JPG"
+  ]
+}

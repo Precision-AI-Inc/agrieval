@@ -16,7 +16,7 @@ Top-level exports from the metrics package (similarity, geometry, label-aware, a
 pai.ag_emb.metrics.ranking
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Retrieval and ranking primitives (nDCG, MAP, precision, recall).
+Retrieval and ranking primitives (nDCG, MAP, MRR, R-Precision, precision, recall).
 
 .. automodule:: pai.ag_emb.metrics.ranking
    :members:
@@ -46,7 +46,7 @@ KNN diagnostics: hubness, radius, outlier scores, and Gini coefficient.
 pai.ag_emb.metrics.geometry
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Embedding-space geometry: centroid similarity, PCA explained variance, effective rank.
+Embedding-space geometry: centroid similarity, PCA explained variance, effective rank, uniformity, and alignment (Wang & Isola 2020).
 
 .. automodule:: pai.ag_emb.metrics.geometry
    :members:
@@ -56,7 +56,7 @@ Embedding-space geometry: centroid similarity, PCA explained variance, effective
 pai.ag_emb.metrics.label_aware
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Label-aware metrics: intra/inter gap, KNN purity, nDCG, MAP, and confusion matrix.
+Label-aware metrics: intra/inter gap, KNN purity, nDCG, MAP, MRR, R-Precision, metadata-aware retrieval (precision, nDCG, MAP, MRR, R-Precision), per-attribute nDCG, graded relevance, and confusion matrix.
 
 .. automodule:: pai.ag_emb.metrics.label_aware
    :members:
@@ -96,7 +96,7 @@ High-level convenience wrappers: ``analyze_embedding_space`` and ``compare_embed
 pai.ag_emb.services.evaluate
 -----------------------------
 
-Service layer: orchestrates metrics into the fixed evaluation JSON schema.
+Service layer: orchestrates metrics into the fixed evaluation JSON schema, supporting both embeddings-only and embeddings+metadata evaluation modes.
 
 .. automodule:: pai.ag_emb.services.evaluate
    :members:
@@ -116,7 +116,7 @@ Human-readable printing and interactive Plotly visualization of evaluation resul
 pai.ag_emb.schemas.evaluate
 -----------------------------
 
-Pydantic request and response schemas for the evaluation endpoint.
+Pydantic request and response schemas for the evaluation endpoint, including :class:`MetadataGroup` for explicit-positive similarity groups.
 
 .. automodule:: pai.ag_emb.schemas.evaluate
    :members:

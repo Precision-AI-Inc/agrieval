@@ -23,6 +23,35 @@ from pydantic import BaseModel, Field, field_validator
 _NORM_TOLERANCE = 1e-3
 
 
+class MetadataGroup(BaseModel):
+    """One group of semantically similar images sharing a class label and optional attributes.
+
+    Parameters
+    ----------
+    images : list[str]
+        Exact path keys of the images in this group.  Each entry must match
+        a key in the ``embeddings`` dict exactly — not a basename, the full path.
+    class_name : str
+        Class label shared by all images in this group (e.g. ``"barley"``).
+        Required — used as the label for all label-aware metrics.
+    attributes : dict[str, str]
+        Optional key-value attributes shared by all images in this group.
+        Any string keys are accepted, e.g. ``{"growth_stage": "medium",
+        "camera": "anafi", "sunlight": "bright"}``.  Used by the graded
+        relevance function: two items score grade 2 when they share the same
+        ``class_name`` and ALL of the query's attribute values match.
+    """
+
+    images: list[str] = Field(
+        description="Exact path keys (must match keys used in `embeddings`) belonging to this group."
+    )
+    class_name: str = Field(description="Class label for this group. Required.")
+    attributes: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional key-value attributes (e.g. growth_stage, camera, sunlight).",
+    )
+
+
 class EmbeddingEvaluateRequest(BaseModel):
     """Evaluate embedding quality for a single model.
 
@@ -40,16 +69,24 @@ class EmbeddingEvaluateRequest(BaseModel):
 
     **Optional (server defaults apply when omitted)**
 
+    ``metadata``
+        Explicit similarity groups.  When supplied, class labels are taken
+        from ``class_name`` here instead of from the path hierarchy.  Each
+        key is an arbitrary group ID; each value is a
+        :class:`MetadataGroup` listing the exact embedding path keys (not
+        basenames) in that group together with their shared ``class_name``
+        and optional ``attributes`` (e.g. ``growth_stage``, ``camera``,
+        ``sunlight``).
+        Images that belong to the same group are treated as explicit
+        positives (relevance grade 3) in the metadata-aware nDCG metric.
     ``dataset_root``
-        Root prefix to strip before extracting the crop label.
+        Root prefix to strip before extracting the crop label (ignored when
+        ``metadata`` is supplied).
         Defaults to ``dataset/`` (override at startup with ``--dataset-root``).
     ``k_values``
         K cutoffs for nearest-neighbour metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise stats. Default: ``1 000 000``.
-    ``thresholds``
-        Cosine similarity cutoffs for pair-count stats.
-        Default: ``[0.80, 0.85, 0.90, 0.95, 0.98, 0.99]``.
     """
 
     embeddings: dict[str, list[float]] = Field(
@@ -58,6 +95,16 @@ class EmbeddingEvaluateRequest(BaseModel):
             "Paths follow {root}/{crop}_[{camera}]/img/{image}. "
             "All vectors must share the same length."
         )
+    )
+    metadata: dict[str, MetadataGroup] | None = Field(
+        default=None,
+        description=(
+            "Optional similarity groups. Keys are arbitrary group IDs; values describe "
+            "images in that group with their class_name and optional attributes dict "
+            "(e.g. growth_stage, camera, sunlight). "
+            "When provided, enables metadata-aware graded nDCG and uses class_name as the "
+            "class label for all other metrics."
+        ),
     )
     dataset_root: str | None = Field(
         default=None,
@@ -115,3 +162,4 @@ class EmbeddingEvaluateResponse(BaseModel):
     knn_confusion: dict[str, Any]
     global_metrics: dict[str, Any]
     per_class: dict[str, dict[str, Any]]
+    group_analysis: dict[str, Any] | None = None

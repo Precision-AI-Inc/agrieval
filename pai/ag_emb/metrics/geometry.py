@@ -191,6 +191,73 @@ def effective_rank(
     }
 
 
+def uniformity(embeddings: object, *, t: float = 2.0) -> float:
+    """Wang & Isola (2020) uniformity of the embedding distribution.
+
+    Measures how evenly embeddings are spread on the unit hypersphere.
+    Lower (more negative) values indicate better uniformity.
+
+    For L2-normalised vectors ``||u - v||² = 2(1 - cosine_sim(u, v))``.
+
+    Parameters
+    ----------
+    embeddings : array-like
+        Shape ``[N, D]``. Rows are L2-normalised before computation.
+    t : float
+        Temperature parameter (default ``2.0`` as in the original paper).
+
+    Returns
+    -------
+    float
+        ``log E[exp(-t * ||u - v||²)]`` over all unique pairs.
+    """
+    emb = _prepare_embeddings(embeddings, normalize=True)
+    n = emb.shape[0]
+    sim = (emb @ emb.T).clip(-1.0, 1.0)
+    sq_dist = 2.0 * (1.0 - sim)
+    i_idx, j_idx = np.triu_indices(n, k=1)
+    return float(np.log(np.mean(np.exp(-t * sq_dist[i_idx, j_idx]))))
+
+
+def alignment(
+    embeddings: object,
+    positive_pairs: list[tuple[int, int]],
+    *,
+    alpha: float = 2.0,
+) -> float | None:
+    """Wang & Isola (2020) alignment of explicit positive pairs.
+
+    Measures how close embeddings of declared-similar items are.
+    Lower values indicate better alignment.
+
+    For L2-normalised vectors ``||u - v||^alpha`` with ``alpha=2`` simplifies
+    to ``2(1 - cosine_sim(u, v))``.
+
+    Parameters
+    ----------
+    embeddings : array-like
+        Shape ``[N, D]``. Rows are L2-normalised before computation.
+    positive_pairs : list[tuple[int, int]]
+        Index pairs ``(i, j)`` where both items are explicit positives.
+    alpha : float
+        Exponent (default ``2.0``).
+
+    Returns
+    -------
+    float | None
+        Mean ``||u - v||^alpha`` over all positive pairs, or ``None`` if
+        ``positive_pairs`` is empty.
+    """
+    if not positive_pairs:
+        return None
+    emb = _prepare_embeddings(embeddings, normalize=True)
+    dists: list[float] = []
+    for i, j in positive_pairs:
+        sq = float(2.0 * max(0.0, 1.0 - float(emb[i] @ emb[j])))
+        dists.append(sq if alpha == 2.0 else sq ** (alpha / 2.0))
+    return float(np.mean(dists))
+
+
 def anisotropy_summary(
     embeddings: object,
     *,

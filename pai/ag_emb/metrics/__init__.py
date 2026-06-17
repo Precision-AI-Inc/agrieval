@@ -21,17 +21,29 @@ from pai.ag_emb.metrics.duplicates import (
     duplicate_pairs_at_threshold,
 )
 from pai.ag_emb.metrics.geometry import (
+    alignment,
     anisotropy_summary,
     centroid_similarity_stats,
     effective_rank,
     pca_explained_variance,
+    uniformity,
 )
 from pai.ag_emb.metrics.label_aware import (
+    ImageItem,
     intra_inter_similarity_gap,
     knn_confusion_matrix,
+    knn_label_mrr_at_k,
     knn_label_ndcg_at_k,
     knn_label_purity_at_k,
+    knn_label_r_precision,
     knn_map_at_k,
+    knn_metadata_map_at_k,
+    knn_metadata_mrr_at_k,
+    knn_metadata_ndcg_at_k,
+    knn_metadata_precision_at_k,
+    knn_metadata_r_precision,
+    knn_per_attribute_ndcg_at_k,
+    relevance_grade,
 )
 from pai.ag_emb.metrics.neighbors import (
     gini_coefficient,
@@ -47,7 +59,9 @@ from pai.ag_emb.metrics.ranking import (
     ndcg_at_k,
     normalize_ks,
     precision_at_k,
+    r_precision,
     recall_at_k,
+    reciprocal_rank,
     safe_mean,
 )
 from pai.ag_emb.metrics.similarity import (
@@ -58,6 +72,8 @@ from pai.ag_emb.metrics.similarity import (
 )
 
 __all__ = [
+    "ImageItem",
+    "alignment",
     "analyze_embedding_space",
     "anisotropy_summary",
     "average_precision_at_k",
@@ -73,10 +89,18 @@ __all__ = [
     "intra_inter_similarity_gap",
     "knn_confusion_matrix",
     "knn_jaccard_at_k",
+    "knn_label_mrr_at_k",
     "knn_label_ndcg_at_k",
     "knn_label_purity_at_k",
+    "knn_label_r_precision",
     "knn_map_at_k",
+    "knn_metadata_map_at_k",
+    "knn_metadata_mrr_at_k",
+    "knn_metadata_ndcg_at_k",
+    "knn_metadata_precision_at_k",
+    "knn_metadata_r_precision",
     "knn_overlap_at_k",
+    "knn_per_attribute_ndcg_at_k",
     "knn_radius_at_k",
     "l2_normalize",
     "mean_top_k_similarity",
@@ -88,8 +112,12 @@ __all__ = [
     "pca_explained_variance",
     "per_item_neighbor_disagreement",
     "precision_at_k",
+    "r_precision",
     "recall_at_k",
+    "reciprocal_rank",
+    "relevance_grade",
     "safe_mean",
     "similarity_threshold_counts",
     "top_k_neighbors",
+    "uniformity",
 ]
