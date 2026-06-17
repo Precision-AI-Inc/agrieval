@@ -17,7 +17,7 @@ import numpy as np
 import plotly.graph_objects as go
 import pytest
 
-from pai.ag_emb.services.evaluate import run_evaluation
+from pai.ag_emb.services.evaluate import run_image2image_eval
 from pai.ag_emb.services.reporting import (
     _build_scatter3d,
     _print_global,
@@ -37,7 +37,7 @@ from pai.ag_emb.services.reporting import (
 
 @pytest.fixture(scope="module")
 def result(image_embeddings):
-    return run_evaluation(
+    return run_image2image_eval(
         image_embeddings=image_embeddings,
         k_values=[5, 10],
         dataset_root=None,
@@ -88,7 +88,7 @@ class TestPrintResult:
         assert "per_class" in out
 
     def test_single_class_no_inter_gap_printed(self, capsys):
-        single_class_result = run_evaluation(
+        single_class_result = run_image2image_eval(
             image_embeddings={
                 "dataset/corn_[cam]/img/a.png": [1.0] + [0.0] * 15,
                 "dataset/corn_[cam]/img/b.png": [1.0] + [0.0] * 15,

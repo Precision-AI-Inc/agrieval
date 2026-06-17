@@ -32,7 +32,7 @@ DATASET_ROOT = "tests/data/images"
 class TestSmokeAnalyze:
     def test_returns_200(self, image_embeddings: dict) -> None:
         response = client.post(
-            "/v1/embeddings/evaluate",
+            "/v1/embeddings/evaluate/image2image",
             json={
                 "embeddings": image_embeddings,
                 "dataset_root": DATASET_ROOT,
@@ -43,7 +43,7 @@ class TestSmokeAnalyze:
 
     def test_classes_detected(self, image_embeddings: dict) -> None:
         response = client.post(
-            "/v1/embeddings/evaluate",
+            "/v1/embeddings/evaluate/image2image",
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         data = response.json()
@@ -51,21 +51,21 @@ class TestSmokeAnalyze:
 
     def test_n_items_matches_file_count(self, image_embeddings: dict) -> None:
         response = client.post(
-            "/v1/embeddings/evaluate",
+            "/v1/embeddings/evaluate/image2image",
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         assert response.json()["n_items"] == len(image_embeddings)
 
     def test_embedding_dim_is_16(self, image_embeddings: dict) -> None:
         response = client.post(
-            "/v1/embeddings/evaluate",
+            "/v1/embeddings/evaluate/image2image",
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         assert response.json()["embedding_dim"] == 16
 
     def test_per_class_keys_present(self, image_embeddings: dict) -> None:
         response = client.post(
-            "/v1/embeddings/evaluate",
+            "/v1/embeddings/evaluate/image2image",
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         data = response.json()
@@ -73,7 +73,7 @@ class TestSmokeAnalyze:
 
     def test_output_is_json_serialisable(self, image_embeddings: dict) -> None:
         response = client.post(
-            "/v1/embeddings/evaluate",
+            "/v1/embeddings/evaluate/image2image",
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         # Will raise if any value is not JSON-serialisable
@@ -82,7 +82,7 @@ class TestSmokeAnalyze:
     def test_positive_intra_inter_gap(self, image_embeddings: dict) -> None:
         """Clustered synthetic embeddings should have intra > inter similarity."""
         response = client.post(
-            "/v1/embeddings/evaluate",
+            "/v1/embeddings/evaluate/image2image",
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         gap = response.json()["global_metrics"]["intra_inter_similarity_gap"]["gap"]

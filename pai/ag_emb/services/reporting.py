@@ -78,7 +78,7 @@ def _scatter_colors(n: int) -> list[str]:
 
 
 def print_result(result: dict) -> None:
-    """Pretty-print the output of :func:`~pai.ag_emb.services.evaluate.run_evaluation`.
+    """Pretty-print the output of :func:`~pai.ag_emb.services.evaluate.run_image2image_eval`.
 
     Writes a human-readable summary to stdout covering both operating modes:
     embeddings-only (label KPIs) and embeddings+metadata (graded-relevance KPIs,
@@ -87,7 +87,7 @@ def print_result(result: dict) -> None:
     Parameters
     ----------
     result : dict
-        Return value of ``run_evaluation()``.
+        Return value of ``run_image2image_eval()``.
     """
     print(f"n_items      : {result['n_items']}")
     print(f"embedding_dim: {result['embedding_dim']}")
@@ -253,7 +253,7 @@ def _print_global(gm: dict) -> None:
     Parameters
     ----------
     gm : dict
-        The ``global_metrics`` sub-dict from a ``run_evaluation()`` result.
+        The ``global_metrics`` sub-dict from a ``run_image2image_eval()`` result.
     """
     print("── global_metrics ──────────────────────────────────────────────────────")
     _print_geometry_block(gm)
@@ -270,7 +270,7 @@ def _print_per_class(per_class: dict) -> None:
     Parameters
     ----------
     per_class : dict
-        The ``per_class`` sub-dict from a ``run_evaluation()`` result, keyed
+        The ``per_class`` sub-dict from a ``run_image2image_eval()`` result, keyed
         by crop class name.
     """
     print("── per_class ───────────────────────────────────────────────────────────")
@@ -287,7 +287,7 @@ def _print_group_analysis(group_analysis: dict) -> None:
     Parameters
     ----------
     group_analysis : dict
-        The ``group_analysis`` sub-dict from a ``run_evaluation()`` result.
+        The ``group_analysis`` sub-dict from a ``run_image2image_eval()`` result.
     """
     print("── group_analysis ──────────────────────────────────────────────────────")
     for group_key, entry in group_analysis.items():
@@ -362,7 +362,7 @@ def plot_knn_confusion(
     Parameters
     ----------
     result : dict
-        Output of ``run_evaluation()`` or a JSON-deserialized equivalent.
+        Output of ``run_image2image_eval()`` or a JSON-deserialized equivalent.
     k : int | None
         K cutoff to visualize.  Defaults to the largest k in the result.
     output_path : str | None
@@ -378,7 +378,7 @@ def plot_knn_confusion(
 
     confusion = result.get("knn_confusion", {}).get(str(k))
     if confusion is None:
-        raise ValueError(f"knn_confusion not found for k={k}. Re-run run_evaluation() to regenerate.")
+        raise ValueError(f"knn_confusion not found for k={k}. Re-run run_image2image_eval() to regenerate.")
 
     classes = result["classes"]
     n_cls = len(classes)
@@ -431,9 +431,9 @@ def plot_cosine_similarity(
     Parameters
     ----------
     image_embeddings : dict
-        The same ``{path: vector}`` dict passed to ``run_evaluation()``.
+        The same ``{path: vector}`` dict passed to ``run_image2image_eval()``.
     result : dict
-        Output of ``run_evaluation()``.
+        Output of ``run_image2image_eval()``.
     output_path : str | None
         Destination file path.  ``.html`` produces an interactive page.
         Pass ``None`` to display inline (e.g. in a Jupyter notebook).
@@ -592,9 +592,9 @@ def plot_lle(
     Parameters
     ----------
     image_embeddings : dict
-        The same ``{path: vector}`` dict passed to ``run_evaluation()``.
+        The same ``{path: vector}`` dict passed to ``run_image2image_eval()``.
     result : dict
-        Output of ``run_evaluation()``.
+        Output of ``run_image2image_eval()``.
     output_path : str | None
         Destination file path.  ``.html`` produces a rotatable 3D page.
         Pass ``None`` to display inline (e.g. in a Jupyter notebook).
@@ -659,9 +659,9 @@ def plot_tsne(
     Parameters
     ----------
     image_embeddings : dict
-        The same ``{path: vector}`` dict passed to ``run_evaluation()``.
+        The same ``{path: vector}`` dict passed to ``run_image2image_eval()``.
     result : dict
-        Output of ``run_evaluation()``.
+        Output of ``run_image2image_eval()``.
     output_path : str | None
         Destination file path.  ``.html`` (default) produces an interactive page;
         ``.png``/``.pdf`` requires ``kaleido``.
