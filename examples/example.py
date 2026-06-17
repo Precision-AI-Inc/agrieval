@@ -10,21 +10,21 @@
 # ======================================================================
 """Run the evaluation service directly — no HTTP server required.
 
-Four example scenarios are bundled:
+Four example modes are bundled, one per retrieval wiring:
 
-* **tight** (default) — embeddings only, well-separated classes
-  (intra-class cosine ≈ 0.99, inter-class ≈ 0.00).
-* **sparse** — embeddings only, heavily overlapping classes
-  (gap ≈ 0.07, purity@5 ≈ 0.56).
-* **tight_meta** — same tight embeddings with metadata groups, enabling
-  graded nDCG and per-attribute KPIs.
-* **sparse_meta** — same sparse embeddings with metadata groups.
+* **image2image** — Image→Image, embeddings only.
+* **image2image_meta** — Image→Image with metadata groups, enabling graded nDCG
+  and per-attribute KPIs.
+* **plant2image** — Plant→Image; mixed corpus of full-field images and
+  per-plant instance crops with an ``instance_to_image`` mapping.
+* **plant2plant** — Plant→Plant; instance crops with class labels.
 
-Usage (from repo root):
+Usage (from repo root)::
+
     python examples/example.py
-    python examples/example.py --scenario sparse
-    python examples/example.py --scenario tight_meta
-    python examples/example.py --scenario sparse_meta
+    python examples/example.py --mode image2image_meta
+    python examples/example.py --mode plant2image
+    python examples/example.py --mode plant2plant
     python examples/example.py --k-values 1 5 10
     python examples/example.py --output-dir output --tsne-dimensions 2
 """
@@ -40,7 +40,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pai.ag_emb.schemas.evaluate import MetadataGroup
-from pai.ag_emb.services.evaluate import run_evaluation
+from pai.ag_emb.services.evaluate import (
+    run_image2image_eval,
+    run_plant2image_eval,
+    run_plant2plant_eval,
+)
 from pai.ag_emb.services.reporting import (
     plot_cosine_similarity,
     plot_knn_confusion,
@@ -50,10 +54,10 @@ from pai.ag_emb.services.reporting import (
 )
 
 _SCENARIO_FILES: dict[str, str] = {
-    "tight": "emb_tight.json",
-    "sparse": "emb_sparse.json",
-    "tight_meta": "emb_tight_meta.json",
-    "sparse_meta": "emb_sparse_meta.json",
+    "image2image": "emb_image2image.json",
+    "image2image_meta": "emb_image2image_meta.json",
+    "plant2image": "emb_plant2image.json",
+    "plant2plant": "emb_plant2plant.json",
 }
 
 
@@ -64,13 +68,18 @@ def main() -> None:
 
     Recognised arguments
     --------------------
-    --scenario : {tight, sparse, tight_meta, sparse_meta}
-        Which bundled scenario to run.  ``tight``/``sparse`` use embeddings
-        only; ``tight_meta``/``sparse_meta`` additionally supply metadata
-        groups for graded nDCG and per-attribute KPIs.
+    --mode : {image2image, image2image_meta, plant2image, plant2plant}
+        Which bundled mode to run.
+
+        ``image2image`` uses embeddings only (Image→Image).
+        ``image2image_meta`` adds metadata groups for graded nDCG.
+        ``plant2image`` demonstrates the Plant→Image wiring with
+        ``instance_to_image`` mapping.
+        ``plant2plant`` demonstrates the Plant→Plant wiring with
+        ``instance_labels``.
     --dataset-root : str
-        Dataset root for Wiring 1 label extraction.  Defaults to ``"images"``
-        to match the ``images/class_subgroup/`` embedding key prefix.
+        Dataset root for Image→Image label extraction.  Defaults to
+        ``"images"`` to match the ``images/class_subgroup/`` key prefix.
     --k-values : list[int]
         One or more K cutoffs for nearest-neighbour metrics.  Defaults to
         ``[5, 10]``.
@@ -84,15 +93,15 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--scenario",
+        "--mode",
         choices=list(_SCENARIO_FILES),
-        default="tight",
-        help="Scenario to run (default: tight)",
+        default="image2image",
+        help="Mode to run (default: image2image)",
     )
     parser.add_argument(
         "--dataset-root",
         default="images",
-        help="Root prefix for Wiring 1 label extraction (default: images)",
+        help="Root prefix for Image→Image label extraction (default: images)",
     )
     parser.add_argument("--k-values", nargs="+", type=int, default=[5, 10])
     parser.add_argument(
@@ -112,28 +121,52 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    payload_path = Path(__file__).parent / _SCENARIO_FILES[args.scenario]
+    payload_path = Path(__file__).parent / _SCENARIO_FILES[args.mode]
     with open(payload_path) as f:
         payload = json.load(f)
 
     embeddings: dict[str, list[float]] = payload["embeddings"]
-    metadata: dict[str, MetadataGroup] | None = None
-    if "metadata" in payload:
-        metadata = {key: MetadataGroup(**group) for key, group in payload["metadata"].items()}
-
-    print(f"Scenario  : {args.scenario}")
+    print(f"Mode      : {args.mode}")
     print(f"Embeddings: {len(embeddings)} items, dim={len(next(iter(embeddings.values())))}")
-    if metadata is not None:
-        print(f"Metadata  : {len(metadata)} groups")
-    print()
 
-    result = run_evaluation(
-        image_embeddings=embeddings,
-        k_values=args.k_values,
-        dataset_root=args.dataset_root,
-        sample_pairs=args.sample_pairs,
-        metadata=metadata,
-    )
+    if args.mode == "plant2image":
+        instance_to_image: dict[str, list[str]] = payload["instance_to_image"]
+        print(f"Parents   : {len(instance_to_image)} full-field images")
+        print(f"Instances : {sum(len(v) for v in instance_to_image.values())} crop instances")
+        print()
+        result = run_plant2image_eval(
+            embeddings=embeddings,
+            instance_to_image=instance_to_image,
+            k_values=args.k_values,
+            dataset_root=args.dataset_root,
+            sample_pairs=args.sample_pairs,
+        )
+
+    elif args.mode == "plant2plant":
+        instance_labels: dict[str, str] = payload["instance_labels"]
+        print(f"Labels    : {len(instance_labels)} labelled instances")
+        print()
+        result = run_plant2plant_eval(
+            embeddings=embeddings,
+            instance_labels=instance_labels,
+            k_values=args.k_values,
+            sample_pairs=args.sample_pairs,
+        )
+
+    else:
+        metadata: dict[str, MetadataGroup] | None = None
+        if "metadata" in payload:
+            metadata = {key: MetadataGroup(**group) for key, group in payload["metadata"].items()}
+        if metadata is not None:
+            print(f"Metadata  : {len(metadata)} groups")
+        print()
+        result = run_image2image_eval(
+            image_embeddings=embeddings,
+            k_values=args.k_values,
+            dataset_root=args.dataset_root,
+            sample_pairs=args.sample_pairs,
+            metadata=metadata,
+        )
 
     print_result(result)
 

@@ -9,10 +9,13 @@
 #  fullest extent of the law.
 # ======================================================================
 
-"""Embedding evaluation route.
+"""Embedding evaluation routes.
 
-Ingests image-path→embedding dicts and returns a fixed JSON report broken
-down by crop class.
+Three named endpoints cover the full agricultural retrieval taxonomy:
+
+- ``POST /evaluate/image2image`` — Image→Image (full field image vs. full field image)
+- ``POST /evaluate/plant2image`` — Plant→Image (instance crop vs. full field image)
+- ``POST /evaluate/plant2plant`` — Plant→Plant (instance crop vs. instance crop)
 """
 
 from __future__ import annotations
@@ -22,20 +25,31 @@ from fastapi import APIRouter
 from pai.ag_emb.schemas.evaluate import (
     EmbeddingEvaluateRequest,
     EmbeddingEvaluateResponse,
+    Plant2ImageRequest,
+    Plant2PlantRequest,
 )
-from pai.ag_emb.services.evaluate import run_evaluation
+from pai.ag_emb.services.evaluate import (
+    run_image2image_eval,
+    run_plant2image_eval,
+    run_plant2plant_eval,
+)
 
 router = APIRouter(prefix="/embeddings", tags=["evaluate"])
 
 
-@router.post("/evaluate", response_model=EmbeddingEvaluateResponse)
-def evaluate_embeddings(request: EmbeddingEvaluateRequest) -> EmbeddingEvaluateResponse:
-    """Evaluate embedding quality for a single model.
+@router.post("/evaluate/image2image", response_model=EmbeddingEvaluateResponse)
+def evaluate_image2image(request: EmbeddingEvaluateRequest) -> EmbeddingEvaluateResponse:
+    """Evaluate embedding quality for the Image→Image retrieval scenario.
+
+    Given a complete agricultural field image, retrieve visually and
+    agronomically similar full field images.  Similarity can be coarse
+    (crop type, soil, growth stage) or fine (disease symptoms, weed pressure).
 
     Pass a dict of ``image_path → embedding`` vectors.  The crop class is
     inferred from each path's folder name using the convention
     ``{root}/{crop}_[{camera}]/img/{image}`` (e.g.
-    ``dataset/corn_[HB-25000SBC]/img/220622-img.png``).
+    ``dataset/corn_[HB-25000SBC]/img/220622-img.png``).  Supply ``metadata``
+    to enable explicit-positive groups with graded nDCG and per-attribute KPIs.
 
     **Only ``embeddings`` is required** — all other fields use server defaults.
 
@@ -44,11 +58,59 @@ def evaluate_embeddings(request: EmbeddingEvaluateRequest) -> EmbeddingEvaluateR
       KNN label purity, effective rank, centroid similarity, duplicate counts.
     - **per_class** — the same metrics broken down per crop class.
     """
-    result = run_evaluation(
+    result = run_image2image_eval(
         image_embeddings=request.embeddings,
         k_values=request.k_values,
         dataset_root=request.dataset_root,
         sample_pairs=request.sample_pairs,
         metadata=request.metadata,
+    )
+    return EmbeddingEvaluateResponse(**result)
+
+
+@router.post("/evaluate/plant2image", response_model=EmbeddingEvaluateResponse)
+def evaluate_plant2image(request: Plant2ImageRequest) -> EmbeddingEvaluateResponse:
+    """Evaluate embedding quality for the Plant→Image retrieval scenario.
+
+    Pass a mixed corpus of full-field image embeddings and per-plant instance
+    crop embeddings together with an ``instance_to_image`` mapping that
+    declares which instances were cropped from which parent image.
+
+    The mapping is the explicit-positive ground truth: when an instance is the
+    query its parent full image is the grade-3 positive; when a full image is
+    the query all its instances are grade-3 positives.  Items that share the
+    same class label (inferred from the parent's folder name) are grade-1
+    positives across groups.
+
+    Returns the same fixed JSON report as ``POST /v1/embeddings/evaluate``
+    with metadata-aware KPIs enabled (``knn_metadata_precision``,
+    ``knn_metadata_ndcg``, ``alignment``, etc.).
+    """
+    result = run_plant2image_eval(
+        embeddings=request.embeddings,
+        instance_to_image=request.instance_to_image,
+        k_values=request.k_values,
+        dataset_root=request.dataset_root,
+        sample_pairs=request.sample_pairs,
+    )
+    return EmbeddingEvaluateResponse(**result)
+
+
+@router.post("/evaluate/plant2plant", response_model=EmbeddingEvaluateResponse)
+def evaluate_plant2plant(request: Plant2PlantRequest) -> EmbeddingEvaluateResponse:
+    """Evaluate embedding quality for the Plant→Plant retrieval scenario.
+
+    Pass per-plant instance crop embeddings with an ``instance_labels`` mapping
+    that assigns each instance its crop or weed class.  All instances sharing
+    the same class label are treated as mutual explicit positives.
+
+    Returns the same fixed JSON report as ``POST /v1/embeddings/evaluate``
+    with metadata-aware KPIs enabled.
+    """
+    result = run_plant2plant_eval(
+        embeddings=request.embeddings,
+        instance_labels=request.instance_labels,
+        k_values=request.k_values,
+        sample_pairs=request.sample_pairs,
     )
     return EmbeddingEvaluateResponse(**result)

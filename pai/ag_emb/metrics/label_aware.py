@@ -16,16 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
-from tqdm import tqdm
 
 from pai.ag_emb.metrics._utils import _prepare_embeddings
-from pai.ag_emb.metrics.ranking import (
-    average_precision_at_k,
-    ndcg_at_k,
-    precision_at_k,
-    r_precision,
-    reciprocal_rank,
-)
 
 
 @dataclass
@@ -81,6 +73,102 @@ def relevance_grade(query: ImageItem, candidate: ImageItem) -> int:
             return 2
         return 1
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Precomputation helpers (private)
+# ---------------------------------------------------------------------------
+
+
+def _build_explicit_positive_mask(items: list[ImageItem]) -> np.ndarray:
+    """Build a boolean mask where ``mask[i, j]`` is True when j is an explicit positive of i.
+
+    Parameters
+    ----------
+    items : list[ImageItem]
+        Items in embedding-row order.
+
+    Returns
+    -------
+    np.ndarray
+        Shape ``[N, N]`` bool array.
+    """
+    n = len(items)
+    id_to_idx: dict[str, int] = {item.image_id: i for i, item in enumerate(items)}
+    mask = np.zeros((n, n), dtype=bool)
+    for i, item in enumerate(items):
+        for pos_id in item.explicit_positive_ids:
+            j = id_to_idx.get(pos_id)
+            if j is not None:
+                mask[i, j] = True
+    return mask
+
+
+def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
+    """Precompute the full ``[N, N]`` graded relevance matrix for all item pairs.
+
+    Grades follow :func:`relevance_grade`:
+
+    * ``3`` — explicit positive
+    * ``2`` — same class and all query attributes match candidate
+    * ``1`` — same class only
+    * ``0`` — no relationship or self
+
+    Building the matrix once and reusing it across all K values avoids
+    O(N^2 x |K|) redundant Python calls to :func:`relevance_grade`.
+
+    Parameters
+    ----------
+    items : list[ImageItem]
+        Items in embedding-row order.
+
+    Returns
+    -------
+    np.ndarray
+        Shape ``[N, N]`` int8 array with the diagonal zeroed.
+    """
+    n = len(items)
+    grades = np.zeros((n, n), dtype=np.int8)
+
+    # Map class names to integers for fast vectorised comparison.
+    class_name_to_int: dict[str, int] = {}
+    class_ints: list[int] = []
+    for item in items:
+        cn = item.class_name or ""
+        if cn not in class_name_to_int:
+            class_name_to_int[cn] = len(class_name_to_int)
+        class_ints.append(class_name_to_int[cn])
+    class_int_arr = np.array(class_ints, dtype=np.int32)
+    has_class = np.array([bool(item.class_name) for item in items])
+
+    # Grade 1: same class (both must have non-empty class names).
+    both_have_class = has_class[:, None] & has_class[None, :]
+    same_class = (class_int_arr[:, None] == class_int_arr[None, :]) & both_have_class
+    grades[same_class] = 1
+
+    # Grade 2: same class AND all of the query's attributes match the candidate.
+    for i, item in enumerate(items):
+        if not item.attributes:
+            continue
+        for j in np.where(same_class[i])[0]:
+            if all(items[j].attributes.get(k) == v for k, v in item.attributes.items()):
+                grades[i, j] = 2
+
+    # Grade 3: explicit positives (overrides grades 1 and 2).
+    id_to_idx: dict[str, int] = {item.image_id: i for i, item in enumerate(items)}
+    for i, item in enumerate(items):
+        for pos_id in item.explicit_positive_ids:
+            j = id_to_idx.get(pos_id)
+            if j is not None:
+                grades[i, j] = 3
+
+    np.fill_diagonal(grades, 0)
+    return grades
+
+
+# ---------------------------------------------------------------------------
+# Global similarity gap
+# ---------------------------------------------------------------------------
 
 
 def intra_inter_similarity_gap(
@@ -148,6 +236,43 @@ def intra_inter_similarity_gap(
     }
 
 
+# ---------------------------------------------------------------------------
+# Label-based KNN metrics (vectorised)
+# ---------------------------------------------------------------------------
+
+
+def knn_label_purity_at_k(
+    neighbors_by_k: dict,
+    labels: object,
+) -> dict:
+    """Fraction of each item's K nearest neighbors that share its label.
+
+    Parameters
+    ----------
+    neighbors_by_k : dict
+        Output of :func:`~pai.ag_emb.metrics.similarity.top_k_neighbors`.
+    labels : array-like
+        Shape ``[N]``. Integer or string class labels.
+
+    Returns
+    -------
+    dict
+        Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
+    """
+    lbl = np.asarray(labels)
+    result = {}
+    for k, data in neighbors_by_k.items():
+        indices = data["indices"]  # [N, k]
+        neighbor_labels = lbl[indices]  # [N, k]
+        per_item = (neighbor_labels == lbl[:, None]).mean(axis=1).astype(np.float32)
+        result[k] = {
+            "mean": float(np.mean(per_item)),
+            "std": float(np.std(per_item)),
+            "per_item": per_item,
+        }
+    return result
+
+
 def knn_label_ndcg_at_k(
     neighbors_by_k: dict,
     labels: object,
@@ -171,20 +296,25 @@ def knn_label_ndcg_at_k(
         Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
     """
     lbl = np.asarray(labels)
-    n = lbl.shape[0]
-    result = {}
+    _, inverse, counts = np.unique(lbl, return_inverse=True, return_counts=True)
+    n_rel = counts[inverse] - 1  # same-class count minus self, shape [N]
 
+    result = {}
     for k, data in neighbors_by_k.items():
         indices = data["indices"]  # [N, k]
-        per_item = np.empty(n, dtype=np.float64)
+        relevances = (lbl[indices] == lbl[:, None]).astype(np.float64)  # [N, k] binary
 
-        for i in tqdm(range(n), desc=f"nDCG@{k}", leave=False, unit="item"):
-            ranked_relevances = [1 if lbl[idx] == lbl[i] else 0 for idx in indices[i]]
-            n_relevant = int(np.sum(lbl == lbl[i])) - 1  # exclude self
-            ideal_relevances = [1] * n_relevant + [0] * max(0, n - 1 - n_relevant)
-            score = ndcg_at_k(ranked_relevances, ideal_relevances, k)
-            per_item[i] = score if score is not None else 0.0
+        # Discount positions: 1/log2(2), 1/log2(3), ..., 1/log2(k+1)
+        discounts = 1.0 / np.log2(np.arange(2, k + 2, dtype=np.float64))  # [k]
+        dcg = (relevances * discounts).sum(axis=1)  # [N]
 
+        # IDCG: cumulative discount sum up to min(n_rel, k) positions
+        cumsum = np.cumsum(discounts)  # [k]
+        ideal_at = np.minimum(n_rel, k)  # [N]
+        # When ideal_at == 0 the where-mask selects 0.0, so the clip to 0 is safe.
+        idcg = np.where(ideal_at > 0, cumsum[np.maximum(ideal_at - 1, 0)], 0.0)  # [N]
+
+        per_item = np.divide(dcg, idcg, out=np.zeros(len(lbl), dtype=np.float64), where=idcg > 0)
         result[k] = {
             "mean": float(np.mean(per_item)),
             "std": float(np.std(per_item)),
@@ -215,19 +345,19 @@ def knn_map_at_k(
         Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
     """
     lbl = np.asarray(labels)
-    n = lbl.shape[0]
-    result = {}
+    _, inverse, counts = np.unique(lbl, return_inverse=True, return_counts=True)
+    n_rel = (counts[inverse] - 1).astype(np.float64)  # [N]
 
+    result = {}
     for k, data in neighbors_by_k.items():
         indices = data["indices"]  # [N, k]
-        per_item = np.empty(n, dtype=np.float64)
+        relevances = (lbl[indices] == lbl[:, None]).astype(np.float64)  # [N, k]
 
-        for i in tqdm(range(n), desc=f"MAP@{k}", leave=False, unit="item"):
-            neighbor_ids = list(map(int, indices[i]))
-            relevant_ids = {j for j in range(n) if j != i and lbl[j] == lbl[i]}
-            ap = average_precision_at_k(neighbor_ids, relevant_ids, k)
-            per_item[i] = ap if ap is not None else 0.0
+        ranks = np.arange(1, k + 1, dtype=np.float64)  # [k]
+        cumhits = np.cumsum(relevances, axis=1)  # [N, k]
+        sum_prec = ((cumhits / ranks) * relevances).sum(axis=1)  # [N]
 
+        per_item = np.divide(sum_prec, n_rel, out=np.zeros_like(sum_prec), where=n_rel > 0)
         result[k] = {
             "mean": float(np.mean(per_item)),
             "std": float(np.std(per_item)),
@@ -262,66 +392,24 @@ def knn_confusion_matrix(
     unique_classes = sorted(set(lbl.tolist()))
     cls_to_idx = {c: i for i, c in enumerate(unique_classes)}
     n_cls = len(unique_classes)
-    n = len(lbl)
-    label_indices = np.array([cls_to_idx[lb] for lb in lbl], dtype=np.int32)
+    label_indices = np.array([cls_to_idx[lb] for lb in lbl], dtype=np.int32)  # [N]
 
     result = {}
     for k, data in neighbors_by_k.items():
         indices = data["indices"]  # [N, k]
+
+        # Expand queries and flatten neighbors for a single vectorised accumulation.
+        query_cls = np.repeat(label_indices, k)  # [N*k]
+        neighbor_cls = label_indices[indices].ravel()  # [N*k]
         matrix = np.zeros((n_cls, n_cls), dtype=np.float64)
-        row_counts = np.zeros(n_cls, dtype=np.int64)
+        np.add.at(matrix, (query_cls, neighbor_cls), 1.0)
 
-        for i in tqdm(range(n), desc=f"confusion@{k}", leave=False, unit="item"):
-            ti = label_indices[i]
-            row_counts[ti] += 1
-            for nb in indices[i]:
-                matrix[ti, label_indices[int(nb)]] += 1.0
-
-        for ci in range(n_cls):
-            total = k * int(row_counts[ci])
-            if total > 0:
-                matrix[ci] /= total
+        row_counts = np.bincount(label_indices, minlength=n_cls).astype(np.float64)
+        row_totals = k * row_counts  # total votes from each class
+        matrix /= np.where(row_totals > 0, row_totals, 1.0)[:, None]
 
         result[k] = {
             c1: {c2: float(matrix[i, j]) for j, c2 in enumerate(unique_classes)} for i, c1 in enumerate(unique_classes)
-        }
-    return result
-
-
-def knn_label_purity_at_k(
-    neighbors_by_k: dict,
-    labels: object,
-) -> dict:
-    """Fraction of each item's K nearest neighbors that share its label.
-
-    Parameters
-    ----------
-    neighbors_by_k : dict
-        Output of :func:`~pai.ag_emb.metrics.similarity.top_k_neighbors`.
-    labels : array-like
-        Shape ``[N]``. Integer or string class labels.
-
-    Returns
-    -------
-    dict
-        Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
-    """
-    lbl = np.asarray(labels)
-    result = {}
-
-    for k, data in neighbors_by_k.items():
-        indices = data["indices"]  # [N, k]
-        n = indices.shape[0]
-        per_item = np.empty(n, dtype=np.float32)
-
-        for i in tqdm(range(n), desc=f"purity@{k}", leave=False, unit="item"):
-            neighbor_labels = lbl[indices[i]]
-            per_item[i] = float(np.sum(neighbor_labels == lbl[i])) / k
-
-        result[k] = {
-            "mean": float(np.mean(per_item)),
-            "std": float(np.std(per_item)),
-            "per_item": per_item,
         }
     return result
 
@@ -344,20 +432,23 @@ def knn_label_mrr_at_k(
     dict
         Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
     """
-    n = len(labels_arr)
     result = {}
     for k, data in neighbors_by_k.items():
-        indices = data["indices"]
-        per_item = np.empty(n, dtype=np.float64)
-        for i in range(n):
-            ranked_labels = [labels_arr[int(idx)] for idx in indices[i][:k]]
-            rr = 0.0
-            for rank, lbl in enumerate(ranked_labels, start=1):
-                if lbl == labels_arr[i]:
-                    rr = 1.0 / rank
-                    break
-            per_item[i] = rr
-        result[k] = {"mean": float(np.mean(per_item)), "std": float(np.std(per_item)), "per_item": per_item}
+        indices = data["indices"]  # [N, k]
+        neighbor_labels = labels_arr[indices[:, :k]]  # [N, k]
+        hits = neighbor_labels == labels_arr[:, None]  # [N, k] bool
+
+        # argmax returns the position of the first True; returns 0 for all-False rows
+        # — guarded by has_hit below.
+        first_hit_pos = np.argmax(hits, axis=1)  # [N]
+        has_hit = hits.any(axis=1)  # [N]
+        per_item = np.where(has_hit, 1.0 / (first_hit_pos + 1), 0.0)
+
+        result[k] = {
+            "mean": float(np.mean(per_item)),
+            "std": float(np.std(per_item)),
+            "per_item": per_item,
+        }
     return result
 
 
@@ -383,18 +474,21 @@ def knn_label_r_precision(
     dict
         Flat stats (not nested by K): ``mean``, ``std``, ``per_item``.
     """
-    n = len(labels_arr)
     max_k = max(neighbors_by_k.keys())
-    indices = neighbors_by_k[max_k]["indices"]
-    per_item = np.empty(n, dtype=np.float64)
-    for i in range(n):
-        r = int(np.sum(labels_arr == labels_arr[i])) - 1
-        if r <= 0:
-            per_item[i] = 0.0
-            continue
-        ranked = [labels_arr[int(idx)] for idx in indices[i]]
-        hits = sum(1 for lbl in ranked[:r] if lbl == labels_arr[i])
-        per_item[i] = hits / float(r)
+    indices = neighbors_by_k[max_k]["indices"]  # [N, max_k]
+
+    _, inverse, counts = np.unique(labels_arr, return_inverse=True, return_counts=True)
+    n_rel = (counts[inverse] - 1).astype(np.int64)  # [N] same-class count excluding self
+
+    neighbor_labels = labels_arr[indices]  # [N, max_k]
+    relevances = (neighbor_labels == labels_arr[:, None]).astype(np.float64)
+
+    # Mask to only count hits within the first n_rel[i] positions.
+    positions = np.arange(max_k)  # [max_k]
+    r_mask = positions[None, :] < n_rel[:, None]  # [N, max_k]
+    hits = (relevances * r_mask).sum(axis=1)  # [N]
+
+    per_item = np.where(n_rel > 0, hits / np.maximum(n_rel, 1).astype(np.float64), 0.0)
     return {"mean": float(np.mean(per_item)), "std": float(np.std(per_item)), "per_item": per_item}
 
 
@@ -440,9 +534,16 @@ def knn_per_attribute_ndcg_at_k(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Metadata-based KNN metrics (vectorised with optional precomputed matrix)
+# ---------------------------------------------------------------------------
+
+
 def knn_metadata_precision_at_k(
     neighbors_by_k: dict,
     items: list[ImageItem],
+    *,
+    _positive_mask: np.ndarray | None = None,
 ) -> dict:
     """Precision at K using explicit-positive metadata groups as ground truth.
 
@@ -456,6 +557,9 @@ def knn_metadata_precision_at_k(
     items : list[ImageItem]
         One :class:`ImageItem` per embedding row, in the same order as the
         embedding matrix passed to ``top_k_neighbors``.
+    _positive_mask : np.ndarray | None
+        Precomputed ``[N, N]`` bool mask from :func:`_build_explicit_positive_mask`.
+        Computed internally when not provided.
 
     Returns
     -------
@@ -463,14 +567,15 @@ def knn_metadata_precision_at_k(
         Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
     """
     n = len(items)
+    if _positive_mask is None:
+        _positive_mask = _build_explicit_positive_mask(items)
+
+    row_idx = np.arange(n)[:, None]
     result = {}
     for k, data in neighbors_by_k.items():
-        indices = data["indices"]
-        per_item = np.empty(n, dtype=np.float64)
-        for i in range(n):
-            ranked_ids = [items[int(idx)].image_id for idx in indices[i]]
-            score = precision_at_k(ranked_ids, set(items[i].explicit_positive_ids), k)
-            per_item[i] = score if score is not None else 0.0
+        indices = data["indices"]  # [N, k]
+        hits = _positive_mask[row_idx, indices].sum(axis=1).astype(np.float64)
+        per_item = hits / k
         result[k] = {"mean": float(np.mean(per_item)), "std": float(np.std(per_item)), "per_item": per_item}
     return result
 
@@ -478,6 +583,8 @@ def knn_metadata_precision_at_k(
 def knn_metadata_map_at_k(
     neighbors_by_k: dict,
     items: list[ImageItem],
+    *,
+    _positive_mask: np.ndarray | None = None,
 ) -> dict:
     """MAP at K using explicit-positive metadata groups as ground truth.
 
@@ -491,6 +598,9 @@ def knn_metadata_map_at_k(
     items : list[ImageItem]
         One :class:`ImageItem` per embedding row, in the same order as the
         embedding matrix passed to ``top_k_neighbors``.
+    _positive_mask : np.ndarray | None
+        Precomputed ``[N, N]`` bool mask from :func:`_build_explicit_positive_mask`.
+        Computed internally when not provided.
 
     Returns
     -------
@@ -498,14 +608,18 @@ def knn_metadata_map_at_k(
         Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
     """
     n = len(items)
+    if _positive_mask is None:
+        _positive_mask = _build_explicit_positive_mask(items)
+
+    n_positives = _positive_mask.sum(axis=1).astype(np.float64)  # [N]
+    row_idx = np.arange(n)[:, None]
     result = {}
     for k, data in neighbors_by_k.items():
-        indices = data["indices"]
-        per_item = np.empty(n, dtype=np.float64)
-        for i in range(n):
-            ranked_ids = [items[int(idx)].image_id for idx in indices[i]]
-            score = average_precision_at_k(ranked_ids, set(items[i].explicit_positive_ids), k)
-            per_item[i] = score if score is not None else 0.0
+        indices = data["indices"]  # [N, k]
+        is_pos = _positive_mask[row_idx, indices].astype(np.float64)  # [N, k]
+        ranks = np.arange(1, k + 1, dtype=np.float64)  # [k]
+        sum_prec = ((np.cumsum(is_pos, axis=1) / ranks) * is_pos).sum(axis=1)  # [N]
+        per_item = np.divide(sum_prec, n_positives, out=np.zeros_like(sum_prec), where=n_positives > 0)
         result[k] = {"mean": float(np.mean(per_item)), "std": float(np.std(per_item)), "per_item": per_item}
     return result
 
@@ -513,6 +627,8 @@ def knn_metadata_map_at_k(
 def knn_metadata_mrr_at_k(
     neighbors_by_k: dict,
     items: list[ImageItem],
+    *,
+    _positive_mask: np.ndarray | None = None,
 ) -> dict:
     """Mean Reciprocal Rank at K using explicit-positive metadata as ground truth.
 
@@ -522,6 +638,9 @@ def knn_metadata_mrr_at_k(
         Output of :func:`~pai.ag_emb.metrics.similarity.top_k_neighbors`.
     items : list[ImageItem]
         One :class:`ImageItem` per embedding row, in the same order.
+    _positive_mask : np.ndarray | None
+        Precomputed ``[N, N]`` bool mask from :func:`_build_explicit_positive_mask`.
+        Computed internally when not provided.
 
     Returns
     -------
@@ -529,14 +648,17 @@ def knn_metadata_mrr_at_k(
         Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
     """
     n = len(items)
+    if _positive_mask is None:
+        _positive_mask = _build_explicit_positive_mask(items)
+
+    row_idx = np.arange(n)[:, None]
     result = {}
     for k, data in neighbors_by_k.items():
-        indices = data["indices"]
-        per_item = np.empty(n, dtype=np.float64)
-        for i in range(n):
-            ranked_ids = [items[int(idx)].image_id for idx in indices[i][:k]]
-            score = reciprocal_rank(ranked_ids, set(items[i].explicit_positive_ids))
-            per_item[i] = score if score is not None else 0.0
+        indices = data["indices"][:, :k]  # [N, k]
+        is_pos = _positive_mask[row_idx, indices]  # [N, k] bool
+        first_hit = np.argmax(is_pos, axis=1)  # [N]; 0 when no hit — guarded below
+        has_hit = is_pos.any(axis=1)
+        per_item = np.where(has_hit, 1.0 / (first_hit + 1), 0.0)
         result[k] = {"mean": float(np.mean(per_item)), "std": float(np.std(per_item)), "per_item": per_item}
     return result
 
@@ -544,6 +666,8 @@ def knn_metadata_mrr_at_k(
 def knn_metadata_ndcg_at_k(
     neighbors_by_k: dict,
     items: list[ImageItem],
+    *,
+    _grade_matrix: np.ndarray | None = None,
 ) -> dict:
     """NDCG at K using graded relevance derived from image metadata.
 
@@ -563,6 +687,9 @@ def knn_metadata_ndcg_at_k(
     items : list[ImageItem]
         One :class:`ImageItem` per embedding row, in the same order as the
         embedding matrix passed to ``top_k_neighbors``.
+    _grade_matrix : np.ndarray | None
+        Precomputed ``[N, N]`` int8 grade matrix from :func:`_build_grade_matrix`.
+        Built internally when not provided.
 
     Returns
     -------
@@ -570,19 +697,25 @@ def knn_metadata_ndcg_at_k(
         Keyed by K. Each value: ``mean``, ``std``, ``per_item``.
     """
     n = len(items)
-    result = {}
+    if _grade_matrix is None:
+        _grade_matrix = _build_grade_matrix(items)
 
+    # Precompute the sorted-descending grade matrix once for IDCG reuse across k.
+    sorted_grades = np.sort(_grade_matrix, axis=1)[:, ::-1]  # [N, N] descending
+
+    result = {}
+    row_idx = np.arange(n)[:, None]
     for k, data in neighbors_by_k.items():
         indices = data["indices"]  # [N, k]
-        per_item = np.empty(n, dtype=np.float64)
+        ranked_grades = _grade_matrix[row_idx, indices].astype(np.float64)  # [N, k]
 
-        for i in tqdm(range(n), desc=f"metadata_nDCG@{k}", leave=False, unit="item"):
-            query = items[i]
-            ranked_relevances = [relevance_grade(query, items[int(idx)]) for idx in indices[i]]
-            all_relevances = [relevance_grade(query, items[j]) for j in range(n) if j != i]
-            score = ndcg_at_k(ranked_relevances, all_relevances, k)
-            per_item[i] = score if score is not None else 0.0
+        discounts = 1.0 / np.log2(np.arange(2, k + 2, dtype=np.float64))  # [k]
+        dcg = ((np.power(2.0, ranked_grades) - 1.0) * discounts).sum(axis=1)  # [N]
 
+        ideal_grades = sorted_grades[:, :k].astype(np.float64)  # [N, k]
+        idcg = ((np.power(2.0, ideal_grades) - 1.0) * discounts).sum(axis=1)  # [N]
+
+        per_item = np.divide(dcg, idcg, out=np.zeros(n, dtype=np.float64), where=idcg > 0)
         result[k] = {
             "mean": float(np.mean(per_item)),
             "std": float(np.std(per_item)),
@@ -594,6 +727,8 @@ def knn_metadata_ndcg_at_k(
 def knn_metadata_r_precision(
     neighbors_by_k: dict,
     items: list[ImageItem],
+    *,
+    _positive_mask: np.ndarray | None = None,
 ) -> dict:
     """R-Precision using explicit-positive metadata groups as ground truth.
 
@@ -606,6 +741,9 @@ def knn_metadata_r_precision(
         Output of :func:`~pai.ag_emb.metrics.similarity.top_k_neighbors`.
     items : list[ImageItem]
         One :class:`ImageItem` per embedding row, in the same order.
+    _positive_mask : np.ndarray | None
+        Precomputed ``[N, N]`` bool mask from :func:`_build_explicit_positive_mask`.
+        Computed internally when not provided.
 
     Returns
     -------
@@ -613,11 +751,18 @@ def knn_metadata_r_precision(
         Flat stats (not nested by K): ``mean``, ``std``, ``per_item``.
     """
     n = len(items)
+    if _positive_mask is None:
+        _positive_mask = _build_explicit_positive_mask(items)
+
+    n_positives = _positive_mask.sum(axis=1).astype(np.int64)  # [N]
     max_k = max(neighbors_by_k.keys())
-    indices = neighbors_by_k[max_k]["indices"]
-    per_item = np.empty(n, dtype=np.float64)
-    for i in range(n):
-        ranked_ids = [items[int(idx)].image_id for idx in indices[i]]
-        score = r_precision(ranked_ids, set(items[i].explicit_positive_ids))
-        per_item[i] = score if score is not None else 0.0
+    indices = neighbors_by_k[max_k]["indices"]  # [N, max_k]
+    row_idx = np.arange(n)[:, None]
+
+    is_pos = _positive_mask[row_idx, indices].astype(np.float64)  # [N, max_k]
+    positions = np.arange(max_k)  # [max_k]
+    r_mask = positions[None, :] < n_positives[:, None]  # [N, max_k]
+    hits = (is_pos * r_mask).sum(axis=1)  # [N]
+
+    per_item = np.where(n_positives > 0, hits / np.maximum(n_positives, 1).astype(np.float64), 0.0)
     return {"mean": float(np.mean(per_item)), "std": float(np.std(per_item)), "per_item": per_item}

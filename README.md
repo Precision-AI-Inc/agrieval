@@ -1,6 +1,12 @@
 # Precision AI Agricultural Embedding Evaluation API
 
-Agricultural embedding evaluation API for Precision AI. Measures how well image model embeddings cluster by crop class using KNN-based metrics, geometry diagnostics, and interactive visualizations.
+Agricultural embedding evaluation API for Precision AI. Measures how well image model embeddings support three retrieval wirings using KNN-based metrics, geometry diagnostics, and interactive visualizations.
+
+| Wiring | Endpoint | Query type | Retrieval target |
+|---|---|---|---|
+| **Image→Image** | `/v1/embeddings/evaluate/image2image` | Full field image | Full field image |
+| **Plant→Image** | `/v1/embeddings/evaluate/plant2image` | Instance crop | Full field image |
+| **Plant→Plant** | `/v1/embeddings/evaluate/plant2plant` | Instance crop | Instance crop |
 
 [![Tests](https://github.com/Precision-AI-Inc/pai-ag-emb-eval/actions/workflows/workflow.yml/badge.svg)](https://github.com/Precision-AI-Inc/pai-ag-emb-eval/actions/workflows/workflow.yml) [![Coverage](.github/badges/coverage.svg)](https://github.com/Precision-AI-Inc/pai-ag-emb-eval/actions/workflows/workflow.yml)
 
@@ -187,6 +193,62 @@ Each group defines its own explicit-positive set and `attributes` dict. The numb
 
 ---
 
+### Wiring 3 — Plant→Image
+
+Pass a **mixed corpus** of full-field image embeddings and instance crop embeddings together with an `instance_to_image` mapping that declares which crops were taken from which parent image.
+
+```json
+{
+  "embeddings": {
+    "images/corn_cam/field001.png":   [...],
+    "images/corn_cam/field001-0.png": [...],
+    "images/corn_cam/field001-1.png": [...],
+    "images/soybean_cam/field002.png":    [...],
+    "images/soybean_cam/field002-0.png":  [...]
+  },
+  "instance_to_image": {
+    "images/corn_cam/field001.png": [
+      "images/corn_cam/field001-0.png",
+      "images/corn_cam/field001-1.png"
+    ],
+    "images/soybean_cam/field002.png": [
+      "images/soybean_cam/field002-0.png"
+    ]
+  },
+  "k_values": [5, 10]
+}
+```
+
+**Ground truth:** when an instance is the query, its parent full image is grade-3; when a full image is the query, all its instances are grade-3. Items sharing the same class (inferred from the parent's folder name) but from different groups are grade-1.
+
+Instance paths must follow the naming scheme `{original_image_name}-{ID}{ext}`, where `ID` is a zero-based integer counter or a short UUID suffix.
+
+---
+
+### Wiring 4 — Plant→Plant
+
+Pass **instance crop embeddings only** with an `instance_labels` mapping that assigns each instance its class label. All instances sharing the same label are mutual grade-3 positives.
+
+```json
+{
+  "embeddings": {
+    "images/corn_cam/inst-0.png":    [...],
+    "images/corn_cam/inst-1.png":    [...],
+    "images/soybean_cam/inst-2.png": [...]
+  },
+  "instance_labels": {
+    "images/corn_cam/inst-0.png":    "corn",
+    "images/corn_cam/inst-1.png":    "corn",
+    "images/soybean_cam/inst-2.png": "soybean"
+  },
+  "k_values": [5, 10]
+}
+```
+
+Every embedding key must have a label and every label key must exist in `embeddings` (complete labelling is enforced).
+
+---
+
 ## Running the API server
 
 ```bash
@@ -200,7 +262,15 @@ python -m pai.ag_emb.api.app --dataset-root /path/to/dataset --port 8000
 open http://localhost:8000/docs
 ```
 
-### POST `/v1/embeddings/evaluate`
+### Endpoints
+
+| Method | Path | Wiring |
+|---|---|---|
+| `POST` | `/v1/embeddings/evaluate/image2image` | Image→Image (Wiring 1 / 2) |
+| `POST` | `/v1/embeddings/evaluate/plant2image` | Plant→Image (Wiring 3) |
+| `POST` | `/v1/embeddings/evaluate/plant2plant` | Plant→Plant (Wiring 4) |
+
+### POST `/v1/embeddings/evaluate/image2image`
 
 Only `embeddings` is required. All other fields use server defaults.
 
@@ -248,19 +318,21 @@ Only `embeddings` is required. All other fields use server defaults.
 ## Python / CLI usage
 
 ```bash
-# Embeddings only — tight scenario (well-separated classes)
+# Image→Image — embeddings only
 python examples/example.py
 
-# Embeddings only — sparse scenario (overlapping classes, degraded KPIs)
-python examples/example.py --scenario sparse
+# Image→Image — with metadata (graded nDCG, per-attribute KPIs)
+python examples/example.py --mode image2image_meta
 
-# With metadata — enables graded nDCG and per-attribute KPIs
-python examples/example.py --scenario tight_meta
-python examples/example.py --scenario sparse_meta
+# Plant→Image — mixed corpus with instance_to_image mapping
+python examples/example.py --mode plant2image
+
+# Plant→Plant — instance crops with class labels
+python examples/example.py --mode plant2plant
 
 # With options
 python examples/example.py \
-  --scenario tight_meta \
+  --mode image2image_meta \
   --k-values 5 10 20 \
   --sample-pairs 500000 \
   --output-dir output \
@@ -268,7 +340,11 @@ python examples/example.py \
 ```
 
 ```python
-from pai.ag_emb.services.evaluate import run_evaluation
+from pai.ag_emb.services.evaluate import (
+    run_image2image_eval,
+    run_plant2image_eval,
+    run_plant2plant_eval,
+)
 from pai.ag_emb.services.reporting import print_result
 from pai.ag_emb.schemas.evaluate import MetadataGroup
 
@@ -277,15 +353,15 @@ embeddings = {
     "images/soybean_anafi/img2.JPG":     [...],
 }
 
-# Wiring 1 — embeddings only (class inferred from subgroup folder)
-result = run_evaluation(
+# Wiring 1 — Image→Image, class inferred from subgroup folder
+result = run_image2image_eval(
     image_embeddings=embeddings,
     k_values=[5, 10],
     dataset_root="images",
     sample_pairs=None,
 )
 
-# Wiring 2 — embeddings + metadata (graded nDCG, explicit positives)
+# Wiring 2 — Image→Image with explicit groups (graded nDCG, explicit positives)
 metadata = {
     "corn_HB-25000SBC": MetadataGroup(
         images=["images/corn_HB-25000SBC/img1.png"],
@@ -298,12 +374,48 @@ metadata = {
         attributes={"camera": "anafi", "growth_stage": "medium"},
     ),
 }
-result = run_evaluation(
+result = run_image2image_eval(
     image_embeddings=embeddings,
     k_values=[5, 10],
     dataset_root=None,
     sample_pairs=None,
     metadata=metadata,
+)
+
+# Wiring 3 — Plant→Image (mixed corpus of full images and instance crops)
+mixed_embeddings = {
+    "images/corn_cam/field001.png":   [...],
+    "images/corn_cam/field001-0.png": [...],
+    "images/corn_cam/field001-1.png": [...],
+    "images/soybean_cam/field002.png":    [...],
+    "images/soybean_cam/field002-0.png":  [...],
+}
+result = run_plant2image_eval(
+    embeddings=mixed_embeddings,
+    instance_to_image={
+        "images/corn_cam/field001.png": ["images/corn_cam/field001-0.png", "images/corn_cam/field001-1.png"],
+        "images/soybean_cam/field002.png": ["images/soybean_cam/field002-0.png"],
+    },
+    k_values=[5, 10],
+    dataset_root=None,
+    sample_pairs=None,
+)
+
+# Wiring 4 — Plant→Plant (instance crops with explicit class labels)
+instance_embeddings = {
+    "images/corn_cam/inst-0.png":    [...],
+    "images/corn_cam/inst-1.png":    [...],
+    "images/soybean_cam/inst-2.png": [...],
+}
+result = run_plant2plant_eval(
+    embeddings=instance_embeddings,
+    instance_labels={
+        "images/corn_cam/inst-0.png":    "corn",
+        "images/corn_cam/inst-1.png":    "corn",
+        "images/soybean_cam/inst-2.png": "soybean",
+    },
+    k_values=[5, 10],
+    sample_pairs=None,
 )
 
 print_result(result)
@@ -432,18 +544,22 @@ plot_lle(embeddings, result, output_path="output/lle.html")
 
 ## Example notebooks
 
-Two notebooks are provided — start Jupyter from the `examples/` directory for both.
+Three notebooks are provided — start Jupyter from the `examples/` directory.
 
-**[`examples/example.ipynb`](examples/example.ipynb)** — embeddings only (`emb_tight.json` / `emb_sparse.json`).
+**[`examples/example.ipynb`](examples/example.ipynb)** — Image→Image, embeddings only (`emb_image2image.json`).
 Covers KNN purity, nDCG, MAP, pairwise similarity, and all visualizations.
 
-**[`examples/example_meta.ipynb`](examples/example_meta.ipynb)** — embeddings + metadata (`emb_tight_meta.json` / `emb_sparse_meta.json`).
+**[`examples/example_meta.ipynb`](examples/example_meta.ipynb)** — Image→Image with metadata (`emb_image2image_meta.json`).
 Adds graded `knn_metadata_ndcg` and per-attribute `knn_attribute_ndcg` (one entry per attribute key).
+
+**[`examples/example_plant.ipynb`](examples/example_plant.ipynb)** — Plant wirings (`emb_plant2image.json` / `emb_plant2plant.json`).
+Covers Plant→Image with `instance_to_image` mapping and Plant→Plant with `instance_labels`.
 
 ```bash
 # From the project root
 jupyter notebook examples/example.ipynb
 jupyter notebook examples/example_meta.ipynb
+jupyter notebook examples/example_plant.ipynb
 ```
 
 ---
@@ -454,8 +570,8 @@ jupyter notebook examples/example_meta.ipynb
 # Run tests
 python -m pytest tests/
 
-# Start API with live reload
-pai-ag-emb --no-reload  # disable reload for production
+# Start API (no live reload by default; add --reload for development)
+pai-ag-emb
 ```
 
 Environment variable override for dataset root:

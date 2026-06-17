@@ -13,13 +13,14 @@
 
 from __future__ import annotations
 
+import gc
 import math
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from tqdm import tqdm
 
 try:
     from sklearn.cluster import HDBSCAN as _HDBSCAN  # type: ignore[import]
@@ -57,6 +58,7 @@ from pai.ag_emb.metrics import (
     top_k_neighbors,
     uniformity,
 )
+from pai.ag_emb.metrics.label_aware import _build_grade_matrix
 from pai.ag_emb.schemas.evaluate import MetadataGroup
 
 # Supported embedding path extensions — case-sensitive exact match.
@@ -112,10 +114,10 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
     if not paths:
         return []
 
-    posix_paths = [Path(p).as_posix() for p in paths]
+    posix_paths = [Path(p.replace("\\", "/")).as_posix() for p in paths]
 
     if dataset_root is not None:
-        root_prefix = Path(dataset_root).as_posix().rstrip("/") + "/"
+        root_prefix = Path(dataset_root.replace("\\", "/")).as_posix().rstrip("/") + "/"
     else:
         raw = os.path.commonprefix(posix_paths)
         # Trim to the last directory separator so we don't clip mid-word
@@ -429,11 +431,17 @@ def _compute_metadata_knn_metrics(
         attribute_ndcg_raw, positive_pairs.
     """
     items = build_image_items(paths, metadata)
-    ndcg_raw = knn_metadata_ndcg_at_k(neighbors, items)
-    precision_raw = knn_metadata_precision_at_k(neighbors, items)
-    map_raw = knn_metadata_map_at_k(neighbors, items)
-    mrr_raw = knn_metadata_mrr_at_k(neighbors, items)
-    r_prec_raw = knn_metadata_r_precision(neighbors, items)
+
+    # Precompute the grade matrix and positive mask once and reuse across all
+    # metric functions, avoiding O(N^2 x |K|) redundant relevance_grade calls.
+    grade_matrix = _build_grade_matrix(items)
+    positive_mask = grade_matrix == 3
+
+    ndcg_raw = knn_metadata_ndcg_at_k(neighbors, items, _grade_matrix=grade_matrix)
+    precision_raw = knn_metadata_precision_at_k(neighbors, items, _positive_mask=positive_mask)
+    map_raw = knn_metadata_map_at_k(neighbors, items, _positive_mask=positive_mask)
+    mrr_raw = knn_metadata_mrr_at_k(neighbors, items, _positive_mask=positive_mask)
+    r_prec_raw = knn_metadata_r_precision(neighbors, items, _positive_mask=positive_mask)
     return {
         "ndcg_raw": ndcg_raw,
         "ndcg_per_item": {k: s["per_item"] for k, s in ndcg_raw.items()},
@@ -689,7 +697,7 @@ def _compute_group_analysis(
     return result
 
 
-def run_evaluation(
+def run_image2image_eval(
     image_embeddings: dict[str, list[float]],
     k_values: list[int],
     dataset_root: str | None,
@@ -733,47 +741,41 @@ def run_evaluation(
     n, d = embeddings.shape
     unique_classes = sorted(set(labels_list))
 
-    n_steps = 10 if metadata is not None else 8
-    with tqdm(total=n_steps, desc="Neighbor graph", unit="step") as pbar:
-        neighbors = top_k_neighbors(embeddings, ks=k_values)
-        effective_ks = sorted(neighbors.keys())
-        pbar.update(1)
+    # Stage 1: Build the k-NN graph (all subsequent stages depend on this).
+    neighbors = top_k_neighbors(embeddings, ks=k_values)
+    effective_ks = sorted(neighbors.keys())
 
-        pbar.set_description("KNN metrics")
-        label_metrics = _compute_label_knn_metrics(neighbors, labels_arr)
-        pbar.update(3)
-
-        meta_metrics: dict | None = None
-        if metadata is not None:
-            pbar.set_description("Metadata metrics")
-            meta_metrics = _compute_metadata_knn_metrics(neighbors, paths, metadata)
-            pbar.update(1)
-
-        pbar.set_description("Neighbor diagnostics")
-        neighbor_diags = _compute_neighbor_diagnostics(neighbors, n)
-        pbar.update(1)
-
-        pbar.set_description("Geometry & global metrics")
-        global_metrics = _assemble_global_metrics(
-            embeddings, labels_arr, sample_pairs, neighbor_diags, meta_metrics, label_metrics
+    # Stage 2: Run independent metric stages in parallel.  NumPy releases the
+    # GIL during most operations, so threading gives real concurrency here.
+    n_workers = min(4, os.cpu_count() or 1)
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        label_future = pool.submit(_compute_label_knn_metrics, neighbors, labels_arr)
+        diag_future = pool.submit(_compute_neighbor_diagnostics, neighbors, n)
+        confusion_future = pool.submit(knn_confusion_matrix, neighbors, labels_arr)
+        meta_future = (
+            pool.submit(_compute_metadata_knn_metrics, neighbors, paths, metadata) if metadata is not None else None
         )
-        pbar.update(1)
-
-        group_analysis: dict | None = None
-        if metadata is not None:
-            pbar.set_description("Group analysis")
-            group_analysis = _compute_group_analysis(embeddings, paths, metadata)
-            pbar.update(1)
-
-        pbar.set_description("Per-class metrics")
-        per_class = _build_per_class_metrics(
-            unique_classes, embeddings, labels_arr, sample_pairs, label_metrics, meta_metrics
+        group_future = (
+            pool.submit(_compute_group_analysis, embeddings, paths, metadata) if metadata is not None else None
         )
-        pbar.update(1)
 
-        pbar.set_description("Confusion matrix")
-        confusion_raw = knn_confusion_matrix(neighbors, labels_arr)
-        pbar.update(1)
+        label_metrics = label_future.result()
+        neighbor_diags = diag_future.result()
+        confusion_raw = confusion_future.result()
+        meta_metrics: dict | None = meta_future.result() if meta_future is not None else None
+        group_analysis: dict | None = group_future.result() if group_future is not None else None
+
+    # Free the large neighbor index/score arrays as soon as they are no longer needed.
+    del neighbors
+    gc.collect()
+
+    # Stage 3: Assemble outputs that depend on stage-2 results.
+    global_metrics = _assemble_global_metrics(
+        embeddings, labels_arr, sample_pairs, neighbor_diags, meta_metrics, label_metrics
+    )
+    per_class = _build_per_class_metrics(
+        unique_classes, embeddings, labels_arr, sample_pairs, label_metrics, meta_metrics
+    )
 
     result: dict = {
         "n_items": n,
@@ -789,3 +791,158 @@ def run_evaluation(
     if group_analysis is not None:
         result["group_analysis"] = _jsonify(group_analysis)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Plant wiring adapters
+# ---------------------------------------------------------------------------
+
+
+def plant2image_to_metadata(
+    instance_to_image: dict[str, list[str]],
+    dataset_root: str | None = None,
+) -> dict[str, MetadataGroup]:
+    """Convert a Plant2Image wiring map to :class:`MetadataGroup` form.
+
+    Each parent full-image and all its instance crops form one group whose
+    members are mutual explicit positives.  The crop class is extracted from
+    the parent image path using the standard ``{root}/{class_subgroup}/``
+    directory convention.
+
+    Parameters
+    ----------
+    instance_to_image : dict[str, list[str]]
+        Mapping from parent full-image path to a list of its instance crop
+        paths.
+    dataset_root : str | None
+        Optional dataset root prefix for extracting the crop class label from
+        parent image paths.  Defaults to the longest common directory prefix.
+
+    Returns
+    -------
+    dict[str, MetadataGroup]
+        One :class:`MetadataGroup` per parent image, keyed by the parent path.
+        Each group's ``images`` list contains the parent path followed by all
+        its instance paths.
+    """
+    parent_paths = list(instance_to_image.keys())
+    if not parent_paths:
+        return {}
+    parent_labels = extract_labels(parent_paths, dataset_root)
+    return {
+        parent_path: MetadataGroup(
+            images=[parent_path, *instance_paths],
+            class_name=class_name,
+        )
+        for (parent_path, instance_paths), class_name in zip(instance_to_image.items(), parent_labels, strict=True)
+    }
+
+
+def plant2plant_to_metadata(
+    instance_labels: dict[str, str],
+) -> dict[str, MetadataGroup]:
+    """Convert a Plant2Plant wiring map to :class:`MetadataGroup` form.
+
+    All instances sharing the same class label are grouped into one
+    :class:`MetadataGroup`, making them mutual explicit positives.
+
+    Parameters
+    ----------
+    instance_labels : dict[str, str]
+        Mapping from instance path to its crop/weed class label.
+
+    Returns
+    -------
+    dict[str, MetadataGroup]
+        :class:`MetadataGroup` objects ready for :func:`run_image2image_eval`.
+    """
+    class_to_instances: dict[str, list[str]] = {}
+    for inst, cls in instance_labels.items():
+        class_to_instances.setdefault(cls, []).append(inst)
+    return {cls: MetadataGroup(images=instances, class_name=cls) for cls, instances in class_to_instances.items()}
+
+
+# ---------------------------------------------------------------------------
+# Plant wiring entry points
+# ---------------------------------------------------------------------------
+
+
+def run_plant2image_eval(
+    embeddings: dict[str, list[float]],
+    instance_to_image: dict[str, list[str]],
+    k_values: list[int],
+    dataset_root: str | None,
+    sample_pairs: int | None,
+) -> dict:
+    """Compute the full evaluation for the Plant→Image retrieval scenario.
+
+    Converts ``instance_to_image`` into :class:`MetadataGroup` objects (one
+    group per parent image) then delegates to :func:`run_image2image_eval`.  Each
+    parent full-image and all its instance crops form a group of mutual
+    explicit positives.
+
+    Parameters
+    ----------
+    embeddings : dict[str, list[float]]
+        Mapping of image/instance path → L2-normalised embedding vector.
+        Must include both parent full-image paths and all instance crop paths
+        referenced in ``instance_to_image``.
+    instance_to_image : dict[str, list[str]]
+        Parent full-image path → list of instance crop paths.
+    k_values : list[int]
+        K cutoffs for nearest-neighbour metrics.
+    dataset_root : str | None
+        Optional dataset root for class label extraction from parent paths.
+    sample_pairs : int | None
+        Pair-sampling budget for global similarity stats.
+
+    Returns
+    -------
+    dict
+        Fixed-schema result ready for JSON serialisation.
+    """
+    metadata = plant2image_to_metadata(instance_to_image, dataset_root)
+    return run_image2image_eval(
+        image_embeddings=embeddings,
+        k_values=k_values,
+        dataset_root=dataset_root,
+        sample_pairs=sample_pairs,
+        metadata=metadata,
+    )
+
+
+def run_plant2plant_eval(
+    embeddings: dict[str, list[float]],
+    instance_labels: dict[str, str],
+    k_values: list[int],
+    sample_pairs: int | None,
+) -> dict:
+    """Compute the full evaluation for the Plant→Plant retrieval scenario.
+
+    Converts ``instance_labels`` into :class:`MetadataGroup` objects (one per
+    class label) then delegates to :func:`run_image2image_eval`.
+
+    Parameters
+    ----------
+    embeddings : dict[str, list[float]]
+        Mapping of instance path → L2-normalised embedding vector.
+    instance_labels : dict[str, str]
+        Mapping of instance path → crop/weed class label.
+    k_values : list[int]
+        K cutoffs for nearest-neighbour metrics.
+    sample_pairs : int | None
+        Pair-sampling budget for global similarity stats.
+
+    Returns
+    -------
+    dict
+        Fixed-schema result ready for JSON serialisation.
+    """
+    metadata = plant2plant_to_metadata(instance_labels)
+    return run_image2image_eval(
+        image_embeddings=embeddings,
+        k_values=k_values,
+        dataset_root=None,
+        sample_pairs=sample_pairs,
+        metadata=metadata,
+    )

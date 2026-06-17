@@ -126,7 +126,10 @@ Pydantic request and response schemas for the evaluation endpoint, including :cl
 pai.ag_emb.api.routes.evaluate
 --------------------------------
 
-FastAPI route handler for ``POST /v1/embeddings/evaluate``.
+Three named FastAPI endpoints covering the full agricultural retrieval taxonomy:
+``POST /v1/embeddings/evaluate/image2image``,
+``POST /v1/embeddings/evaluate/plant2image``, and
+``POST /v1/embeddings/evaluate/plant2plant``.
 
 .. automodule:: pai.ag_emb.api.routes.evaluate
    :members:
