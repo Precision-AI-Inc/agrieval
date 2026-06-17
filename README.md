@@ -315,6 +315,34 @@ print_result(result)
 
 When metadata is provided, retrieval KPIs use explicit-positive ground truth from your declared similarity groups. Without metadata, class labels inferred from the path structure are used — useful for a quick sanity check but less precise. Geometry and neighbour diagnostics are always computed regardless of whether metadata is supplied.
 
+### Quick reference — what each metric means
+
+| Metric | Description | Better when |
+|---|---|---|
+| `pairwise_similarity_stats` | How similar images are to each other across the whole dataset (mean, std, percentiles). A high mean means embeddings are generally close; a low std means they are consistently so. | Context-dependent — high mean with high gap (below) is ideal |
+| `centroid_similarity_stats` | How close each embedding sits to the dataset's "centre of mass." Very high uniformity here can signal the space is lop-sided rather than well spread. | Lower (more spread from centre) |
+| `intra_inter_similarity_gap` | Same-class similarity minus different-class similarity. Tells you how much more similar images of the same crop are compared to images of different crops. | **Higher** — a large positive gap means the model clearly separates crops |
+| `effective_rank` | How many of the model's embedding dimensions are meaningfully used. A model that squashes everything into a few dimensions wastes capacity. | **Higher** — more expressive use of the embedding space |
+| `uniformity` | How evenly embeddings are spread across the space (Wang & Isola 2020). A clumped space means many images share the same neighbourhood. | **More negative** — embeddings should cover the space, not all pile up |
+| `hubness` | Whether a small number of images are disproportionately the nearest neighbour of everyone else. High hubness is a geometry warning sign. | **Lower** mean, std, and Gini coefficient |
+| `knn_radius@k` | How far (in embedding distance) you need to reach to find k neighbours. Useful for tuning retrieval thresholds. | Context-dependent |
+| `mean_top_k_sim@k` | Average cosine similarity to your k nearest neighbours. Higher means tighter local clusters. | **Higher** for well-separated classes |
+| `outlier_score@k` | How isolated each image is from its neighbours. High scores flag images that don't fit neatly with anything else. | **Lower** for a coherent dataset |
+| `knn_label_purity@k` | Of the k nearest neighbours for each image, what fraction share the same crop class? 1.0 = every neighbour is the right crop. | **Higher** — closer to 1.0 is better |
+| `knn_label_ndcg@k` | Are same-class images ranked near the top of the neighbour list? Penalises correct matches that appear late in the ranking. | **Higher** — 1.0 is perfect ranking |
+| `knn_map@k` | Can the model consistently find *all* images of the same class, not just the first few? | **Higher** |
+| `knn_label_mrr@k` | On average, how far down the ranked list is the first correct (same-class) match? MRR of 1.0 means it is always the very first result. | **Higher** |
+| `knn_label_r_precision` | Precision when you retrieve exactly as many results as there are images of that class. | **Higher** |
+| `alignment` | How close explicitly declared positives are to each other in embedding space. 0 = perfectly aligned; only available when metadata is provided. | **Lower** |
+| `knn_metadata_precision@k` | Of the top-k results, what fraction are declared explicit positives (from your metadata groups)? | **Higher** |
+| `knn_metadata_ndcg@k` | Graded ranking quality using the 0–3 relevance scale (explicit positive > same class + attributes > same class > different class). | **Higher** — 1.0 is perfect |
+| `knn_metadata_map@k` | How consistently does the model surface *all* explicit positives early in the ranked list? | **Higher** |
+| `knn_metadata_mrr@k` | How far down before the first explicit positive appears? | **Higher** |
+| `knn_metadata_r_precision` | Precision at R, where R equals the number of explicit positives declared for that image. | **Higher** |
+| `knn_attribute_ndcg@k` | One score per metadata attribute (e.g. `camera`, `growth_stage`). Measures whether images sharing the same attribute value are ranked above those that differ on it. | **Higher** per attribute |
+
+---
+
 ### Always present
 
 | Metric | Description |

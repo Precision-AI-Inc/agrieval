@@ -31,7 +31,7 @@ class TestApp:
         assert app.title == "pai-ag-emb"
 
     def test_evaluate_router_mounted(self) -> None:
-        paths = {getattr(route, "path", "") for route in app.routes}
+        paths = set(app.openapi().get("paths", {}).keys())
         assert any("/v1/embeddings/evaluate" in p for p in paths)
 
 

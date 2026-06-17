@@ -9,12 +9,17 @@ jobs:
     permissions:
       contents: write
 
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install dependencies
@@ -24,7 +29,7 @@ jobs:
         run: python -m pytest tests/ -q --tb=short --no-header --cov-report=xml:coverage.xml
 
       - name: Generate coverage badge
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.10'
         run: |
           mkdir -p .github/badges
           genbadge coverage -i coverage.xml -o .github/badges/coverage.svg

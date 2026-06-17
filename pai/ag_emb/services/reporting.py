@@ -50,6 +50,32 @@ except ImportError:
     _TSNE_ITER_PARAM = "max_iter"
     _SKLEARN_AVAILABLE = False
 
+# Fixed palette for small class counts (≤10); for larger counts _scatter_colors()
+# falls back to evenly-spaced HSL hues so no two classes ever share a color.
+_SCATTER_PALETTE = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#17becf",
+    "#bcbd22",
+    "#7f7f7f",
+]
+
+
+def _scatter_colors(n: int) -> list[str]:
+    """Return ``n`` perceptually distinct hex colors.
+
+    Uses the fixed ``_SCATTER_PALETTE`` for up to 10 classes; for larger ``n``
+    generates evenly-spaced HSL hues so every class is guaranteed a unique color.
+    """
+    if n <= len(_SCATTER_PALETTE):
+        return _SCATTER_PALETTE[:n]
+    return [f"hsl({round(i * 360 / n)},70%,45%)" for i in range(n)]
+
 
 def print_result(result: dict) -> None:
     """Pretty-print the output of :func:`~pai.ag_emb.services.evaluate.run_evaluation`.
@@ -533,9 +559,11 @@ def _build_scatter3d(
     if go is None:
         raise ImportError("plotly is required: pip install plotly") from None
     n = len(paths)
-    for cls in classes:
+    palette = _scatter_colors(len(classes))
+    for i, cls in enumerate(classes):
         mask = label_arr == cls
-        cls_paths = [paths[i] for i in range(n) if mask[i]]
+        cls_paths = [paths[j] for j in range(n) if mask[j]]
+        color = palette[i]
         fig.add_trace(
             go.Scatter3d(
                 x=coords[mask, 0].tolist(),
@@ -545,7 +573,7 @@ def _build_scatter3d(
                 name=cls,
                 text=cls_paths,
                 hovertemplate="%{text}<extra>" + cls + "</extra>",
-                marker=dict(size=7, opacity=0.85, line=dict(width=1, color="white")),
+                marker=dict(size=7, opacity=0.85, color=color, line=dict(width=1, color="white")),
             )
         )
 
@@ -684,9 +712,11 @@ def plot_tsne(
     if dimensions == 3:
         _build_scatter3d(fig, coords, unique_groups, label_arr, paths, axis_prefix="t-SNE")
     else:
-        for grp in unique_groups:
+        palette = _scatter_colors(len(unique_groups))
+        for i, grp in enumerate(unique_groups):
             mask = label_arr == grp
-            grp_paths = [paths[i] for i in range(n) if mask[i]]
+            grp_paths = [paths[j] for j in range(n) if mask[j]]
+            color = palette[i]
             fig.add_trace(
                 go.Scatter(
                     x=coords[mask, 0].tolist(),
@@ -695,7 +725,7 @@ def plot_tsne(
                     name=grp,
                     text=grp_paths,
                     hovertemplate="%{text}<extra>" + grp + "</extra>",
-                    marker=dict(size=10, opacity=0.85, line=dict(width=1, color="white")),
+                    marker=dict(size=10, opacity=0.85, color=color, line=dict(width=1, color="white")),
                 )
             )
 
