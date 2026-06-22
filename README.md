@@ -8,7 +8,7 @@ Agricultural embedding evaluation API for Precision AI. Measures how well image 
 | **Plant→Image** | `/v1/embeddings/evaluate/plant2image` | Instance crop | Full field image |
 | **Plant→Plant** | `/v1/embeddings/evaluate/plant2plant` | Instance crop | Instance crop |
 
-[![Tests](https://github.com/Precision-AI-Inc/pai-ag-emb-eval/actions/workflows/workflow.yml/badge.svg)](https://github.com/Precision-AI-Inc/pai-ag-emb-eval/actions/workflows/workflow.yml) [![Coverage](.github/badges/coverage.svg)](https://github.com/Precision-AI-Inc/pai-ag-emb-eval/actions/workflows/workflow.yml)
+[![Tests](https://github.com/Precision-AI-Inc/pai-agrieval-emb/actions/workflows/workflow.yml/badge.svg)](https://github.com/Precision-AI-Inc/pai-agrieval-emb/actions/workflows/workflow.yml) [![Coverage](.github/badges/coverage.svg)](https://github.com/Precision-AI-Inc/pai-agrieval-emb/actions/workflows/workflow.yml)
 
 ---
 
@@ -253,7 +253,7 @@ Every embedding key must have a label and every label key must exist in `embeddi
 
 ```bash
 # Default: dataset root = ./dataset, port 8000
-pai-ag-emb
+pai-agrieval-emb
 
 # Or explicitly
 python -m pai.ag_emb.api.app --dataset-root /path/to/dataset --port 8000
@@ -571,11 +571,11 @@ jupyter notebook examples/example_plant.ipynb
 python -m pytest tests/
 
 # Start API (no live reload by default; add --reload for development)
-pai-ag-emb
+pai-agrieval-emb
 ```
 
 Environment variable override for dataset root:
 
 ```bash
-PAI_DATASET_ROOT=/data/crops pai-ag-emb
+PAI_DATASET_ROOT=/data/crops pai-agrieval-emb
 ```

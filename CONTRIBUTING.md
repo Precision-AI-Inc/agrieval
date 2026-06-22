@@ -8,7 +8,7 @@ Requires Python 3.10+.
 
 ```bash
 git clone <repo-url>
-cd pai-ag-emb
+cd pai-agrieval-emb
 
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate

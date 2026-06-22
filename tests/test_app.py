@@ -28,7 +28,7 @@ class TestApp:
         assert isinstance(app, FastAPI)
 
     def test_app_title(self) -> None:
-        assert app.title == "pai-ag-emb"
+        assert app.title == "pai-agrieval-emb"
 
     def test_evaluate_router_mounted(self) -> None:
         paths = set(app.openapi().get("paths", {}).keys())
@@ -45,7 +45,7 @@ class TestMain:
 
     def _run_main(self, argv: list[str]) -> MagicMock:
         mock = MagicMock()
-        with patch("uvicorn.run", mock), patch("sys.argv", ["pai-ag-emb", *argv]):
+        with patch("uvicorn.run", mock), patch("sys.argv", ["pai-agrieval-emb", *argv]):
             main()
         return mock
 

@@ -61,7 +61,7 @@ Returns a fixed JSON report with a `global_metrics` summary and a
 """
 
 app = FastAPI(
-    title="pai-ag-emb",
+    title="pai-agrieval-emb",
     description=_DESCRIPTION,
     version="0.1.0",
 )
@@ -85,7 +85,7 @@ def main() -> None:
     --no-reload : flag
         Disable uvicorn auto-reload (recommended in production).
     """
-    parser = argparse.ArgumentParser(description="pai-ag-emb API server")
+    parser = argparse.ArgumentParser(description="pai-agrieval-emb API server")
     parser.add_argument(
         "--dataset-root",
         default="dataset",
