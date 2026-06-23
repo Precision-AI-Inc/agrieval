@@ -1,0 +1,17 @@
+{
+  "class_name": "A2",
+  "attributes": {
+    "time_period": "ss",
+    "camera_source": "nikon_d610"
+  },
+  "images": [
+    "images/A2/190627-090803-corn-nikon_d610-84e374af.JPG",
+    "images/A2/190627-090900-corn-nikon_d610-bded43cb.JPG",
+    "images/A2/190627-090901-corn-nikon_d610-67679dac.JPG",
+    "images/A2/190627-091105-corn-nikon_d610-8d6b86d0.JPG",
+    "images/A2/190627-091202-corn-nikon_d610-b7725cb0.JPG",
+    "images/A2/190627-091502-corn-nikon_d610-ba4f7547.JPG",
+    "images/A2/190627-091503-corn-nikon_d610-e2cc5642.JPG",
+    "images/A2/190627-091801-corn-nikon_d610-94fd680b.JPG"
+  ]
+}

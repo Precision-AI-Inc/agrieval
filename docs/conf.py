@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 
-# Add project root so 'pai' can be imported for autodoc
+# Add project root so 'precisionai' can be imported for autodoc
 _root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, _root)
 
@@ -46,7 +46,7 @@ print("Release: ", release)
 
 # -- General configuration ----------------------------------------------------
 project = "Precision AI Agricultural Embedding API"
-copyright = "2025, Precision AI"
+copyright = "2026, Precision AI"
 author = "Precision AI"
 
 extensions = [

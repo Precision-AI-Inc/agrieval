@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """Runtime memory profiling tests using tracemalloc.
 
@@ -24,8 +16,8 @@ import tracemalloc
 
 import numpy as np
 
-from pai.ag_emb.schemas.evaluate import MetadataGroup
-from pai.ag_emb.services.evaluate import run_image2image_eval
+from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
+from precisionai.agrieval.emb.services.evaluate import run_image2image_eval
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -34,7 +26,7 @@ from pai.ag_emb.services.evaluate import run_image2image_eval
 
 def _make_embeddings(n: int, d: int, n_classes: int = 3, seed: int = 42) -> dict[str, list[float]]:
     rng = np.random.default_rng(seed)
-    class_names = ["corn", "soy", "wheat"]
+    class_names = ["A1", "B1", "C1"]
     # Use orthogonal basis vectors as prototypes for clean class separation.
     prototypes = np.eye(d, dtype=np.float32)[:n_classes]
     result: dict[str, list[float]] = {}
@@ -106,11 +98,11 @@ class TestMemoryScaling:
 class TestMemoryWithMetadata:
     def test_metadata_path_memory_reasonable(self) -> None:
         embeddings = _make_embeddings(n=60, d=32, n_classes=2)
-        corn_paths = [p for p in embeddings if "/corn/" in p]
-        soy_paths = [p for p in embeddings if "/soy/" in p]
+        a1_paths = [p for p in embeddings if "/A1/" in p]
+        b1_paths = [p for p in embeddings if "/B1/" in p]
         metadata = {
-            "corn": MetadataGroup(images=corn_paths, class_name="corn", attributes={"growth_stage": "medium"}),
-            "soy": MetadataGroup(images=soy_paths, class_name="soy", attributes={"growth_stage": "early"}),
+            "A1": MetadataGroup(images=a1_paths, class_name="A1", attributes={"growth_stage": "medium"}),
+            "B1": MetadataGroup(images=b1_paths, class_name="B1", attributes={"growth_stage": "early"}),
         }
 
         gc.collect()

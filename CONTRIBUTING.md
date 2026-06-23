@@ -8,7 +8,7 @@ Requires Python 3.10+.
 
 ```bash
 git clone <repo-url>
-cd pai-ag-emb
+cd precisionai-agrieval-emb
 
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
@@ -66,3 +66,7 @@ Tests live in `tests/` and mirror the package structure. The coverage threshold 
 - Keep PRs focused — one logical change per PR.
 - Write a clear description of what changed and why.
 - All pre-commit hooks must pass before requesting review.
+
+## License
+
+By contributing, you agree that your contributions are licensed under the Apache License, Version 2.0.

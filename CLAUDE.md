@@ -15,7 +15,7 @@ Apply these standards when writing, reviewing, or refactoring code in any PAI Py
 ## Project layout
 
 ```
-pai/<namespace>/
+precisionai/<namespace>/<subpackage>/
   api/
     routes/      # FastAPI route handlers (thin — delegate to services)
     config.py    # env-var config only
@@ -63,7 +63,7 @@ convention = "numpy"          # enforces NumPy docstring style
 max-complexity = 10
 
 [tool.ruff.lint.isort]
-known-first-party = ["pai"]   # adjust namespace per project
+known-first-party = ["precisionai"]   # adjust namespace per project
 
 [tool.ruff.format]
 quote-style = "double"
@@ -71,7 +71,7 @@ indent-style = "space"
 docstring-code-format = true  # formats code blocks inside docstrings
 
 [tool.pytest.ini_options]
-addopts = "--cov=pai --cov-report=term-missing --cov-fail-under=90"
+addopts = "--cov=precisionai --cov-report=term-missing --cov-fail-under=90"
 
 [tool.coverage.report]
 fail_under = 90

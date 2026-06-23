@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """Unit tests for the FastAPI application factory and CLI entry point."""
 
@@ -20,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 
-from pai.ag_emb.api.app import app, main
+from precisionai.agrieval.emb.api.app import app, main
 
 
 class TestApp:
@@ -28,7 +20,7 @@ class TestApp:
         assert isinstance(app, FastAPI)
 
     def test_app_title(self) -> None:
-        assert app.title == "pai-ag-emb"
+        assert app.title == "precisionai-agrieval-emb"
 
     def test_evaluate_router_mounted(self) -> None:
         paths = set(app.openapi().get("paths", {}).keys())
@@ -45,14 +37,14 @@ class TestMain:
 
     def _run_main(self, argv: list[str]) -> MagicMock:
         mock = MagicMock()
-        with patch("uvicorn.run", mock), patch("sys.argv", ["pai-ag-emb", *argv]):
+        with patch("uvicorn.run", mock), patch("sys.argv", ["precisionai-agrieval-emb", *argv]):
             main()
         return mock
 
     def test_defaults(self) -> None:
         mock = self._run_main([])
         mock.assert_called_once_with(
-            "pai.ag_emb.api.app:app",
+            "precisionai.agrieval.emb.api.app:app",
             host="0.0.0.0",
             port=8000,
             reload=True,
@@ -85,4 +77,4 @@ class TestMain:
     def test_app_string_passed_to_uvicorn(self) -> None:
         mock = self._run_main([])
         args, _ = mock.call_args
-        assert args[0] == "pai.ag_emb.api.app:app"
+        assert args[0] == "precisionai.agrieval.emb.api.app:app"

@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 """Run the evaluation service directly — no HTTP server required.
 
 Four example modes are bundled, one per retrieval wiring:
@@ -39,13 +31,13 @@ from pathlib import Path
 # Allow running without `pip install -e .`
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pai.ag_emb.schemas.evaluate import MetadataGroup
-from pai.ag_emb.services.evaluate import (
+from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
+from precisionai.agrieval.emb.services.evaluate import (
     run_image2image_eval,
     run_plant2image_eval,
     run_plant2plant_eval,
 )
-from pai.ag_emb.services.reporting import (
+from precisionai.agrieval.emb.services.reporting import (
     plot_cosine_similarity,
     plot_knn_confusion,
     plot_lle,
@@ -79,7 +71,7 @@ def main() -> None:
         ``instance_labels``.
     --dataset-root : str
         Dataset root for Image→Image label extraction.  Defaults to
-        ``"images"`` to match the ``images/class_subgroup/`` key prefix.
+        ``"images"`` to match the ``images/{L2}/`` key prefix.
     --k-values : list[int]
         One or more K cutoffs for nearest-neighbour metrics.  Defaults to
         ``[5, 10]``.

@@ -1,22 +1,14 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
-"""Tests for pai.ag_emb.metrics.similarity (P0 primitives)."""
+"""Tests for precisionai.agrieval.emb.metrics.similarity (P0 primitives)."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from pai.ag_emb.metrics.similarity import (
+from precisionai.agrieval.emb.metrics.similarity import (
     cosine_similarity_matrix,
     pairwise_similarity_stats,
     similarity_threshold_counts,
