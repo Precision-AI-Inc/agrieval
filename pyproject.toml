@@ -3,9 +3,10 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pai-agrieval-emb"
+name = "precisionai-agrieval-emb"
 version = "0.1.0"
 description = "Precision AI Agricultural Embedding API"
+license = { file = "LICENSE.md" }
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.111",
@@ -42,23 +43,23 @@ dev = [
 ]
 
 [project.scripts]
-pai-agrieval-emb = "pai.ag_emb.api.app:main"
+precisionai-agrieval-emb = "precisionai.agrieval.emb.api.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pai*"]
+include = ["precisionai*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "--cov=pai --cov-report=term-missing --cov-fail-under=90"
+addopts = "--cov=precisionai --cov-report=term-missing --cov-fail-under=90"
 markers = [
     "integration: marks tests that require external resources (deselect with '-m \"not integration\"')",
 ]
 
 [tool.coverage.run]
-source = ["pai"]
+source = ["precisionai"]
 omit = ["*/tests/*", "*/__init__.py"]
 relative_files = true
 
@@ -127,7 +128,7 @@ convention = "numpy"
 max-complexity = 10
 
 [tool.ruff.lint.isort]
-known-first-party = ["pai"]
+known-first-party = ["precisionai"]
 
 [tool.ruff.format]
 quote-style = "double"

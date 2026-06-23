@@ -1,0 +1,13 @@
+{
+  "l1_cluster": "B",
+  "l2_cluster": "B1",
+  "attributes": {
+    "time_period": "ss",
+    "camera_source": "HB-25000SBC"
+  },
+  "images": [
+    "images/B1/220608-143001-soybeans-HB-25000SBC-37dc1b2c.png",
+    "images/B1/220608-143001-soybeans-HB-25000SBC-754c6a11.png",
+    "images/B1/220608-143001-soybeans-HB-25000SBC-8235f317.png"
+  ]
+}

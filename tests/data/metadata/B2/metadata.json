@@ -1,0 +1,14 @@
+{
+  "l1_cluster": "B",
+  "l2_cluster": "B2",
+  "attributes": {
+    "time_period": "ss",
+    "camera_source": "anafi"
+  },
+  "images": [
+    "images/B2/210625-131202-soybeans-Anafi-fce5a850.JPG",
+    "images/B2/210625-131205-soybeans-Anafi-8bc119e3.JPG",
+    "images/B2/210625-131303-soybeans-Anafi-614a4aea.JPG",
+    "images/B2/210625-131501-soybeans-Anafi-49b5fd6d.JPG"
+  ]
+}

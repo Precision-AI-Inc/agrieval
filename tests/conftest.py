@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """Shared pytest fixtures.
 
@@ -24,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pai.ag_emb.services.evaluate import _parse_crop
+from precisionai.agrieval.emb.services.evaluate import _parse_crop
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -48,8 +40,8 @@ def _collect_paths() -> list[Path]:
 
 def _crop_from_path(path: Path) -> str:
     """Extract crop label from a tests/data/ path using the service convention."""
-    # Layout: tests/data/images/class_subgroup/filename
-    # parts[0] = "images", parts[1] = "corn_HB-25000SBC", etc.
+    # Layout: tests/data/images/{L2}/{filename}
+    # parts[0] = "images", parts[1] = L2 folder (e.g. "A1"), etc.
     rel = path.relative_to(TESTS_DATA)
     idx = 1 if len(rel.parts) > 1 and rel.parts[0] == "images" else 0
     return _parse_crop(rel.parts[idx])

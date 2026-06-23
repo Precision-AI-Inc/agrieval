@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """Runtime memory profiling tests using tracemalloc.
 
@@ -24,8 +16,8 @@ import tracemalloc
 
 import numpy as np
 
-from pai.ag_emb.schemas.evaluate import MetadataGroup
-from pai.ag_emb.services.evaluate import run_image2image_eval
+from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
+from precisionai.agrieval.emb.services.evaluate import run_image2image_eval
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -109,8 +101,12 @@ class TestMemoryWithMetadata:
         corn_paths = [p for p in embeddings if "/corn/" in p]
         soy_paths = [p for p in embeddings if "/soy/" in p]
         metadata = {
-            "corn": MetadataGroup(images=corn_paths, class_name="corn", attributes={"growth_stage": "medium"}),
-            "soy": MetadataGroup(images=soy_paths, class_name="soy", attributes={"growth_stage": "early"}),
+            "corn": MetadataGroup(
+                images=corn_paths, l1_cluster="corn", l2_cluster="corn", attributes={"growth_stage": "medium"}
+            ),
+            "soy": MetadataGroup(
+                images=soy_paths, l1_cluster="soy", l2_cluster="soy", attributes={"growth_stage": "early"}
+            ),
         }
 
         gc.collect()

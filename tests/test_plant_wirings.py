@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """Tests for the Plant2Image and Plant2Plant data ingestion wirings."""
 
@@ -20,9 +12,9 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from pai.ag_emb.api.app import app
-from pai.ag_emb.schemas.evaluate import Plant2ImageRequest, Plant2PlantRequest
-from pai.ag_emb.services.evaluate import (
+from precisionai.agrieval.emb.api.app import app
+from precisionai.agrieval.emb.schemas.evaluate import Plant2ImageRequest, Plant2PlantRequest
+from precisionai.agrieval.emb.services.evaluate import (
     plant2image_to_metadata,
     plant2plant_to_metadata,
     run_plant2image_eval,
@@ -133,13 +125,13 @@ class TestPlant2ImageToMetadata:
 
     def test_class_name_from_parent_path(self) -> None:
         meta = plant2image_to_metadata(_P2I_MAP)
-        assert meta["images/corn_cam/field001.png"].class_name == "corn"
-        assert meta["images/soy_cam/field002.png"].class_name == "soy"
+        assert meta["images/corn_cam/field001.png"].l1_cluster == "corn"
+        assert meta["images/soy_cam/field002.png"].l1_cluster == "soy"
 
     def test_dataset_root_overrides_extraction(self) -> None:
         meta = plant2image_to_metadata(_P2I_MAP, dataset_root="images")
-        assert meta["images/corn_cam/field001.png"].class_name == "corn"
-        assert meta["images/soy_cam/field002.png"].class_name == "soy"
+        assert meta["images/corn_cam/field001.png"].l1_cluster == "corn"
+        assert meta["images/soy_cam/field002.png"].l1_cluster == "soy"
 
     def test_empty_instance_list_is_valid(self) -> None:
         single_map = {"images/corn_cam/solo.png": []}
@@ -173,9 +165,9 @@ class TestPlant2PlantToMetadata:
 
     def test_class_name_correct(self) -> None:
         meta = plant2plant_to_metadata(_P2P_LABELS)
-        assert meta["corn"].class_name == "corn"
-        assert meta["soy"].class_name == "soy"
-        assert meta["weed"].class_name == "weed"
+        assert meta["corn"].l1_cluster == "corn"
+        assert meta["soy"].l1_cluster == "soy"
+        assert meta["weed"].l1_cluster == "weed"
 
 
 # ---------------------------------------------------------------------------
@@ -559,7 +551,7 @@ class TestPlant2ImageToMetadataEdgeCases:
         meta = plant2image_to_metadata({"ds/corn_cam/field.png": []}, dataset_root="ds")
         group = meta["ds/corn_cam/field.png"]
         assert group.images == ["ds/corn_cam/field.png"]
-        assert group.class_name == "corn"
+        assert group.l1_cluster == "corn"
 
     def test_parent_with_no_instances_auto_root_limitation(self) -> None:
         """Without dataset_root a single-parent map cannot reliably extract the class."""
@@ -570,7 +562,7 @@ class TestPlant2ImageToMetadataEdgeCases:
     def test_class_extracted_with_explicit_root(self) -> None:
         p2i = {"images/corn_HB-25000SBC/field.png": ["images/corn_HB-25000SBC/field-0.png"]}
         meta = plant2image_to_metadata(p2i, dataset_root="images")
-        assert meta["images/corn_HB-25000SBC/field.png"].class_name == "corn"
+        assert meta["images/corn_HB-25000SBC/field.png"].l1_cluster == "corn"
 
     def test_all_instances_appear_in_group_images(self) -> None:
         instances = [f"ds/corn_cam/field-{i}.png" for i in range(3)]

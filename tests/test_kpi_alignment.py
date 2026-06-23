@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """KPI alignment tests.
 
@@ -30,7 +22,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from pai.ag_emb.metrics import (
+from precisionai.agrieval.emb.metrics import (
     intra_inter_similarity_gap,
     knn_label_ndcg_at_k,
     knn_label_purity_at_k,

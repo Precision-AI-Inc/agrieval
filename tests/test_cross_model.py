@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """Tests for cross-model metrics (P3) and the two main analysis entry points."""
 
@@ -16,18 +8,18 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from pai.ag_emb.metrics.analysis import analyze_embedding_space, compare_embedding_spaces
-from pai.ag_emb.metrics.cross_model import (
+from precisionai.agrieval.emb.metrics.analysis import analyze_embedding_space, compare_embedding_spaces
+from precisionai.agrieval.emb.metrics.cross_model import (
     knn_jaccard_at_k,
     knn_overlap_at_k,
     pairwise_similarity_correlation,
     per_item_neighbor_disagreement,
 )
-from pai.ag_emb.metrics.duplicates import (
+from precisionai.agrieval.emb.metrics.duplicates import (
     duplicate_groups_at_threshold,
     duplicate_pairs_at_threshold,
 )
-from pai.ag_emb.metrics.similarity import top_k_neighbors
+from precisionai.agrieval.emb.metrics.similarity import top_k_neighbors
 
 FIXTURE = np.array(
     [[1.0, 0.0], [0.9, 0.1], [0.0, 1.0], [0.1, 0.9]],

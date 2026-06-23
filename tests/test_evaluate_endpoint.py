@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """Tests for the image2image evaluate endpoint, service layer, and schemas."""
 
@@ -21,9 +13,9 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from pai.ag_emb.api.app import app
-from pai.ag_emb.schemas.evaluate import EmbeddingEvaluateRequest, MetadataGroup
-from pai.ag_emb.services.evaluate import (
+from precisionai.agrieval.emb.api.app import app
+from precisionai.agrieval.emb.schemas.evaluate import EmbeddingEvaluateRequest, MetadataGroup
+from precisionai.agrieval.emb.services.evaluate import (
     _jsonify,
     _labels_from_metadata,
     _parse_crop,
@@ -98,7 +90,7 @@ def _make_two_class(n_per_class: int = 4, dim: int = _DIM, noise: float = 0.05) 
 
 class TestExtractLabels:
     def test_canonical_layout_with_root(self) -> None:
-        """Standard layout: {root}/{class_subgroup}/{image}."""
+        """Legacy crop-camera layout: {root}/{class_subgroup}/{image}."""
         paths = [
             "images/corn_HB-25000SBC/220622-img1.png",
             "images/corn_nikon_d610/190627-img2.JPG",
@@ -401,7 +393,7 @@ class TestAnalyzeEndpoint:
 # ---------------------------------------------------------------------------
 
 # Paths and metadata used in all metadata-related tests.
-# Follows the canonical layout: images/class_subgroup/IMAGES, metadata/class_subgroup/
+# Uses the legacy crop-camera layout to verify backward compatibility.
 _META_PATHS = [
     "images/corn_HB-25000SBC/img-corn-a.png",
     "images/corn_HB-25000SBC/img-corn-b.png",
@@ -411,17 +403,20 @@ _META_PATHS = [
 _META_GROUPS = {
     "corn_HB-25000SBC": MetadataGroup(
         images=["images/corn_HB-25000SBC/img-corn-a.png", "images/corn_HB-25000SBC/img-corn-b.png"],
-        class_name="corn",
+        l1_cluster="corn",
+        l2_cluster="corn_HB-25000SBC",
         attributes={"camera": "HB-25000SBC", "growth_stage": "medium"},
     ),
     "corn_nikon_d610": MetadataGroup(
         images=["images/corn_nikon_d610/img-corn-c.JPG"],
-        class_name="corn",
+        l1_cluster="corn",
+        l2_cluster="corn_nikon_d610",
         attributes={"camera": "nikon_d610", "growth_stage": "medium"},
     ),
     "soybean_anafi": MetadataGroup(
         images=["images/soybean_anafi/img-soy-a.JPG"],
-        class_name="soybean",
+        l1_cluster="soybean",
+        l2_cluster="soybean_anafi",
         attributes={"camera": "anafi", "growth_stage": "medium"},
     ),
 }
@@ -442,7 +437,11 @@ class TestLabelsFromMetadata:
 
     def test_exact_path_match(self) -> None:
         groups = {
-            "corn_HB-25000SBC": MetadataGroup(images=["images/corn_HB-25000SBC/img-corn-a.png"], class_name="corn"),
+            "corn_HB-25000SBC": MetadataGroup(
+                images=["images/corn_HB-25000SBC/img-corn-a.png"],
+                l1_cluster="corn",
+                l2_cluster="corn_HB-25000SBC",
+            ),
         }
         paths = ["images/corn_HB-25000SBC/img-corn-a.png"]
         labels = _labels_from_metadata(paths, groups, ["fallback"])
@@ -498,9 +497,15 @@ def _make_metadata() -> dict:
     corn_paths = sorted(p for p in GOOD_EMBEDDINGS if "/corn/" in p)
     soy_paths = [p for p in GOOD_EMBEDDINGS if "/soy/" in p]
     return {
-        "corn_a": MetadataGroup(images=corn_paths[:3], class_name="corn", attributes={"growth_stage": "medium"}),
-        "corn_b": MetadataGroup(images=corn_paths[3:], class_name="corn", attributes={"growth_stage": "medium"}),
-        "soy": MetadataGroup(images=soy_paths, class_name="soy", attributes={"growth_stage": "early"}),
+        "corn_a": MetadataGroup(
+            images=corn_paths[:3], l1_cluster="corn", l2_cluster="corn_a", attributes={"growth_stage": "medium"}
+        ),
+        "corn_b": MetadataGroup(
+            images=corn_paths[3:], l1_cluster="corn", l2_cluster="corn_b", attributes={"growth_stage": "medium"}
+        ),
+        "soy": MetadataGroup(
+            images=soy_paths, l1_cluster="soy", l2_cluster="soy", attributes={"growth_stage": "early"}
+        ),
     }
 
 
@@ -562,7 +567,7 @@ class TestRunEvaluationWithMetadata:
         paths = list(GOOD_EMBEDDINGS.keys())[:2]
         two_embeddings = {p: GOOD_EMBEDDINGS[p] for p in paths}
         metadata = {
-            "maize": MetadataGroup(images=paths, class_name="maize"),
+            "maize": MetadataGroup(images=paths, l1_cluster="maize", l2_cluster="maize"),
         }
         result = run_image2image_eval(
             two_embeddings,
@@ -579,12 +584,14 @@ class TestRunEvaluationWithMetadata:
         metadata_payload = {
             "corn": {
                 "images": corn_paths,
-                "class_name": "corn",
+                "l1_cluster": "corn",
+                "l2_cluster": "corn",
                 "attributes": {"growth_stage": "medium"},
             },
             "soy": {
                 "images": soy_paths,
-                "class_name": "soy",
+                "l1_cluster": "soy",
+                "l2_cluster": "soy",
                 "attributes": {"growth_stage": "medium"},
             },
         }
@@ -753,7 +760,7 @@ class TestMetadataPathsValidated:
         with pytest.raises(ValidationError, match="not found in embeddings"):
             EmbeddingEvaluateRequest(
                 embeddings=embeddings,
-                metadata={"corn": MetadataGroup(images=[ghost], class_name="corn")},
+                metadata={"corn": MetadataGroup(images=[ghost], l1_cluster="corn", l2_cluster="corn")},
             )
 
     def test_valid_metadata_paths_accepted(self) -> None:
@@ -761,7 +768,7 @@ class TestMetadataPathsValidated:
         corn_paths = [p for p in embeddings if "/corn_cam/" in p]
         req = EmbeddingEvaluateRequest(
             embeddings=embeddings,
-            metadata={"corn": MetadataGroup(images=corn_paths, class_name="corn")},
+            metadata={"corn": MetadataGroup(images=corn_paths, l1_cluster="corn", l2_cluster="corn")},
         )
         assert req.metadata is not None
 
@@ -773,8 +780,8 @@ class TestDuplicateMetadataImage:
         embeddings = _make_two_class(n_per_class=2)
         paths = list(embeddings.keys())
         metadata = {
-            "group_a": MetadataGroup(images=[paths[0]], class_name="corn"),
-            "group_b": MetadataGroup(images=[paths[0]], class_name="soy"),
+            "group_a": MetadataGroup(images=[paths[0]], l1_cluster="corn", l2_cluster="group_a"),
+            "group_b": MetadataGroup(images=[paths[0]], l1_cluster="soy", l2_cluster="group_b"),
         }
         with pytest.raises(ValidationError, match="multiple metadata groups"):
             EmbeddingEvaluateRequest(embeddings=embeddings, metadata=metadata)
@@ -786,8 +793,8 @@ class TestDuplicateMetadataImage:
         req = EmbeddingEvaluateRequest(
             embeddings=embeddings,
             metadata={
-                "corn": MetadataGroup(images=corn_paths, class_name="corn"),
-                "soy": MetadataGroup(images=soy_paths, class_name="soy"),
+                "corn": MetadataGroup(images=corn_paths, l1_cluster="corn", l2_cluster="corn"),
+                "soy": MetadataGroup(images=soy_paths, l1_cluster="soy", l2_cluster="soy"),
             },
         )
         assert req.metadata is not None
@@ -972,6 +979,16 @@ class TestParseCrop:
         """Hyphens are not separators; the full name is returned when no underscore present."""
         assert _parse_crop("HB-25000SBC") == "HB-25000SBC"
 
+    def test_l2_folder_single_letter_returns_l1(self) -> None:
+        assert _parse_crop("A1") == "A"
+        assert _parse_crop("B2") == "B"
+
+    def test_l2_folder_multi_letter_returns_l1(self) -> None:
+        assert _parse_crop("AB12") == "AB"
+
+    def test_l2_folder_large_number_returns_l1(self) -> None:
+        assert _parse_crop("G7") == "G"
+
 
 class TestExtractLabelsBoundaries:
     def test_single_path_with_explicit_root(self) -> None:
@@ -1108,9 +1125,9 @@ class TestSingletonMetadataGroup:
         paths = [f"ds/corn_cam/img{i:03d}.png" for i in range(4)]
         embeddings = {p: _unit(i) for i, p in enumerate(paths)}
         metadata = {
-            "solo": MetadataGroup(images=[paths[0]], class_name="corn"),
-            "pair": MetadataGroup(images=[paths[1], paths[2]], class_name="corn"),
-            "other": MetadataGroup(images=[paths[3]], class_name="soy"),
+            "solo": MetadataGroup(images=[paths[0]], l1_cluster="corn", l2_cluster="solo"),
+            "pair": MetadataGroup(images=[paths[1], paths[2]], l1_cluster="corn", l2_cluster="pair"),
+            "other": MetadataGroup(images=[paths[3]], l1_cluster="soy", l2_cluster="other"),
         }
         return embeddings, metadata
 
@@ -1191,14 +1208,14 @@ class TestBuildImageItemsStructure:
 
     def test_self_not_in_explicit_positives(self) -> None:
         paths = ["ds/corn_cam/img0.png", "ds/corn_cam/img1.png"]
-        metadata = {"g": MetadataGroup(images=paths, class_name="corn")}
+        metadata = {"g": MetadataGroup(images=paths, l1_cluster="corn", l2_cluster="g")}
         items = build_image_items(paths, metadata)
         for item in items:
             assert item.image_id not in item.explicit_positive_ids
 
     def test_group_members_are_mutual_positives(self) -> None:
         paths = ["ds/corn_cam/img0.png", "ds/corn_cam/img1.png", "ds/corn_cam/img2.png"]
-        metadata = {"g": MetadataGroup(images=paths, class_name="corn")}
+        metadata = {"g": MetadataGroup(images=paths, l1_cluster="corn", l2_cluster="g")}
         items = build_image_items(paths, metadata)
         for item in items:
             expected = frozenset(paths) - {item.image_id}

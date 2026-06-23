@@ -1,29 +1,21 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
-"""Tests for pai.ag_emb.metrics.neighbors (P1 diagnostics)."""
+"""Tests for precisionai.agrieval.emb.metrics.neighbors (P1 diagnostics)."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from pai.ag_emb.metrics.neighbors import (
+from precisionai.agrieval.emb.metrics.neighbors import (
     gini_coefficient,
     hubness_at_k,
     knn_radius_at_k,
     mean_top_k_similarity,
     outlier_score_at_k,
 )
-from pai.ag_emb.metrics.similarity import top_k_neighbors
+from precisionai.agrieval.emb.metrics.similarity import top_k_neighbors
 
 FIXTURE = np.array(
     [[1.0, 0.0], [0.9, 0.1], [0.0, 1.0], [0.1, 0.9]],

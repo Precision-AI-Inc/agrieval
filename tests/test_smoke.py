@@ -1,13 +1,5 @@
-# ======================================================================
-#  CONFIDENTIAL — © Precision AI 2025. All Rights Reserved.
-#
-#  This source code and any accompanying documentation contain
-#  confidential and proprietary information of Precision AI.
-#
-#  Unauthorized reproduction, disclosure, modification, or distribution
-#  of this material is strictly prohibited and will be prosecuted to the
-#  fullest extent of the law.
-# ======================================================================
+# Copyright 2026 Precision AI
+# SPDX-License-Identifier: Apache-2.0
 
 """End-to-end smoke test using real downsampled images from tests/data/.
 
@@ -22,7 +14,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from pai.ag_emb.api.app import app
+from precisionai.agrieval.emb.api.app import app
 
 client = TestClient(app)
 
@@ -47,7 +39,7 @@ class TestSmokeAnalyze:
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         data = response.json()
-        assert sorted(data["classes"]) == ["corn", "soybean"]
+        assert sorted(data["classes"]) == ["A", "B"]
 
     def test_n_items_matches_file_count(self, image_embeddings: dict) -> None:
         response = client.post(
@@ -69,7 +61,7 @@ class TestSmokeAnalyze:
             json={"embeddings": image_embeddings, "dataset_root": DATASET_ROOT},
         )
         data = response.json()
-        assert set(data["per_class"].keys()) == {"corn", "soybean"}
+        assert set(data["per_class"].keys()) == {"A", "B"}
 
     def test_output_is_json_serialisable(self, image_embeddings: dict) -> None:
         response = client.post(
