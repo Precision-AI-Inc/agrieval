@@ -1,6 +1,5 @@
 {
-  "l1_cluster": "A",
-  "l2_cluster": "A2",
+  "class_name": "A2",
   "attributes": {
     "time_period": "ss",
     "camera_source": "nikon_d610"

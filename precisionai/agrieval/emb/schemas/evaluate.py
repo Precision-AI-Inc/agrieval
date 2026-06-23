@@ -17,61 +17,55 @@ _NORM_TOLERANCE = 1e-3
 
 
 class MetadataGroup(BaseModel):
-    """One group of semantically similar images sharing L1/L2 cluster labels and optional attributes.
+    """One group of semantically similar images identified by ``class_name`` with optional attributes.
 
     Parameters
     ----------
     images : list[str]
         Exact path keys of the images in this group.  Each entry must match
         a key in the ``embeddings`` dict exactly — not a basename, the full path.
-    l1_cluster : str
-        Coarse cluster label shared by all images in this group (e.g. ``"A"``).
-        Corresponds to a set of images sharing the same plant-species composition.
-        Used as the class label for all label-aware retrieval metrics.
-    l2_cluster : str
-        Fine-grained cluster identifier within the L1 cluster (e.g. ``"A1"``).
-        Identifies a subgroup isolated by metadata filtration (time period, camera,
-        collection date, etc.).  All images in this group are treated as explicit
-        positives (relevance grade 3) in graded nDCG metrics.
+    class_name : str
+        Cluster identifier following the convention: leading alphabetic characters
+        form the L1 class label and any trailing digits form the L2 cluster
+        (e.g. ``"A1"`` → L1 ``"A"``, L2 ``"A1"``; ``"BC14"`` → L1 ``"BC"``,
+        L2 ``"BC14"``).  When only letters are present (e.g. ``"corn"``) the
+        full value is used as both L1 and L2.
     attributes : dict[str, Any]
         Optional key-value attributes shared by all images in this group.
         Values may be strings, lists of strings, or ``None``.  Examples:
-        ``{"plants": ["Crop | Soybean", "Weed | Weed"], "time_period": "ss_sr"}``.
-        Used by the graded relevance function: two items score grade 2 when they
-        share the same ``l1_cluster`` and ALL of the query's normalised attribute
-        values match (lists are sorted and joined; nulls are excluded).
+        ``{"class_instances": ["Crop | Soybean", "Weed | Weed"], "time_period": "ss_sr"}``.
+        Used by the graded relevance function: two items score grade 1 when they
+        have different L1 classes but share at least one ``class_instances``
+        value; grade 2 is same L1 class; grade 3 is same L2 group (explicit
+        positive).  List values are sorted and joined; nulls are excluded.
     """
-
-    @model_validator(mode="before")
-    @classmethod
-    def coerce_legacy_class_name(cls, data: Any) -> Any:
-        """Accept the legacy ``class_name`` field in place of ``l1_cluster`` / ``l2_cluster``.
-
-        Older payload files used ``class_name`` (e.g. ``"A1"``) as the sole cluster
-        identifier.  When present and ``l2_cluster`` is absent, ``class_name`` is
-        promoted to ``l2_cluster`` and ``l1_cluster`` is derived from its leading
-        alphabetic characters (``"A1"`` → ``"A"``).
-        """
-        if not isinstance(data, dict):
-            return data
-        if "class_name" in data and "l2_cluster" not in data:
-            data = dict(data)
-            class_name: str = data["class_name"]
-            data["l2_cluster"] = class_name
-            if "l1_cluster" not in data:
-                m = re.match(r"[A-Za-z]+", class_name)
-                data["l1_cluster"] = m.group() if m else class_name
-        return data
 
     images: list[str] = Field(
         description="Exact path keys (must match keys used in `embeddings`) belonging to this group."
     )
-    l1_cluster: str = Field(description="Coarse cluster label (e.g. 'A'). Used as the class label for metrics.")
-    l2_cluster: str = Field(description="Fine-grained cluster identifier (e.g. 'A1'). Members are explicit positives.")
+    class_name: str = Field(
+        description=(
+            "Cluster identifier (e.g. 'A1', 'BC14'). "
+            "Leading letters form the L1 class label ('A1' → 'A'); "
+            "letters+digits form the L2 cluster identifier. "
+            "Use letters only (e.g. 'corn') when L1 and L2 are the same."
+        )
+    )
     attributes: dict[str, Any] = Field(
         default_factory=dict,
-        description="Optional key-value attributes (plants, time_period, camera_model, camera_source, collecting_date).",
+        description="Optional key-value attributes (class_instances, time_period, camera_model, camera_source, collecting_date).",
     )
+
+    @property
+    def l1_cluster(self) -> str:
+        """Coarse cluster label derived from the leading letters of ``class_name``."""
+        m = re.match(r"^([A-Za-z]+)\d", self.class_name)
+        return m.group(1) if m else self.class_name
+
+    @property
+    def l2_cluster(self) -> str:
+        """Fine-grained cluster identifier — equals ``class_name``."""
+        return self.class_name
 
 
 class EmbeddingEvaluateRequest(BaseModel):
@@ -93,12 +87,12 @@ class EmbeddingEvaluateRequest(BaseModel):
 
     ``metadata``
         Explicit similarity groups.  When supplied, class labels are taken
-        from ``l1_cluster`` here instead of from the path hierarchy.  Each
-        key is an arbitrary group ID (typically the L2 cluster name); each
-        value is a :class:`MetadataGroup` listing the exact embedding path
-        keys (not basenames) in that group together with their shared
-        ``l1_cluster``, ``l2_cluster``, and optional ``attributes``
-        (e.g. ``plants``, ``time_period``, ``camera_model``, ``camera_source``).
+        from the L1 label derived from ``class_name`` instead of from the
+        path hierarchy.  Each key is an arbitrary group ID (typically the cluster
+        name); each value is a :class:`MetadataGroup` listing the exact embedding
+        path keys (not basenames) in that group together with their ``class_name``
+        and optional ``attributes``
+        (e.g. ``class_instances``, ``time_period``, ``camera_model``, ``camera_source``).
         Images that belong to the same group are treated as explicit
         positives (relevance grade 3) in the metadata-aware nDCG metric.
     ``dataset_root``
@@ -121,10 +115,10 @@ class EmbeddingEvaluateRequest(BaseModel):
     metadata: dict[str, MetadataGroup] | None = Field(
         default=None,
         description=(
-            "Optional similarity groups. Keys are arbitrary group IDs (typically the L2 cluster name); "
-            "values describe images in that group with their l1_cluster, l2_cluster, and optional attributes. "
-            "When provided, enables metadata-aware graded nDCG and uses l1_cluster as the "
-            "class label for all other metrics."
+            "Optional similarity groups. Keys are arbitrary group IDs (typically the cluster name); "
+            "values describe images in that group with their class_name and optional attributes. "
+            "When provided, enables metadata-aware graded nDCG and uses the L1 class label "
+            "(derived from class_name) for all other metrics."
         ),
     )
     dataset_root: str | None = Field(

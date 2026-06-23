@@ -82,8 +82,8 @@ class TestPrintResult:
     def test_single_class_no_inter_gap_printed(self, capsys):
         single_class_result = run_image2image_eval(
             image_embeddings={
-                "dataset/corn_[cam]/img/a.png": [1.0] + [0.0] * 15,
-                "dataset/corn_[cam]/img/b.png": [1.0] + [0.0] * 15,
+                "dataset/A1/img/a.png": [1.0] + [0.0] * 15,
+                "dataset/A1/img/b.png": [1.0] + [0.0] * 15,
             },
             k_values=[1],
             dataset_root="dataset",
@@ -91,7 +91,7 @@ class TestPrintResult:
         )
         print_result(single_class_result)
         out = capsys.readouterr().out
-        assert "corn" in out
+        assert "A" in out
         assert "intra/inter gap" not in out  # gap=None for single class
 
 

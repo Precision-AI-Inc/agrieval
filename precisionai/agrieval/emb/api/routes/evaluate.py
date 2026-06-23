@@ -37,11 +37,11 @@ def evaluate_image2image(request: EmbeddingEvaluateRequest) -> EmbeddingEvaluate
     agronomically similar full field images.  Similarity can be coarse
     (crop type, soil, growth stage) or fine (disease symptoms, weed pressure).
 
-    Pass a dict of ``image_path → embedding`` vectors.  The crop class is
-    inferred from each path's folder name using the convention
-    ``{root}/{crop}_[{camera}]/img/{image}`` (e.g.
-    ``dataset/corn_[HB-25000SBC]/img/220622-img.png``).  Supply ``metadata``
-    to enable explicit-positive groups with graded nDCG and per-attribute KPIs.
+    Pass a dict of ``image_path → embedding`` vectors.  When ``metadata`` is
+    omitted the L1 class label is inferred from the folder name of each path
+    (e.g. ``images/A1/img.png`` → ``A``).  Supply ``metadata`` to enable
+    explicit-positive groups, graded nDCG (0-3 by L2/L1 hierarchy and
+    ``class_instances`` overlap), and per-attribute KPIs.
 
     **Only ``embeddings`` is required** — all other fields use server defaults.
 
@@ -71,7 +71,7 @@ def evaluate_plant2image(request: Plant2ImageRequest) -> EmbeddingEvaluateRespon
     The mapping is the explicit-positive ground truth: when an instance is the
     query its parent full image is the grade-3 positive; when a full image is
     the query all its instances are grade-3 positives.  Items that share the
-    same class label (inferred from the parent's folder name) are grade-1
+    same class label (inferred from the parent's folder name) are grade-2
     positives across groups.
 
     Returns the same fixed JSON report as ``POST /v1/embeddings/evaluate``

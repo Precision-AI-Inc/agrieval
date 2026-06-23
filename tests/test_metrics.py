@@ -15,7 +15,9 @@ from precisionai.agrieval.emb.metrics.ranking import (
     ndcg_at_k,
     normalize_ks,
     precision_at_k,
+    r_precision,
     recall_at_k,
+    reciprocal_rank,
     safe_mean,
 )
 
@@ -94,6 +96,32 @@ class TestAveragePrecisionAtK:
     def test_zero_when_no_hits(self) -> None:
         assert average_precision_at_k([0, 1], {2, 3}, 2) == 0.0
 
+    def test_partial_hits_use_total_relevant_denominator(self) -> None:
+        score = average_precision_at_k([0, 2, 1, 3], {0, 1, 4}, 4)
+        assert score == pytest.approx((1.0 + (2 / 3)) / 3)
+
+
+class TestRPrecision:
+    def test_none_when_no_relevant(self) -> None:
+        assert r_precision([0, 1], set()) is None
+
+    def test_perfect_when_top_r_are_relevant(self) -> None:
+        assert r_precision([0, 1, 2, 3], {0, 1}) == pytest.approx(1.0)
+
+    def test_conservative_when_fewer_candidates_than_r(self) -> None:
+        assert r_precision([0, 1], {0, 1, 2, 3}) == pytest.approx(0.5)
+
+
+class TestReciprocalRank:
+    def test_none_when_no_relevant(self) -> None:
+        assert reciprocal_rank([0, 1, 2], set()) is None
+
+    def test_returns_inverse_rank_of_first_hit(self) -> None:
+        assert reciprocal_rank([5, 4, 3, 2], {3, 9}) == pytest.approx(1 / 3)
+
+    def test_zero_when_no_hit_found(self) -> None:
+        assert reciprocal_rank([0, 1, 2], {7, 8}) == 0.0
+
 
 class TestDcgAtK:
     def test_single_hit_at_rank_one(self) -> None:
@@ -112,6 +140,9 @@ class TestNdcgAtK:
 
     def test_none_when_no_ideal(self) -> None:
         assert ndcg_at_k([1, 0], [], 2) is None
+
+    def test_none_when_ideal_dcg_is_zero(self) -> None:
+        assert ndcg_at_k([0, 0], [0, 0, 0], 2) is None
 
     def test_imperfect_ranking_below_one(self) -> None:
         score = ndcg_at_k([1, 2, 3], [3, 2, 1], 3)

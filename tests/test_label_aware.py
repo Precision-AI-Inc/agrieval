@@ -34,6 +34,12 @@ from precisionai.agrieval.emb.metrics import (
     relevance_grade,
     top_k_neighbors,
 )
+from precisionai.agrieval.emb.metrics.label_aware import (
+    _build_class_instance_sets,
+    _build_explicit_positive_mask,
+    _build_grade_matrix,
+    _encode_class_names,
+)
 from precisionai.agrieval.emb.services.evaluate import _jsonify, _parse_crop, extract_labels
 
 # ---------------------------------------------------------------------------
@@ -273,14 +279,11 @@ class TestJsonify:
 
 
 class TestParseCrop:
-    def test_class_subgroup_format(self) -> None:
-        assert _parse_crop("corn_HB-25000SBC") == "corn"
-        assert _parse_crop("soybean_anafi") == "soybean"
-        assert _parse_crop("corn_nikon_d610") == "corn"
-        assert _parse_crop("soybean_HB-25000SBC") == "soybean"
-
-    def test_multiple_underscores_uses_first(self) -> None:
-        assert _parse_crop("corn_nikon_d610_v2") == "corn"
+    def test_l2_folder_format(self) -> None:
+        assert _parse_crop("A1") == "A1"
+        assert _parse_crop("B1") == "B1"
+        assert _parse_crop("BC14") == "BC14"
+        assert _parse_crop("AB12") == "AB12"
 
     def test_plain_folder_returned_as_is(self) -> None:
         assert _parse_crop("corn") == "corn"
@@ -297,8 +300,8 @@ class TestParseCrop:
 
 class TestExtractLabelsEdgeCases:
     def test_single_path(self) -> None:
-        paths = ["images/corn_HB-25000SBC/img1.png"]
-        assert extract_labels(paths, dataset_root="images") == ["corn"]
+        paths = ["images/A1/img1.png"]
+        assert extract_labels(paths, dataset_root="images") == ["A"]
 
     def test_no_separator_falls_back_gracefully(self) -> None:
         # Paths that are just filenames — parts[0] is the filename itself
@@ -307,7 +310,7 @@ class TestExtractLabelsEdgeCases:
         assert len(labels) == 2  # doesn't crash
 
     def test_trailing_slash_on_root(self) -> None:
-        paths = ["images/corn_HB-25000SBC/img1.png"]
+        paths = ["images/A1/img1.png"]
         # dataset_root with or without trailing slash should give same result
         assert extract_labels(paths, dataset_root="images") == extract_labels(paths, dataset_root="images/")
 
@@ -392,32 +395,30 @@ class TestRelevanceGrade:
         candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "medium"})
         assert relevance_grade(query, candidate) == 3
 
-    def test_same_class_all_attributes_match_is_two(self) -> None:
-        query = self._item("a.png", class_name="corn", attrs={"growth_stage": "medium"})
-        candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "medium"})
-        assert relevance_grade(query, candidate) == 2
-
-    def test_multiple_attributes_all_match_is_two(self) -> None:
-        query = self._item("a.png", class_name="corn", attrs={"growth_stage": "medium", "camera": "anafi"})
-        candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "medium", "camera": "anafi"})
-        assert relevance_grade(query, candidate) == 2
-
-    def test_partial_attribute_match_is_one(self) -> None:
-        query = self._item("a.png", class_name="corn", attrs={"growth_stage": "medium", "camera": "anafi"})
-        candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "medium", "camera": "nikon"})
-        assert relevance_grade(query, candidate) == 1
-
-    def test_same_class_different_attribute_is_one(self) -> None:
-        query = self._item("a.png", class_name="corn", attrs={"growth_stage": "medium"})
-        candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "early"})
-        assert relevance_grade(query, candidate) == 1
-
-    def test_same_class_no_attributes_is_one(self) -> None:
+    def test_same_class_is_two(self) -> None:
         query = self._item("a.png", class_name="corn")
         candidate = self._item("b.png", class_name="corn")
+        assert relevance_grade(query, candidate) == 2
+
+    def test_same_class_with_attributes_is_still_two(self) -> None:
+        query = self._item("a.png", class_name="corn", attrs={"growth_stage": "medium", "camera": "anafi"})
+        candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "early", "camera": "nikon"})
+        assert relevance_grade(query, candidate) == 2
+
+    def test_different_class_shared_class_instances_is_one(self) -> None:
+        ci = "Crop | Corn,Weed | Waterhemp"
+        query = self._item("a.png", class_name="A", attrs={"class_instances": ci})
+        candidate = self._item(
+            "b.png", class_name="B", attrs={"class_instances": "Weed | Waterhemp,Weed | Lambsquarters"}
+        )
         assert relevance_grade(query, candidate) == 1
 
-    def test_different_class_is_zero(self) -> None:
+    def test_different_class_no_shared_class_instances_is_zero(self) -> None:
+        query = self._item("a.png", class_name="A", attrs={"class_instances": "Crop | Corn"})
+        candidate = self._item("b.png", class_name="B", attrs={"class_instances": "Weed | Waterhemp"})
+        assert relevance_grade(query, candidate) == 0
+
+    def test_different_class_missing_class_instances_is_zero(self) -> None:
         query = self._item("a.png", class_name="corn", attrs={"growth_stage": "medium"})
         candidate = self._item("b.png", class_name="soybean", attrs={"growth_stage": "medium"})
         assert relevance_grade(query, candidate) == 0
@@ -431,6 +432,93 @@ class TestRelevanceGrade:
         query = self._item("a.png", positives=frozenset({"b.png"}), class_name="corn", attrs={"growth_stage": "medium"})
         candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "medium"})
         assert relevance_grade(query, candidate) == 3
+
+
+# ---------------------------------------------------------------------------
+# _build_grade_matrix
+# ---------------------------------------------------------------------------
+
+
+class TestBuildGradeMatrix:
+    def test_encodes_all_grade_levels_and_precedence(self) -> None:
+        items = [
+            ImageItem(
+                "a0.png",
+                explicit_positive_ids=frozenset({"a1.png"}),
+                class_name="A",
+                attributes={"class_instances": "Crop | Corn"},
+            ),
+            ImageItem(
+                "a1.png",
+                explicit_positive_ids=frozenset({"a0.png"}),
+                class_name="A",
+                attributes={"class_instances": "Crop | Corn"},
+            ),
+            ImageItem(
+                "a2.png",
+                class_name="A",
+                attributes={"class_instances": "Crop | Corn"},
+            ),
+            ImageItem(
+                "b0.png",
+                class_name="B",
+                attributes={"class_instances": "Crop | Corn,Weed | Waterhemp"},
+            ),
+            ImageItem(
+                "c0.png",
+                class_name="C",
+                attributes={"class_instances": "Weed | Lambsquarters"},
+            ),
+        ]
+
+        grades = _build_grade_matrix(items)
+
+        assert grades.shape == (5, 5)
+        assert np.all(np.diag(grades) == 0)
+        assert grades[0, 1] == 3
+        assert grades[0, 2] == 2
+        assert grades[0, 3] == 1
+        assert grades[0, 4] == 0
+
+    def test_same_l1_overrides_class_instance_overlap(self) -> None:
+        items = [
+            ImageItem("a0.png", class_name="A", attributes={"class_instances": "Crop | Corn"}),
+            ImageItem("a1.png", class_name="A", attributes={"class_instances": "Crop | Corn,Weed | Waterhemp"}),
+        ]
+
+        grades = _build_grade_matrix(items)
+
+        assert grades[0, 1] == 2
+        assert grades[1, 0] == 2
+
+
+class TestLabelAwareHelpers:
+    def test_explicit_positive_mask_ignores_unknown_ids(self) -> None:
+        items = [
+            ImageItem("a.png", explicit_positive_ids=frozenset({"b.png", "missing.png"})),
+            ImageItem("b.png"),
+        ]
+
+        mask = _build_explicit_positive_mask(items)
+
+        expected = np.array([[False, True], [False, False]])
+        np.testing.assert_array_equal(mask, expected)
+
+    def test_encode_class_names_and_class_instance_sets_handle_missing_values(self) -> None:
+        items = [
+            ImageItem("a.png", class_name="A", attributes={"class_instances": "Crop | Corn,Weed | Waterhemp"}),
+            ImageItem("b.png", class_name="A", attributes={}),
+            ImageItem("c.png", class_name=None, attributes={"class_instances": ""}),
+        ]
+
+        class_ints, has_class = _encode_class_names(items)
+        ci_sets = _build_class_instance_sets(items)
+
+        assert class_ints[0] == class_ints[1]
+        assert has_class.tolist() == [True, True, False]
+        assert ci_sets[0] == {"Crop | Corn", "Weed | Waterhemp"}
+        assert ci_sets[1] == set()
+        assert ci_sets[2] == set()
 
 
 # ---------------------------------------------------------------------------

@@ -26,9 +26,9 @@
   },
   "metadata": {
     "A1": {
-      "l1_cluster": "A",
-      "l2_cluster": "A1",
+      "class_name": "A1",
       "attributes": {
+        "class_instances": ["Crop | Corn"],
         "camera_source": "HB-25000SBC",
         "time_period": "ss"
       },
@@ -44,9 +44,9 @@
       ]
     },
     "A2": {
-      "l1_cluster": "A",
-      "l2_cluster": "A2",
+      "class_name": "A2",
       "attributes": {
+        "class_instances": ["Crop | Corn"],
         "camera_source": "nikon_d610",
         "time_period": "ss"
       },
@@ -62,9 +62,9 @@
       ]
     },
     "B1": {
-      "l1_cluster": "B",
-      "l2_cluster": "B1",
+      "class_name": "B1",
       "attributes": {
+        "class_instances": ["Crop | Soybean"],
         "camera_source": "HB-25000SBC",
         "time_period": "ss"
       },
@@ -75,9 +75,9 @@
       ]
     },
     "B2": {
-      "l1_cluster": "B",
-      "l2_cluster": "B2",
+      "class_name": "B2",
       "attributes": {
+        "class_instances": ["Crop | Soybean"],
         "camera_source": "anafi",
         "time_period": "ss"
       },

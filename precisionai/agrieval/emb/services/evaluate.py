@@ -58,8 +58,8 @@ from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
 # Supported embedding path extensions — case-sensitive exact match.
 _SUPPORTED_EXTENSIONS = frozenset({".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"})
 
-# Matches an L2 cluster folder name: one or more letters followed by one or more digits.
-_L2_FOLDER_RE = re.compile(r"^([A-Za-z]+)\d+$")
+# Matches a class name whose leading letters define the coarse L1 label.
+_L1_LABEL_RE = re.compile(r"^([A-Za-z]+)\d+$")
 
 # ---------------------------------------------------------------------------
 # Path parsing
@@ -67,40 +67,63 @@ _L2_FOLDER_RE = re.compile(r"^([A-Za-z]+)\d+$")
 
 
 def _parse_crop(folder_name: str) -> str:
-    """Extract the L1 cluster label or crop name from a folder name.
+    """Extract the class name from a folder name.
 
-    Two naming conventions are supported:
+    The canonical dataset layout uses bare L2 folder names such as ``A1`` or
+    ``BC14``. In that case the folder name itself is returned unchanged.
 
-    * **L1/L2 dataset layout** — folder names like ``A1``, ``G7`` (letters + digits):
-      the leading letters are returned as the L1 cluster label.
-    * **Legacy crop_camera layout** — folder names like ``corn_HB-25000SBC``:
-      everything before the first ``_`` is returned as the class name.
+    Plain names with no trailing digits are returned as-is.
 
     Examples
     --------
-    ``A1``               →  ``A``
-    ``G7``               →  ``G``
-    ``corn_HB-25000SBC`` →  ``corn``
-    ``corn_nikon_d610``  →  ``corn``
-    ``corn``             →  ``corn``   (plain folder, returned as-is)
+    ``A1``   →  ``A1``
+    ``G7``   →  ``G7``
+    ``BC14`` →  ``BC14``
+    ``corn`` →  ``corn``
     """
-    m = _L2_FOLDER_RE.match(folder_name)
-    if m:
-        return m.group(1)
     if "_" in folder_name:
         return folder_name.split("_", maxsplit=1)[0]
     return folder_name
 
 
+def _derive_l1_label(class_name: str) -> str:
+    """Return the coarse L1 label derived from a class name."""
+    m = _L1_LABEL_RE.match(class_name)
+    return m.group(1) if m else class_name
+
+
+def _extract_class_names(paths: list[str], dataset_root: str | None = None) -> list[str]:
+    """Extract per-path class names from the first folder after ``dataset_root``."""
+    if not paths:
+        return []
+
+    posix_paths = [Path(p.replace("\\", "/")).as_posix() for p in paths]
+
+    if dataset_root is not None:
+        root_prefix = Path(dataset_root.replace("\\", "/")).as_posix().rstrip("/") + "/"
+    else:
+        raw = os.path.commonprefix(posix_paths)
+        # Trim to the last directory separator so we don't clip mid-word
+        root_prefix = raw[: raw.rfind("/") + 1] if "/" in raw else ""
+
+    class_names: list[str] = []
+    for posix_path in posix_paths:
+        remainder = posix_path[len(root_prefix) :] if posix_path.startswith(root_prefix) else posix_path
+        parts = Path(remainder).parts
+        folder = parts[0] if parts else "unknown"
+        class_names.append(_parse_crop(folder))
+
+    return class_names
+
+
 def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[str]:
-    """Infer crop class from image paths.
+    """Infer coarse L1 class labels from image paths.
 
-    The class is extracted from the first path component after the dataset
-    root.  Two folder naming conventions are supported:
-
-    * ``{root}/{crop}_{[camera]}/img/{image}``  — real dataset layout, e.g.
-      ``dummy/corn_[HB-25000SBC]/img/220622-img.png``
-    * ``{root}/{crop}/{camera}/{image}``  — plain layout without camera tags.
+    The class name is extracted from the first path component after the
+    dataset root using ``_parse_crop``. Bare L2 folders such as ``A1`` are
+    treated as the canonical layout. The returned labels are the derived L1
+    classes, so ``A1`` becomes ``A`` and ``BC14`` becomes ``BC``. Plain names
+    without trailing digits are returned unchanged.
 
     If ``dataset_root`` is not given the longest common directory prefix of
     all paths is used as the root automatically.
@@ -115,28 +138,9 @@ def extract_labels(paths: list[str], dataset_root: str | None = None) -> list[st
     Returns
     -------
     list[str]
-        Crop class label per path (same order as ``paths``).
+        Coarse L1 class label per path (same order as ``paths``).
     """
-    if not paths:
-        return []
-
-    posix_paths = [Path(p.replace("\\", "/")).as_posix() for p in paths]
-
-    if dataset_root is not None:
-        root_prefix = Path(dataset_root.replace("\\", "/")).as_posix().rstrip("/") + "/"
-    else:
-        raw = os.path.commonprefix(posix_paths)
-        # Trim to the last directory separator so we don't clip mid-word
-        root_prefix = raw[: raw.rfind("/") + 1] if "/" in raw else ""
-
-    labels: list[str] = []
-    for posix_path in posix_paths:
-        remainder = posix_path[len(root_prefix) :] if posix_path.startswith(root_prefix) else posix_path
-        parts = Path(remainder).parts
-        folder = parts[0] if parts else "unknown"
-        labels.append(_parse_crop(folder))
-
-    return labels
+    return [_derive_l1_label(class_name) for class_name in _extract_class_names(paths, dataset_root)]
 
 
 def _labels_from_metadata(
@@ -836,10 +840,9 @@ def load_dataset_metadata(dataset_root: str) -> dict[str, MetadataGroup]:
     """Load all cluster metadata from the dataset directory.
 
     Reads every ``metadata/{L2}/metadata.json`` file under ``dataset_root``
-    and returns a dict keyed by L2 cluster identifier (e.g. ``"A1"``).
+    and returns a dict keyed by ``class_name`` (e.g. ``"A1"``).
     Each JSON file is parsed as a :class:`MetadataGroup` — see that class for
-    the required fields.  Files using the legacy ``class_name`` field instead
-    of ``l1_cluster`` / ``l2_cluster`` are accepted transparently.
+    the required fields.
 
     Image paths in the returned groups are stored exactly as written in the
     JSON files (relative to ``dataset_root``).  Ensure the embedding dict
@@ -854,9 +857,9 @@ def load_dataset_metadata(dataset_root: str) -> dict[str, MetadataGroup]:
     Returns
     -------
     dict[str, MetadataGroup]
-        Keyed by L2 cluster (e.g. ``"A1"``).  Each value is a
-        :class:`MetadataGroup` with ``l1_cluster``, ``l2_cluster``,
-        ``images``, and ``attributes`` populated from the JSON file.
+        Keyed by ``class_name`` (e.g. ``"A1"``).  Each value is a
+        :class:`MetadataGroup` with ``class_name``, ``images``, and
+        ``attributes`` populated from the JSON file.
 
     Raises
     ------
@@ -873,7 +876,7 @@ def load_dataset_metadata(dataset_root: str) -> dict[str, MetadataGroup]:
         with meta_file.open(encoding="utf-8") as fh:
             data = json.load(fh)
         group = MetadataGroup(**data)
-        groups[group.l2_cluster] = group
+        groups[group.class_name] = group
     return groups
 
 
@@ -890,8 +893,8 @@ def plant2image_to_metadata(
 
     Each parent full-image and all its instance crops form one group whose
     members are mutual explicit positives.  The crop class is extracted from
-    the parent image path and used as ``l1_cluster``; the parent path is used
-    as the unique ``l2_cluster`` identifier.
+    the parent image path.  The crop class is extracted from the parent image
+    path and used as ``class_name``.
 
     Parameters
     ----------
@@ -912,12 +915,11 @@ def plant2image_to_metadata(
     parent_paths = list(instance_to_image.keys())
     if not parent_paths:
         return {}
-    parent_labels = extract_labels(parent_paths, dataset_root)
+    parent_labels = _extract_class_names(parent_paths, dataset_root)
     return {
         parent_path: MetadataGroup(
             images=[parent_path, *instance_paths],
-            l1_cluster=class_name,
-            l2_cluster=parent_path,
+            class_name=class_name,
         )
         for (parent_path, instance_paths), class_name in zip(instance_to_image.items(), parent_labels, strict=True)
     }
@@ -944,10 +946,7 @@ def plant2plant_to_metadata(
     class_to_instances: dict[str, list[str]] = {}
     for inst, cls in instance_labels.items():
         class_to_instances.setdefault(cls, []).append(inst)
-    return {
-        cls: MetadataGroup(images=instances, l1_cluster=cls, l2_cluster=cls)
-        for cls, instances in class_to_instances.items()
-    }
+    return {cls: MetadataGroup(images=instances, class_name=cls) for cls, instances in class_to_instances.items()}
 
 
 # ---------------------------------------------------------------------------

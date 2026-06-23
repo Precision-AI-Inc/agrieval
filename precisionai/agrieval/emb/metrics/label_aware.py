@@ -51,19 +51,24 @@ def relevance_grade(query: ImageItem, candidate: ImageItem) -> int:
     int
         Relevance grade:
 
-        * ``0`` — self, or no semantic relationship.
-        * ``1`` — same class, but attributes absent or not fully matching.
-        * ``2`` — same class and all of the query's attributes match the candidate.
-        * ``3`` — explicit positive (same metadata group).
+        * ``0`` — self, or no semantic relationship (different L1 class).
+        * ``1`` — different L1 class but at least one ``class_instances`` value overlaps.
+        * ``2`` — same L1 class (same coarse crop/weed category).
+        * ``3`` — explicit positive (same L2 metadata group).
     """
     if candidate.image_id == query.image_id:
         return 0
     if candidate.image_id in query.explicit_positive_ids:
         return 3
     if query.class_name and candidate.class_name and query.class_name == candidate.class_name:
-        if query.attributes and all(candidate.attributes.get(k) == v for k, v in query.attributes.items()):
-            return 2
-        return 1
+        return 2
+    q_ci = query.attributes.get("class_instances", "")
+    c_ci = candidate.attributes.get("class_instances", "")
+    if q_ci and c_ci:
+        q_set = set(q_ci.split(",")) - {""}
+        c_set = set(c_ci.split(",")) - {""}
+        if q_set & c_set:
+            return 1
     return 0
 
 
@@ -96,14 +101,56 @@ def _build_explicit_positive_mask(items: list[ImageItem]) -> np.ndarray:
     return mask
 
 
+def _encode_class_names(items: list[ImageItem]) -> tuple[list[int], np.ndarray]:
+    """Encode class names as dense integers and mark items with a class label."""
+    class_name_to_int: dict[str, int] = {}
+    class_ints: list[int] = []
+    for item in items:
+        cn = item.class_name or ""
+        if cn not in class_name_to_int:
+            class_name_to_int[cn] = len(class_name_to_int)
+        class_ints.append(class_name_to_int[cn])
+    has_class = np.array([bool(item.class_name) for item in items])
+    return class_ints, has_class
+
+
+def _build_class_instance_sets(items: list[ImageItem]) -> list[set[str]]:
+    """Collect per-item ``class_instances`` values as sets."""
+    ci_sets: list[set[str]] = []
+    for item in items:
+        ci_val = item.attributes.get("class_instances", "")
+        ci_sets.append(set(ci_val.split(",")) - {""} if ci_val else set())
+    return ci_sets
+
+
+def _assign_class_instance_overlap_grades(
+    grades: np.ndarray,
+    class_ints: list[int],
+    has_class: np.ndarray,
+    ci_sets: list[set[str]],
+) -> None:
+    """Assign grade 1 where items differ by L1 class but share class instances."""
+    for i, query_ci in enumerate(ci_sets):
+        if not query_ci:
+            continue
+        for j, candidate_ci in enumerate(ci_sets):
+            if i == j or not candidate_ci:
+                continue
+            same_l1 = bool(has_class[i]) and bool(has_class[j]) and class_ints[i] == class_ints[j]
+            if same_l1:
+                continue
+            if query_ci & candidate_ci:
+                grades[i, j] = 1
+
+
 def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
     """Precompute the full ``[N, N]`` graded relevance matrix for all item pairs.
 
     Grades follow :func:`relevance_grade`:
 
-    * ``3`` — explicit positive
-    * ``2`` — same class and all query attributes match candidate
-    * ``1`` — same class only
+    * ``3`` — explicit positive (same L2 metadata group)
+    * ``2`` — same L1 class
+    * ``1`` — different L1 class but overlapping ``class_instances`` attribute values
     * ``0`` — no relationship or self
 
     Building the matrix once and reusing it across all K values avoids
@@ -122,29 +169,15 @@ def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
     n = len(items)
     grades = np.zeros((n, n), dtype=np.int8)
 
-    # Map class names to integers for fast vectorised comparison.
-    class_name_to_int: dict[str, int] = {}
-    class_ints: list[int] = []
-    for item in items:
-        cn = item.class_name or ""
-        if cn not in class_name_to_int:
-            class_name_to_int[cn] = len(class_name_to_int)
-        class_ints.append(class_name_to_int[cn])
+    class_ints, has_class = _encode_class_names(items)
     class_int_arr = np.array(class_ints, dtype=np.int32)
-    has_class = np.array([bool(item.class_name) for item in items])
+    ci_sets = _build_class_instance_sets(items)
+    _assign_class_instance_overlap_grades(grades, class_ints, has_class, ci_sets)
 
-    # Grade 1: same class (both must have non-empty class names).
+    # Grade 2: same L1 class (both must have non-empty class names).
     both_have_class = has_class[:, None] & has_class[None, :]
     same_class = (class_int_arr[:, None] == class_int_arr[None, :]) & both_have_class
-    grades[same_class] = 1
-
-    # Grade 2: same class AND all of the query's attributes match the candidate.
-    for i, item in enumerate(items):
-        if not item.attributes:
-            continue
-        for j in np.where(same_class[i])[0]:
-            if all(items[j].attributes.get(k) == v for k, v in item.attributes.items()):
-                grades[i, j] = 2
+    grades[same_class] = 2
 
     # Grade 3: explicit positives (overrides grades 1 and 2).
     id_to_idx: dict[str, int] = {item.image_id: i for i, item in enumerate(items)}
@@ -665,9 +698,9 @@ def knn_metadata_ndcg_at_k(
 
     Relevance is graded 0-3 by :func:`relevance_grade`:
 
-    * ``3`` — explicit positive (same metadata group)
-    * ``2`` — same crop and same growth stage
-    * ``1`` — same crop, different or unknown growth stage
+    * ``3`` — explicit positive (same L2 metadata group)
+    * ``2`` — same L1 class
+    * ``1`` — different L1 class but overlapping ``class_instances`` attribute values
     * ``0`` — no relationship
 
     The ideal DCG is computed against all other items in the corpus.

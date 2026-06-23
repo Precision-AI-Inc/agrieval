@@ -1,6 +1,5 @@
 {
-  "l1_cluster": "B",
-  "l2_cluster": "B2",
+  "class_name": "B2",
   "attributes": {
     "time_period": "ss",
     "camera_source": "anafi"

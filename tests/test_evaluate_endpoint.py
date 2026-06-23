@@ -53,10 +53,10 @@ def _make_embeddings(
 
 
 # Two well-separated 8-D class prototypes
-_CORN_PROTO = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
-_SOY_PROTO = np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+_A_PROTO = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+_B_PROTO = np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
-GOOD_EMBEDDINGS = _make_embeddings({"corn": _CORN_PROTO, "soy": _SOY_PROTO})
+GOOD_EMBEDDINGS = _make_embeddings({"A1": _A_PROTO, "B1": _B_PROTO})
 
 _DIM = 8
 
@@ -70,16 +70,16 @@ def _unit(seed: int, dim: int = _DIM) -> list[float]:
 
 def _make_two_class(n_per_class: int = 4, dim: int = _DIM, noise: float = 0.05) -> dict[str, list[float]]:
     """Two well-separated classes with n_per_class images each."""
-    proto_corn = np.array([1.0] + [0.0] * (dim - 1), dtype=np.float32)
-    proto_soy = np.array([0.0, 1.0] + [0.0] * (dim - 2), dtype=np.float32)
+    proto_a = np.array([1.0] + [0.0] * (dim - 1), dtype=np.float32)
+    proto_b = np.array([0.0, 1.0] + [0.0] * (dim - 2), dtype=np.float32)
     rng = np.random.default_rng(42)
     result: dict[str, list[float]] = {}
     for i in range(n_per_class):
-        v = proto_corn + rng.standard_normal(dim).astype(np.float32) * noise
-        result[f"ds/corn_cam/img{i:03d}.png"] = (v / np.linalg.norm(v)).tolist()
+        v = proto_a + rng.standard_normal(dim).astype(np.float32) * noise
+        result[f"ds/A1/img{i:03d}.png"] = (v / np.linalg.norm(v)).tolist()
     for i in range(n_per_class):
-        v = proto_soy + rng.standard_normal(dim).astype(np.float32) * noise
-        result[f"ds/soy_cam/img{i:03d}.png"] = (v / np.linalg.norm(v)).tolist()
+        v = proto_b + rng.standard_normal(dim).astype(np.float32) * noise
+        result[f"ds/B1/img{i:03d}.png"] = (v / np.linalg.norm(v)).tolist()
     return result
 
 
@@ -90,54 +90,54 @@ def _make_two_class(n_per_class: int = 4, dim: int = _DIM, noise: float = 0.05) 
 
 class TestExtractLabels:
     def test_canonical_layout_with_root(self) -> None:
-        """Legacy crop-camera layout: {root}/{class_subgroup}/{image}."""
+        """Canonical layout: {root}/{L2code}/{image}."""
         paths = [
-            "images/corn_HB-25000SBC/220622-img1.png",
-            "images/corn_nikon_d610/190627-img2.JPG",
-            "images/soybean_HB-25000SBC/220608-img3.png",
-            "images/soybean_anafi/210625-img4.JPG",
+            "images/A1/220622-img1.png",
+            "images/A2/190627-img2.JPG",
+            "images/B1/220608-img3.png",
+            "images/B2/210625-img4.JPG",
         ]
-        assert extract_labels(paths, dataset_root="images") == ["corn", "corn", "soybean", "soybean"]
+        assert extract_labels(paths, dataset_root="images") == ["A", "A", "B", "B"]
 
     def test_auto_root_inferred_from_common_prefix(self) -> None:
         """Root inferred from common prefix when dataset_root is not given."""
         paths = [
-            "images/corn_HB-25000SBC/img1.png",
-            "images/soybean_anafi/img2.JPG",
+            "images/A1/img1.png",
+            "images/B1/img2.JPG",
         ]
-        assert extract_labels(paths) == ["corn", "soybean"]
+        assert extract_labels(paths) == ["A", "B"]
 
     def test_explicit_dataset_root(self) -> None:
         paths = [
-            "images/corn_HB-25000SBC/img1.png",
-            "images/soybean_anafi/img2.JPG",
+            "images/A1/img1.png",
+            "images/B1/img2.JPG",
         ]
-        assert extract_labels(paths, dataset_root="images") == ["corn", "soybean"]
+        assert extract_labels(paths, dataset_root="images") == ["A", "B"]
 
     def test_no_common_root(self) -> None:
         paths = [
-            "corn_HB-25000SBC/img1.png",
-            "soybean_anafi/img2.JPG",
+            "A1/img1.png",
+            "B1/img2.JPG",
         ]
-        assert extract_labels(paths) == ["corn", "soybean"]
+        assert extract_labels(paths) == ["A", "B"]
 
     def test_absolute_paths(self) -> None:
         paths = [
-            "/mnt/data/corn_HB-25000SBC/img1.png",
-            "/mnt/data/soybean_anafi/img2.JPG",
+            "/mnt/data/A1/img1.png",
+            "/mnt/data/B1/img2.JPG",
         ]
-        assert extract_labels(paths) == ["corn", "soybean"]
+        assert extract_labels(paths) == ["A", "B"]
 
     def test_empty_returns_empty(self) -> None:
         assert extract_labels([]) == []
 
-    def test_multiple_subgroups_same_class(self) -> None:
-        """Multiple subgroups of the same class all map to the same label."""
+    def test_multiple_l2_groups_same_l1_class(self) -> None:
+        """Multiple L2 groups with the same prefix should map to the same L1 label."""
         paths = [
-            "images/corn_HB-25000SBC/img1.png",
-            "images/corn_nikon_d610/img2.JPG",
+            "images/A1/img1.png",
+            "images/A2/img2.JPG",
         ]
-        assert extract_labels(paths, dataset_root="images") == ["corn", "corn"]
+        assert extract_labels(paths, dataset_root="images") == ["A", "A"]
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ class TestRunAnalysis:
             dataset_root=None,
             sample_pairs=50,
         )
-        assert sorted(result["classes"]) == ["corn", "soy"]
+        assert sorted(result["classes"]) == ["A", "B"]
 
     def test_per_class_keys_match_classes(self) -> None:
         result = run_image2image_eval(
@@ -192,7 +192,7 @@ class TestRunAnalysis:
             dataset_root=None,
             sample_pairs=50,
         )
-        assert set(result["per_class"].keys()) == {"corn", "soy"}
+        assert set(result["per_class"].keys()) == {"A", "B"}
 
     def test_per_class_n_items(self) -> None:
         result = run_image2image_eval(
@@ -201,8 +201,8 @@ class TestRunAnalysis:
             dataset_root=None,
             sample_pairs=50,
         )
-        assert result["per_class"]["corn"]["n_items"] == 5
-        assert result["per_class"]["soy"]["n_items"] == 5
+        assert result["per_class"]["A"]["n_items"] == 5
+        assert result["per_class"]["B"]["n_items"] == 5
 
     def test_global_metrics_keys(self) -> None:
         result = run_image2image_eval(
@@ -269,7 +269,7 @@ class TestRunAnalysis:
             dataset_root=None,
             sample_pairs=50,
         )
-        for cls in ("corn", "soy"):
+        for cls in ("A", "B"):
             cls_data = result["per_class"][cls]
             for key in (
                 "n_items",
@@ -286,8 +286,8 @@ class TestRunAnalysis:
 
     def test_mismatched_dims_raises(self) -> None:
         bad = {
-            "dataset/corn/cam/img1.png": [1.0, 0.0],
-            "dataset/soy/cam/img2.png": [1.0, 0.0, 0.0],
+            "dataset/A1/img1.png": [1.0, 0.0],
+            "dataset/B1/img2.png": [1.0, 0.0, 0.0],
         }
         with pytest.raises(ValueError, match="same dimension"):
             run_image2image_eval(bad, k_values=[1], dataset_root="dataset", sample_pairs=None)
@@ -299,24 +299,24 @@ class TestRunAnalysis:
 
     def test_empty_vectors_raises(self) -> None:
         empty_vecs: dict[str, list[float]] = {
-            "corn_HB-25000SBC/img/img1.png": [],
-            "soybean_anafi/img/img2.png": [],
+            "A1/img/img1.png": [],
+            "B1/img/img2.png": [],
         }
         with pytest.raises(ValueError, match="must not be empty"):
             run_image2image_eval(empty_vecs, k_values=[1], dataset_root=None, sample_pairs=None)
 
     def test_unsupported_extension_raises(self) -> None:
         bad = {
-            "corn_HB-25000SBC/img/img1.tiff": [1.0, 0.0],
-            "soybean_anafi/img/img2.tiff": [0.0, 1.0],
+            "A1/img/img1.tiff": [1.0, 0.0],
+            "B1/img/img2.tiff": [0.0, 1.0],
         }
         with pytest.raises(ValueError, match="Unsupported file extension"):
             run_image2image_eval(bad, k_values=[1], dataset_root=None, sample_pairs=None)
 
     def test_wrong_case_extension_raises(self) -> None:
         bad = {
-            "corn_HB-25000SBC/img/img1.Png": [1.0, 0.0],
-            "soybean_anafi/img/img2.Jpg": [0.0, 1.0],
+            "A1/img/img1.Png": [1.0, 0.0],
+            "B1/img/img2.Jpg": [0.0, 1.0],
         }
         with pytest.raises(ValueError, match="Unsupported file extension"):
             run_image2image_eval(bad, k_values=[1], dataset_root=None, sample_pairs=None)
@@ -342,9 +342,9 @@ class TestAnalyzeEndpoint:
         )
         data = response.json()
         assert data["n_items"] == len(GOOD_EMBEDDINGS)
-        assert data["embedding_dim"] == len(_CORN_PROTO)
+        assert data["embedding_dim"] == len(_A_PROTO)
         assert data["k_values"] == [3]
-        assert sorted(data["classes"]) == ["corn", "soy"]
+        assert sorted(data["classes"]) == ["A", "B"]
         assert isinstance(data["item_paths"], list)
         assert isinstance(data["item_labels"], list)
         assert len(data["item_paths"]) == len(GOOD_EMBEDDINGS)
@@ -356,7 +356,7 @@ class TestAnalyzeEndpoint:
     def test_single_embedding_rejected(self) -> None:
         response = client.post(
             "/v1/embeddings/evaluate/image2image",
-            json={"embeddings": {"dataset/corn/c/img.png": [1.0, 0.0]}},
+            json={"embeddings": {"dataset/A1/img.png": [1.0, 0.0]}},
         )
         assert response.status_code == 422
 
@@ -365,8 +365,8 @@ class TestAnalyzeEndpoint:
             "/v1/embeddings/evaluate/image2image",
             json={
                 "embeddings": {
-                    "dataset/corn/c/img1.png": [1.0, 0.0],
-                    "dataset/soy/c/img2.png": [1.0, 0.0, 0.0],
+                    "dataset/A1/img1.png": [1.0, 0.0],
+                    "dataset/B1/img2.png": [1.0, 0.0, 0.0],
                 }
             },
         )
@@ -393,30 +393,26 @@ class TestAnalyzeEndpoint:
 # ---------------------------------------------------------------------------
 
 # Paths and metadata used in all metadata-related tests.
-# Uses the legacy crop-camera layout to verify backward compatibility.
 _META_PATHS = [
-    "images/corn_HB-25000SBC/img-corn-a.png",
-    "images/corn_HB-25000SBC/img-corn-b.png",
-    "images/corn_nikon_d610/img-corn-c.JPG",
-    "images/soybean_anafi/img-soy-a.JPG",
+    "images/A1/img-corn-a.png",
+    "images/A1/img-corn-b.png",
+    "images/A2/img-corn-c.JPG",
+    "images/B1/img-soy-a.JPG",
 ]
 _META_GROUPS = {
-    "corn_HB-25000SBC": MetadataGroup(
-        images=["images/corn_HB-25000SBC/img-corn-a.png", "images/corn_HB-25000SBC/img-corn-b.png"],
-        l1_cluster="corn",
-        l2_cluster="corn_HB-25000SBC",
+    "A1": MetadataGroup(
+        images=["images/A1/img-corn-a.png", "images/A1/img-corn-b.png"],
+        class_name="A1",
         attributes={"camera": "HB-25000SBC", "growth_stage": "medium"},
     ),
-    "corn_nikon_d610": MetadataGroup(
-        images=["images/corn_nikon_d610/img-corn-c.JPG"],
-        l1_cluster="corn",
-        l2_cluster="corn_nikon_d610",
+    "A2": MetadataGroup(
+        images=["images/A2/img-corn-c.JPG"],
+        class_name="A2",
         attributes={"camera": "nikon_d610", "growth_stage": "medium"},
     ),
-    "soybean_anafi": MetadataGroup(
-        images=["images/soybean_anafi/img-soy-a.JPG"],
-        l1_cluster="soybean",
-        l2_cluster="soybean_anafi",
+    "B1": MetadataGroup(
+        images=["images/B1/img-soy-a.JPG"],
+        class_name="B1",
         attributes={"camera": "anafi", "growth_stage": "medium"},
     ),
 }
@@ -424,28 +420,27 @@ _META_GROUPS = {
 
 class TestLabelsFromMetadata:
     def test_labels_come_from_metadata(self) -> None:
-        fallback = ["corn", "corn", "corn", "soybean"]
+        fallback = ["A", "A", "A", "B"]
         labels = _labels_from_metadata(_META_PATHS, _META_GROUPS, fallback)
-        assert labels == ["corn", "corn", "corn", "soybean"]
+        assert labels == ["A", "A", "A", "B"]
 
     def test_fallback_used_for_unmatched_paths(self) -> None:
         paths = ["images/unknown/mystery.png", *_META_PATHS[1:]]
-        fallback = ["FALLBACK", "corn", "corn", "soybean"]
+        fallback = ["FALLBACK", "A", "A", "B"]
         labels = _labels_from_metadata(paths, _META_GROUPS, fallback)
         assert labels[0] == "FALLBACK"
-        assert labels[1] == "corn"
+        assert labels[1] == "A"
 
     def test_exact_path_match(self) -> None:
         groups = {
-            "corn_HB-25000SBC": MetadataGroup(
-                images=["images/corn_HB-25000SBC/img-corn-a.png"],
-                l1_cluster="corn",
-                l2_cluster="corn_HB-25000SBC",
+            "A1": MetadataGroup(
+                images=["images/A1/img-corn-a.png"],
+                class_name="A1",
             ),
         }
-        paths = ["images/corn_HB-25000SBC/img-corn-a.png"]
+        paths = ["images/A1/img-corn-a.png"]
         labels = _labels_from_metadata(paths, groups, ["fallback"])
-        assert labels == ["corn"]
+        assert labels == ["A"]
 
     def test_unmatched_path_uses_fallback(self) -> None:
         paths = ["images/unknown/no-match.png"]
@@ -460,24 +455,24 @@ class TestBuildImageItems:
 
     def test_image_id_is_exact_path(self) -> None:
         items = build_image_items(_META_PATHS, _META_GROUPS)
-        assert items[0].image_id == "images/corn_HB-25000SBC/img-corn-a.png"
-        assert items[3].image_id == "images/soybean_anafi/img-soy-a.JPG"
+        assert items[0].image_id == "images/A1/img-corn-a.png"
+        assert items[3].image_id == "images/B1/img-soy-a.JPG"
 
     def test_explicit_positive_ids_exclude_self(self) -> None:
         items = build_image_items(_META_PATHS, _META_GROUPS)
-        # corn_HB group has two images: a and b
-        assert "images/corn_HB-25000SBC/img-corn-b.png" in items[0].explicit_positive_ids
-        assert "images/corn_HB-25000SBC/img-corn-a.png" not in items[0].explicit_positive_ids
+        # A1 group has two images: a and b
+        assert "images/A1/img-corn-b.png" in items[0].explicit_positive_ids
+        assert "images/A1/img-corn-a.png" not in items[0].explicit_positive_ids
 
     def test_class_name_and_attributes_populated(self) -> None:
         items = build_image_items(_META_PATHS, _META_GROUPS)
-        assert items[0].class_name == "corn"
+        assert items[0].class_name == "A"
         assert items[0].attributes == {"camera": "HB-25000SBC", "growth_stage": "medium"}
-        assert items[3].class_name == "soybean"
+        assert items[3].class_name == "B"
         assert items[3].attributes == {"camera": "anafi", "growth_stage": "medium"}
 
     def test_unmatched_path_has_empty_positives(self) -> None:
-        paths = ["images/unknown_cam/mystery.png"]
+        paths = ["images/unknown/mystery.png"]
         items = build_image_items(paths, _META_GROUPS)
         assert items[0].explicit_positive_ids == frozenset()
         assert items[0].class_name is None
@@ -490,22 +485,16 @@ class TestBuildImageItems:
 
 
 def _make_metadata() -> dict:
-    # Split corn into two subgroups with the same growth_stage so that same-class
-    # items from different groups receive grade-2 relevance (same class + all
-    # query attributes match), while cross-class items stay grade-0.  Soy gets a
-    # different growth_stage so knn_attribute_ndcg has a non-trivial signal.
-    corn_paths = sorted(p for p in GOOD_EMBEDDINGS if "/corn/" in p)
-    soy_paths = [p for p in GOOD_EMBEDDINGS if "/soy/" in p]
+    # Split corn into two subgroups (A1/A2) with the same growth_stage so that
+    # same-class items from different groups receive grade-2 relevance (same L1 class
+    # + all query attributes match), while cross-class items stay grade-0.  Soy (B1)
+    # gets a different growth_stage so knn_attribute_ndcg has a non-trivial signal.
+    corn_paths = sorted(p for p in GOOD_EMBEDDINGS if "/A1/" in p)
+    soy_paths = [p for p in GOOD_EMBEDDINGS if "/B1/" in p]
     return {
-        "corn_a": MetadataGroup(
-            images=corn_paths[:3], l1_cluster="corn", l2_cluster="corn_a", attributes={"growth_stage": "medium"}
-        ),
-        "corn_b": MetadataGroup(
-            images=corn_paths[3:], l1_cluster="corn", l2_cluster="corn_b", attributes={"growth_stage": "medium"}
-        ),
-        "soy": MetadataGroup(
-            images=soy_paths, l1_cluster="soy", l2_cluster="soy", attributes={"growth_stage": "early"}
-        ),
+        "A1": MetadataGroup(images=corn_paths[:3], class_name="A1", attributes={"growth_stage": "medium"}),
+        "A2": MetadataGroup(images=corn_paths[3:], class_name="A2", attributes={"growth_stage": "medium"}),
+        "B1": MetadataGroup(images=soy_paths, class_name="B1", attributes={"growth_stage": "early"}),
     }
 
 
@@ -542,7 +531,7 @@ class TestRunEvaluationWithMetadata:
         result = run_image2image_eval(
             GOOD_EMBEDDINGS, k_values=[3], dataset_root=None, sample_pairs=50, metadata=_make_metadata()
         )
-        for cls in ("corn", "soy"):
+        for cls in ("A", "B"):
             for key in _METADATA_KPI_KEYS:
                 assert key in result["per_class"][cls], f"Missing {key} in per_class[{cls}]"
 
@@ -550,7 +539,7 @@ class TestRunEvaluationWithMetadata:
         result = run_image2image_eval(
             GOOD_EMBEDDINGS, k_values=[3], dataset_root=None, sample_pairs=50, metadata=_make_metadata()
         )
-        for cls in ("corn", "soy"):
+        for cls in ("A", "B"):
             for key in _LABEL_KPI_KEYS:
                 assert key not in result["per_class"][cls], f"Label KPI should be absent: {key} in per_class[{cls}]"
 
@@ -563,11 +552,11 @@ class TestRunEvaluationWithMetadata:
             assert key not in gm, f"Metadata KPI should be absent without metadata: {key}"
 
     def test_labels_from_metadata_class_name(self) -> None:
-        # Override the path-extracted label "corn" with "maize" via metadata
+        # Override the path-extracted label "A" with "maize" via metadata
         paths = list(GOOD_EMBEDDINGS.keys())[:2]
         two_embeddings = {p: GOOD_EMBEDDINGS[p] for p in paths}
         metadata = {
-            "maize": MetadataGroup(images=paths, l1_cluster="maize", l2_cluster="maize"),
+            "maize": MetadataGroup(images=paths, class_name="maize"),
         }
         result = run_image2image_eval(
             two_embeddings,
@@ -579,19 +568,17 @@ class TestRunEvaluationWithMetadata:
         assert "maize" in result["classes"]
 
     def test_metadata_endpoint_returns_200(self) -> None:
-        corn_paths = [p for p in GOOD_EMBEDDINGS if "/corn/" in p]
-        soy_paths = [p for p in GOOD_EMBEDDINGS if "/soy/" in p]
+        corn_paths = [p for p in GOOD_EMBEDDINGS if "/A1/" in p]
+        soy_paths = [p for p in GOOD_EMBEDDINGS if "/B1/" in p]
         metadata_payload = {
-            "corn": {
+            "A1": {
                 "images": corn_paths,
-                "l1_cluster": "corn",
-                "l2_cluster": "corn",
+                "class_name": "A1",
                 "attributes": {"growth_stage": "medium"},
             },
-            "soy": {
+            "B1": {
                 "images": soy_paths,
-                "l1_cluster": "soy",
-                "l2_cluster": "soy",
+                "class_name": "B1",
                 "attributes": {"growth_stage": "medium"},
             },
         }
@@ -670,7 +657,7 @@ class TestRunEvaluationWithMetadata:
         result = run_image2image_eval(
             GOOD_EMBEDDINGS, k_values=[3], dataset_root=None, sample_pairs=50, metadata=_make_metadata()
         )
-        for cls in ("corn", "soy"):
+        for cls in ("A", "B"):
             cls_data = result["per_class"][cls]
             assert "knn_metadata_mrr" in cls_data, f"Missing knn_metadata_mrr in per_class[{cls}]"
             assert "knn_metadata_r_precision" in cls_data, f"Missing knn_metadata_r_precision in per_class[{cls}]"
@@ -702,8 +689,8 @@ class TestNanEmbeddingVulnerability:
     def test_nan_embedding_raises_validation_error(self) -> None:
         nan_vec = [float("nan")] + [0.0] * (_DIM - 1)
         embeddings = {
-            "ds/corn_cam/nan_img.png": nan_vec,
-            "ds/soy_cam/good_img.png": _unit(0),
+            "ds/A1/nan_img.png": nan_vec,
+            "ds/B1/good_img.png": _unit(0),
         }
         with pytest.raises(ValidationError, match="non-finite"):
             EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
@@ -711,8 +698,8 @@ class TestNanEmbeddingVulnerability:
     def test_inf_embedding_raises_at_schema_level(self) -> None:
         inf_vec = [1e38, 1e38] + [0.0] * (_DIM - 2)
         embeddings = {
-            "ds/corn_cam/large_img.png": inf_vec,
-            "ds/soy_cam/good_img.png": _unit(1),
+            "ds/A1/large_img.png": inf_vec,
+            "ds/B1/good_img.png": _unit(1),
         }
         with pytest.raises(ValidationError, match="normalised"):
             EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
@@ -720,8 +707,8 @@ class TestNanEmbeddingVulnerability:
     def test_clearly_unnormalized_embedding_raises(self) -> None:
         half_norm_vec = [0.5 / (_DIM**0.5)] * _DIM
         embeddings = {
-            "ds/corn_cam/img.png": half_norm_vec,
-            "ds/soy_cam/img.png": _unit(2),
+            "ds/A1/img.png": half_norm_vec,
+            "ds/B1/img.png": _unit(2),
         }
         with pytest.raises(ValidationError, match="normalised"):
             EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
@@ -756,19 +743,19 @@ class TestMetadataPathsValidated:
 
     def test_ghost_path_in_metadata_rejected_by_schema(self) -> None:
         embeddings = _make_two_class(n_per_class=2)
-        ghost = "ds/corn_cam/ghost.png"
+        ghost = "ds/A1/ghost.png"
         with pytest.raises(ValidationError, match="not found in embeddings"):
             EmbeddingEvaluateRequest(
                 embeddings=embeddings,
-                metadata={"corn": MetadataGroup(images=[ghost], l1_cluster="corn", l2_cluster="corn")},
+                metadata={"A1": MetadataGroup(images=[ghost], class_name="A1")},
             )
 
     def test_valid_metadata_paths_accepted(self) -> None:
         embeddings = _make_two_class(n_per_class=2)
-        corn_paths = [p for p in embeddings if "/corn_cam/" in p]
+        corn_paths = [p for p in embeddings if "/A1/" in p]
         req = EmbeddingEvaluateRequest(
             embeddings=embeddings,
-            metadata={"corn": MetadataGroup(images=corn_paths, l1_cluster="corn", l2_cluster="corn")},
+            metadata={"A1": MetadataGroup(images=corn_paths, class_name="A1")},
         )
         assert req.metadata is not None
 
@@ -780,21 +767,21 @@ class TestDuplicateMetadataImage:
         embeddings = _make_two_class(n_per_class=2)
         paths = list(embeddings.keys())
         metadata = {
-            "group_a": MetadataGroup(images=[paths[0]], l1_cluster="corn", l2_cluster="group_a"),
-            "group_b": MetadataGroup(images=[paths[0]], l1_cluster="soy", l2_cluster="group_b"),
+            "group_a": MetadataGroup(images=[paths[0]], class_name="A1"),
+            "group_b": MetadataGroup(images=[paths[0]], class_name="B1"),
         }
         with pytest.raises(ValidationError, match="multiple metadata groups"):
             EmbeddingEvaluateRequest(embeddings=embeddings, metadata=metadata)
 
     def test_non_overlapping_groups_accepted(self) -> None:
         embeddings = _make_two_class(n_per_class=2)
-        corn_paths = [p for p in embeddings if "/corn_cam/" in p]
-        soy_paths = [p for p in embeddings if "/soy_cam/" in p]
+        corn_paths = [p for p in embeddings if "/A1/" in p]
+        soy_paths = [p for p in embeddings if "/B1/" in p]
         req = EmbeddingEvaluateRequest(
             embeddings=embeddings,
             metadata={
-                "corn": MetadataGroup(images=corn_paths, l1_cluster="corn", l2_cluster="corn"),
-                "soy": MetadataGroup(images=soy_paths, l1_cluster="soy", l2_cluster="soy"),
+                "A1": MetadataGroup(images=corn_paths, class_name="A1"),
+                "B1": MetadataGroup(images=soy_paths, class_name="B1"),
             },
         )
         assert req.metadata is not None
@@ -815,7 +802,7 @@ class TestSingleClassDataset:
         result: dict[str, list[float]] = {}
         for i in range(6):
             v = proto + rng.standard_normal(_DIM).astype(np.float32) * 0.05
-            result[f"ds/corn_cam/img{i:03d}.png"] = (v / np.linalg.norm(v)).tolist()
+            result[f"ds/A1/img{i:03d}.png"] = (v / np.linalg.norm(v)).tolist()
         return result
 
     def test_gap_is_none(self, single_class_embs: dict) -> None:
@@ -830,7 +817,7 @@ class TestSingleClassDataset:
 
     def test_per_class_has_exactly_one_entry(self, single_class_embs: dict) -> None:
         result = run_image2image_eval(single_class_embs, k_values=[3], dataset_root="ds", sample_pairs=20)
-        assert list(result["per_class"].keys()) == ["corn"]
+        assert list(result["per_class"].keys()) == ["A"]
 
     def test_knn_purity_is_one_for_single_class(self, single_class_embs: dict) -> None:
         result = run_image2image_eval(single_class_embs, k_values=[3], dataset_root="ds", sample_pairs=20)
@@ -855,8 +842,8 @@ class TestMinimumViableDataset:
     @pytest.fixture
     def two_embs(self) -> dict[str, list[float]]:
         return {
-            "ds/corn_cam/img0.png": _unit(0),
-            "ds/soy_cam/img0.png": _unit(1),
+            "ds/A1/img0.png": _unit(0),
+            "ds/B1/img0.png": _unit(1),
         }
 
     def test_produces_valid_output(self, two_embs: dict) -> None:
@@ -919,10 +906,10 @@ class TestAllIdenticalEmbeddings:
     def identical_embs(self) -> dict[str, list[float]]:
         unit_vec = _unit(seed=0)
         return {
-            "ds/corn_cam/img0.png": unit_vec,
-            "ds/corn_cam/img1.png": unit_vec,
-            "ds/soy_cam/img0.png": unit_vec,
-            "ds/soy_cam/img1.png": unit_vec,
+            "ds/A1/img0.png": unit_vec,
+            "ds/A1/img1.png": unit_vec,
+            "ds/B1/img0.png": unit_vec,
+            "ds/B1/img1.png": unit_vec,
         }
 
     def test_accepted_by_schema(self, identical_embs: dict) -> None:
@@ -952,25 +939,15 @@ class TestAllIdenticalEmbeddings:
 
 
 class TestParseCrop:
-    def test_standard_subgroup_folder(self) -> None:
-        assert _parse_crop("corn_HB-25000SBC") == "corn"
+    def test_l2_folder_returns_full_code(self) -> None:
+        assert _parse_crop("A1") == "A1"
+        assert _parse_crop("B2") == "B2"
+        assert _parse_crop("AB12") == "AB12"
+        assert _parse_crop("G7") == "G7"
 
-    def test_multiple_underscores_takes_first_segment(self) -> None:
-        assert _parse_crop("corn_nikon_d610") == "corn"
-
-    def test_no_underscore_returns_whole_name(self) -> None:
+    def test_plain_name_returns_whole_name(self) -> None:
         assert _parse_crop("corn") == "corn"
         assert _parse_crop("soybean") == "soybean"
-
-    def test_leading_underscore_produces_empty_crop(self) -> None:
-        """A leading underscore yields an empty crop name — callers should guard."""
-        assert _parse_crop("_cam") == ""
-
-    def test_trailing_underscore_returns_prefix(self) -> None:
-        assert _parse_crop("corn_") == "corn"
-
-    def test_only_underscore_produces_empty_crop(self) -> None:
-        assert _parse_crop("_") == ""
 
     def test_empty_string_returns_empty(self) -> None:
         assert _parse_crop("") == ""
@@ -979,61 +956,51 @@ class TestParseCrop:
         """Hyphens are not separators; the full name is returned when no underscore present."""
         assert _parse_crop("HB-25000SBC") == "HB-25000SBC"
 
-    def test_l2_folder_single_letter_returns_l1(self) -> None:
-        assert _parse_crop("A1") == "A"
-        assert _parse_crop("B2") == "B"
-
-    def test_l2_folder_multi_letter_returns_l1(self) -> None:
-        assert _parse_crop("AB12") == "AB"
-
-    def test_l2_folder_large_number_returns_l1(self) -> None:
-        assert _parse_crop("G7") == "G"
-
 
 class TestExtractLabelsBoundaries:
     def test_single_path_with_explicit_root(self) -> None:
-        assert extract_labels(["images/corn_cam/img.png"], dataset_root="images") == ["corn"]
+        assert extract_labels(["images/A1/img.png"], dataset_root="images") == ["A"]
 
     def test_single_path_auto_root(self) -> None:
         """With one path the common prefix strips the full file component, leaving
         the filename as the 'label'. Auto-root requires ≥2 paths to work correctly."""
-        result = extract_labels(["images/corn_cam/img.png"])
+        result = extract_labels(["images/A1/img.png"])
         assert len(result) == 1
 
     def test_dataset_root_with_trailing_slash_not_doubled(self) -> None:
-        paths = ["images/corn_cam/img.png", "images/soy_cam/img.png"]
+        paths = ["images/A1/img.png", "images/B1/img.png"]
         result = extract_labels(paths, dataset_root="images/")
-        assert result == ["corn", "soy"]
+        assert result == ["A", "B"]
 
     def test_empty_list_returns_empty(self) -> None:
         assert extract_labels([]) == []
 
     def test_mixed_class_paths_with_explicit_root(self) -> None:
         paths = [
-            "data/train/corn_cam/img1.png",
-            "data/train/soy_cam/img2.png",
-            "data/train/corn_cam/img3.png",
+            "data/train/A1/img1.png",
+            "data/train/B1/img2.png",
+            "data/train/A1/img3.png",
         ]
-        assert extract_labels(paths, dataset_root="data/train") == ["corn", "soy", "corn"]
+        assert extract_labels(paths, dataset_root="data/train") == ["A", "B", "A"]
 
     def test_windows_style_backslash_paths_normalised(self) -> None:
         paths = [
-            "images\\corn_cam\\img.png",
-            "images\\soy_cam\\img.png",
+            "images\\A1\\img.png",
+            "images\\B1\\img.png",
         ]
         result = extract_labels(paths, dataset_root="images")
-        assert result == ["corn", "soy"]
+        assert result == ["A", "B"]
 
     def test_absolute_paths_with_explicit_root(self) -> None:
         paths = [
-            "/mnt/data/corn_cam/img1.png",
-            "/mnt/data/soy_cam/img2.png",
+            "/mnt/data/A1/img1.png",
+            "/mnt/data/B1/img2.png",
         ]
-        assert extract_labels(paths, dataset_root="/mnt/data") == ["corn", "soy"]
+        assert extract_labels(paths, dataset_root="/mnt/data") == ["A", "B"]
 
     def test_dataset_root_as_empty_string_does_not_crash(self) -> None:
         """Empty string root is an edge case; must not raise."""
-        paths = ["corn_cam/img.png", "soy_cam/img.png"]
+        paths = ["A1/img.png", "B1/img.png"]
         result = extract_labels(paths, dataset_root="")
         assert len(result) == 2
 
@@ -1122,19 +1089,19 @@ class TestSingletonMetadataGroup:
 
     @pytest.fixture
     def singleton_setup(self) -> tuple[dict, dict]:
-        paths = [f"ds/corn_cam/img{i:03d}.png" for i in range(4)]
+        paths = [f"ds/A1/img{i:03d}.png" for i in range(4)]
         embeddings = {p: _unit(i) for i, p in enumerate(paths)}
         metadata = {
-            "solo": MetadataGroup(images=[paths[0]], l1_cluster="corn", l2_cluster="solo"),
-            "pair": MetadataGroup(images=[paths[1], paths[2]], l1_cluster="corn", l2_cluster="pair"),
-            "other": MetadataGroup(images=[paths[3]], l1_cluster="soy", l2_cluster="other"),
+            "solo": MetadataGroup(images=[paths[0]], class_name="A1"),
+            "pair": MetadataGroup(images=[paths[1], paths[2]], class_name="A2"),
+            "other": MetadataGroup(images=[paths[3]], class_name="B1"),
         }
         return embeddings, metadata
 
     def test_singleton_has_empty_explicit_positives(self, singleton_setup: tuple) -> None:
         embeddings, metadata = singleton_setup
         items = build_image_items(list(embeddings.keys()), metadata)
-        solo = next(it for it in items if it.image_id == "ds/corn_cam/img000.png")
+        solo = next(it for it in items if it.image_id == "ds/A1/img000.png")
         assert solo.explicit_positive_ids == frozenset()
 
     def test_singleton_group_does_not_crash_evaluation(self, singleton_setup: tuple) -> None:
@@ -1167,8 +1134,8 @@ class TestConfusionMatrixInvariants:
     def test_all_classes_appear_as_row_keys(self) -> None:
         result = run_image2image_eval(_make_two_class(), k_values=[3], dataset_root="ds", sample_pairs=20)
         for matrix in result["knn_confusion"].values():
-            assert "corn" in matrix
-            assert "soy" in matrix
+            assert "A" in matrix
+            assert "B" in matrix
 
 
 class TestNeighbourDiagnosticRanges:
@@ -1197,32 +1164,32 @@ class TestNeighbourDiagnosticRanges:
 
 class TestBuildImageItemsStructure:
     def test_item_count_matches_path_count(self) -> None:
-        paths = [f"ds/corn_cam/img{i}.png" for i in range(5)]
+        paths = [f"ds/A1/img{i}.png" for i in range(5)]
         items = build_image_items(paths, {})
         assert len(items) == 5
 
     def test_item_order_matches_path_order(self) -> None:
-        paths = ["ds/soy_cam/img1.png", "ds/corn_cam/img0.png", "ds/corn_cam/img2.png"]
+        paths = ["ds/B1/img1.png", "ds/A1/img0.png", "ds/A1/img2.png"]
         items = build_image_items(paths, {})
         assert [it.image_id for it in items] == paths
 
     def test_self_not_in_explicit_positives(self) -> None:
-        paths = ["ds/corn_cam/img0.png", "ds/corn_cam/img1.png"]
-        metadata = {"g": MetadataGroup(images=paths, l1_cluster="corn", l2_cluster="g")}
+        paths = ["ds/A1/img0.png", "ds/A1/img1.png"]
+        metadata = {"g": MetadataGroup(images=paths, class_name="A1")}
         items = build_image_items(paths, metadata)
         for item in items:
             assert item.image_id not in item.explicit_positive_ids
 
     def test_group_members_are_mutual_positives(self) -> None:
-        paths = ["ds/corn_cam/img0.png", "ds/corn_cam/img1.png", "ds/corn_cam/img2.png"]
-        metadata = {"g": MetadataGroup(images=paths, l1_cluster="corn", l2_cluster="g")}
+        paths = ["ds/A1/img0.png", "ds/A1/img1.png", "ds/A1/img2.png"]
+        metadata = {"g": MetadataGroup(images=paths, class_name="A1")}
         items = build_image_items(paths, metadata)
         for item in items:
             expected = frozenset(paths) - {item.image_id}
             assert item.explicit_positive_ids == expected
 
     def test_unmatched_path_gets_none_class_and_empty_positives(self) -> None:
-        unmatched = "ds/unknown_cam/mystery.png"
+        unmatched = "ds/unknown/mystery.png"
         items = build_image_items([unmatched], {})
         assert items[0].class_name is None
         assert items[0].explicit_positive_ids == frozenset()
@@ -1256,7 +1223,7 @@ class TestWellSeparatedClassMetrics:
         assert gap_info["mean_intra_class_similarity"] > gap_info["mean_inter_class_similarity"]
 
     def test_per_class_purity_near_one(self, separated_result: dict) -> None:
-        for cls in ("corn", "soy"):
+        for cls in ("A", "B"):
             purity = separated_result["per_class"][cls]["knn_label_purity"]["3"]["mean"]
             assert purity == pytest.approx(1.0, abs=0.05)
 
@@ -1269,8 +1236,8 @@ class TestWellSeparatedClassMetrics:
 class TestAPIBoundaryConditions:
     def test_unnormalized_vector_rejected_422(self) -> None:
         embeddings = {
-            "ds/corn_cam/img.png": [0.5, 0.5],
-            "ds/soy_cam/img.png": [1.0, 0.0],
+            "ds/A1/img.png": [0.5, 0.5],
+            "ds/B1/img.png": [1.0, 0.0],
         }
         response = client.post(
             "/v1/embeddings/evaluate/image2image",
@@ -1280,8 +1247,8 @@ class TestAPIBoundaryConditions:
 
     def test_unnormalized_rejection_message_mentions_norm(self) -> None:
         embeddings = {
-            "ds/corn_cam/img.png": [0.5, 0.5],
-            "ds/soy_cam/img.png": [1.0, 0.0],
+            "ds/A1/img.png": [0.5, 0.5],
+            "ds/B1/img.png": [1.0, 0.0],
         }
         response = client.post(
             "/v1/embeddings/evaluate/image2image",
@@ -1320,8 +1287,8 @@ class TestAPIBoundaryConditions:
         """
         lax_client = TestClient(app, raise_server_exceptions=False)
         embeddings = {
-            "ds/corn_cam/img.tiff": [1.0, 0.0],
-            "ds/soy_cam/img.tiff": [0.0, 1.0],
+            "ds/A1/img.tiff": [1.0, 0.0],
+            "ds/B1/img.tiff": [0.0, 1.0],
         }
         response = lax_client.post(
             "/v1/embeddings/evaluate/image2image",
@@ -1332,8 +1299,8 @@ class TestAPIBoundaryConditions:
     def test_case_sensitive_extension_wrong_case_causes_service_error(self) -> None:
         lax_client = TestClient(app, raise_server_exceptions=False)
         embeddings = {
-            "ds/corn_cam/img.Png": [1.0, 0.0],
-            "ds/soy_cam/img.Jpg": [0.0, 1.0],
+            "ds/A1/img.Png": [1.0, 0.0],
+            "ds/B1/img.Jpg": [0.0, 1.0],
         }
         response = lax_client.post(
             "/v1/embeddings/evaluate/image2image",

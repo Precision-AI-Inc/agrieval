@@ -1,6 +1,5 @@
 {
-  "l1_cluster": "A",
-  "l2_cluster": "A1",
+  "class_name": "A1",
   "attributes": {
     "time_period": "ss",
     "camera_source": "HB-25000SBC"

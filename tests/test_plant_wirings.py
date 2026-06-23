@@ -28,9 +28,9 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 
 _DIM = 8
-_CORN_PROTO = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
-_SOY_PROTO = np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
-_WEED_PROTO = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+_A_PROTO = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+_B_PROTO = np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+_C_PROTO = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
 
 def _l2(v: np.ndarray) -> np.ndarray:
@@ -48,27 +48,27 @@ def _perturb(proto: np.ndarray, seed: int, scale: float = 0.05) -> list[float]:
 # ---------------------------------------------------------------------------
 
 # Layout:
-#   images/corn_cam/field001.png          ← parent (corn)
-#   images/corn_cam/field001-0.png        ← instance 0
-#   images/corn_cam/field001-1.png        ← instance 1
-#   images/soy_cam/field002.png           ← parent (soy)
-#   images/soy_cam/field002-0.png         ← instance 0
+#   images/A1/field001.png  ← parent (A1)
+#   images/A1/field001-0.png  ← instance 0
+#   images/A1/field001-1.png  ← instance 1
+#   images/B1/field002.png  ← parent (B1)
+#   images/B1/field002-0.png  ← instance 0
 
 _P2I_EMBEDDINGS: dict[str, list[float]] = {
-    "images/corn_cam/field001.png": _perturb(_CORN_PROTO, 0),
-    "images/corn_cam/field001-0.png": _perturb(_CORN_PROTO, 1),
-    "images/corn_cam/field001-1.png": _perturb(_CORN_PROTO, 2),
-    "images/soy_cam/field002.png": _perturb(_SOY_PROTO, 3),
-    "images/soy_cam/field002-0.png": _perturb(_SOY_PROTO, 4),
+    "images/A1/field001.png": _perturb(_A_PROTO, 0),
+    "images/A1/field001-0.png": _perturb(_A_PROTO, 1),
+    "images/A1/field001-1.png": _perturb(_A_PROTO, 2),
+    "images/B1/field002.png": _perturb(_B_PROTO, 3),
+    "images/B1/field002-0.png": _perturb(_B_PROTO, 4),
 }
 
 _P2I_MAP: dict[str, list[str]] = {
-    "images/corn_cam/field001.png": [
-        "images/corn_cam/field001-0.png",
-        "images/corn_cam/field001-1.png",
+    "images/A1/field001.png": [
+        "images/A1/field001-0.png",
+        "images/A1/field001-1.png",
     ],
-    "images/soy_cam/field002.png": [
-        "images/soy_cam/field002-0.png",
+    "images/B1/field002.png": [
+        "images/B1/field002-0.png",
     ],
 }
 
@@ -77,32 +77,32 @@ _P2I_MAP: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 # Layout:
-#   images/corn_cam/inst-0.png  corn instance
-#   images/corn_cam/inst-1.png  corn instance
-#   images/corn_cam/inst-2.png  corn instance
-#   images/soy_cam/inst-3.png   soy instance
-#   images/soy_cam/inst-4.png   soy instance
-#   images/weed_cam/inst-5.png  weed instance
-#   images/weed_cam/inst-6.png  weed instance
+#   images/A1/inst-0.png  A1 instance
+#   images/A1/inst-1.png  A1 instance
+#   images/A1/inst-2.png  A1 instance
+#   images/B1/inst-3.png  B1 instance
+#   images/B1/inst-4.png  B1 instance
+#   images/C1/inst-5.png  C1 instance
+#   images/C1/inst-6.png  C1 instance
 
 _P2P_EMBEDDINGS: dict[str, list[float]] = {
-    "images/corn_cam/inst-0.png": _perturb(_CORN_PROTO, 10),
-    "images/corn_cam/inst-1.png": _perturb(_CORN_PROTO, 11),
-    "images/corn_cam/inst-2.png": _perturb(_CORN_PROTO, 12),
-    "images/soy_cam/inst-3.png": _perturb(_SOY_PROTO, 13),
-    "images/soy_cam/inst-4.png": _perturb(_SOY_PROTO, 14),
-    "images/weed_cam/inst-5.png": _perturb(_WEED_PROTO, 15),
-    "images/weed_cam/inst-6.png": _perturb(_WEED_PROTO, 16),
+    "images/A1/inst-0.png": _perturb(_A_PROTO, 10),
+    "images/A1/inst-1.png": _perturb(_A_PROTO, 11),
+    "images/A1/inst-2.png": _perturb(_A_PROTO, 12),
+    "images/B1/inst-3.png": _perturb(_B_PROTO, 13),
+    "images/B1/inst-4.png": _perturb(_B_PROTO, 14),
+    "images/C1/inst-5.png": _perturb(_C_PROTO, 15),
+    "images/C1/inst-6.png": _perturb(_C_PROTO, 16),
 }
 
 _P2P_LABELS: dict[str, str] = {
-    "images/corn_cam/inst-0.png": "corn",
-    "images/corn_cam/inst-1.png": "corn",
-    "images/corn_cam/inst-2.png": "corn",
-    "images/soy_cam/inst-3.png": "soy",
-    "images/soy_cam/inst-4.png": "soy",
-    "images/weed_cam/inst-5.png": "weed",
-    "images/weed_cam/inst-6.png": "weed",
+    "images/A1/inst-0.png": "A1",
+    "images/A1/inst-1.png": "A1",
+    "images/A1/inst-2.png": "A1",
+    "images/B1/inst-3.png": "B1",
+    "images/B1/inst-4.png": "B1",
+    "images/C1/inst-5.png": "C1",
+    "images/C1/inst-6.png": "C1",
 }
 
 # ---------------------------------------------------------------------------
@@ -117,28 +117,31 @@ class TestPlant2ImageToMetadata:
 
     def test_group_images_contain_parent_and_instances(self) -> None:
         meta = plant2image_to_metadata(_P2I_MAP)
-        corn_group = meta["images/corn_cam/field001.png"]
-        assert "images/corn_cam/field001.png" in corn_group.images
-        assert "images/corn_cam/field001-0.png" in corn_group.images
-        assert "images/corn_cam/field001-1.png" in corn_group.images
-        assert len(corn_group.images) == 3
+        a1_group = meta["images/A1/field001.png"]
+        assert "images/A1/field001.png" in a1_group.images
+        assert "images/A1/field001-0.png" in a1_group.images
+        assert "images/A1/field001-1.png" in a1_group.images
+        assert len(a1_group.images) == 3
 
     def test_class_name_from_parent_path(self) -> None:
         meta = plant2image_to_metadata(_P2I_MAP)
-        assert meta["images/corn_cam/field001.png"].l1_cluster == "corn"
-        assert meta["images/soy_cam/field002.png"].l1_cluster == "soy"
+        assert meta["images/A1/field001.png"].class_name == "A1"
+        assert meta["images/A1/field001.png"].l1_cluster == "A"
+        assert meta["images/B1/field002.png"].class_name == "B1"
+        assert meta["images/B1/field002.png"].l1_cluster == "B"
 
     def test_dataset_root_overrides_extraction(self) -> None:
         meta = plant2image_to_metadata(_P2I_MAP, dataset_root="images")
-        assert meta["images/corn_cam/field001.png"].l1_cluster == "corn"
-        assert meta["images/soy_cam/field002.png"].l1_cluster == "soy"
+        assert meta["images/A1/field001.png"].class_name == "A1"
+        assert meta["images/A1/field001.png"].l1_cluster == "A"
+        assert meta["images/B1/field002.png"].class_name == "B1"
+        assert meta["images/B1/field002.png"].l1_cluster == "B"
 
     def test_empty_instance_list_is_valid(self) -> None:
-        single_map = {"images/corn_cam/solo.png": []}
-        # Need at least one instance or companion to test, add a dummy parent
+        single_map = {"images/A1/solo.png": []}
         meta = plant2image_to_metadata(single_map)
-        assert "images/corn_cam/solo.png" in meta
-        assert meta["images/corn_cam/solo.png"].images == ["images/corn_cam/solo.png"]
+        assert "images/A1/solo.png" in meta
+        assert meta["images/A1/solo.png"].images == ["images/A1/solo.png"]
 
     def test_empty_map_returns_empty(self) -> None:
         assert plant2image_to_metadata({}) == {}
@@ -152,22 +155,25 @@ class TestPlant2ImageToMetadata:
 class TestPlant2PlantToMetadata:
     def test_creates_one_group_per_class(self) -> None:
         meta = plant2plant_to_metadata(_P2P_LABELS)
-        assert set(meta.keys()) == {"corn", "soy", "weed"}
+        assert set(meta.keys()) == {"A1", "B1", "C1"}
 
     def test_all_class_members_in_group(self) -> None:
         meta = plant2plant_to_metadata(_P2P_LABELS)
-        corn_members = set(meta["corn"].images)
-        assert corn_members == {
-            "images/corn_cam/inst-0.png",
-            "images/corn_cam/inst-1.png",
-            "images/corn_cam/inst-2.png",
+        a1_members = set(meta["A1"].images)
+        assert a1_members == {
+            "images/A1/inst-0.png",
+            "images/A1/inst-1.png",
+            "images/A1/inst-2.png",
         }
 
     def test_class_name_correct(self) -> None:
         meta = plant2plant_to_metadata(_P2P_LABELS)
-        assert meta["corn"].l1_cluster == "corn"
-        assert meta["soy"].l1_cluster == "soy"
-        assert meta["weed"].l1_cluster == "weed"
+        assert meta["A1"].class_name == "A1"
+        assert meta["A1"].l1_cluster == "A"
+        assert meta["B1"].class_name == "B1"
+        assert meta["B1"].l1_cluster == "B"
+        assert meta["C1"].class_name == "C1"
+        assert meta["C1"].l1_cluster == "C"
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +221,7 @@ class TestRunPlant2ImageEvaluation:
             dataset_root=None,
             sample_pairs=20,
         )
-        assert sorted(result["classes"]) == ["corn", "soy"]
+        assert sorted(result["classes"]) == ["A", "B"]
 
     def test_metadata_kpis_present(self) -> None:
         result = run_plant2image_eval(
@@ -269,7 +275,7 @@ class TestRunPlant2ImageEvaluation:
             dataset_root=None,
             sample_pairs=20,
         )
-        assert set(result["per_class"].keys()) == {"corn", "soy"}
+        assert set(result["per_class"].keys()) == {"A", "B"}
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +311,7 @@ class TestRunPlant2PlantEvaluation:
             k_values=[3],
             sample_pairs=30,
         )
-        assert sorted(result["classes"]) == ["corn", "soy", "weed"]
+        assert sorted(result["classes"]) == ["A", "B", "C"]
 
     def test_metadata_kpis_present(self) -> None:
         result = run_plant2plant_eval(
@@ -354,7 +360,7 @@ class TestRunPlant2PlantEvaluation:
             k_values=[3],
             sample_pairs=30,
         )
-        assert set(result["per_class"].keys()) == {"corn", "soy", "weed"}
+        assert set(result["per_class"].keys()) == {"A", "B", "C"}
 
     def test_well_separated_classes_positive_gap(self) -> None:
         result = run_plant2plant_eval(
@@ -400,13 +406,13 @@ class TestPlant2ImageRequestValidation:
 
     def test_duplicate_instance_across_parents_raises(self) -> None:
         dup_map = {
-            "images/corn_cam/field001.png": ["images/corn_cam/field001-0.png"],
-            "images/soy_cam/field002.png": ["images/corn_cam/field001-0.png"],  # same instance
+            "images/A1/field001.png": ["images/A1/field001-0.png"],
+            "images/B1/field002.png": ["images/A1/field001-0.png"],  # same instance
         }
         dup_embeddings = {
-            "images/corn_cam/field001.png": _norm_vec(0),
-            "images/corn_cam/field001-0.png": _norm_vec(1),
-            "images/soy_cam/field002.png": _norm_vec(2),
+            "images/A1/field001.png": _norm_vec(0),
+            "images/A1/field001-0.png": _norm_vec(1),
+            "images/B1/field002.png": _norm_vec(2),
         }
         with pytest.raises(Exception, match="multiple parent groups"):
             Plant2ImageRequest(embeddings=dup_embeddings, instance_to_image=dup_map)
@@ -414,8 +420,8 @@ class TestPlant2ImageRequestValidation:
     def test_too_few_embeddings_raises(self) -> None:
         with pytest.raises(Exception, match="At least 2"):
             Plant2ImageRequest(
-                embeddings={"images/corn_cam/field001.png": _norm_vec(0)},
-                instance_to_image={"images/corn_cam/field001.png": []},
+                embeddings={"images/A1/field001.png": _norm_vec(0)},
+                instance_to_image={"images/A1/field001.png": []},
             )
 
     def test_negative_k_raises(self) -> None:
@@ -439,7 +445,7 @@ class TestPlant2PlantRequestValidation:
             Plant2PlantRequest(embeddings=_P2P_EMBEDDINGS, instance_labels=bad_labels)
 
     def test_orphan_label_raises(self) -> None:
-        extra_labels = {**_P2P_LABELS, "images/corn_cam/ghost.png": "corn"}
+        extra_labels = {**_P2P_LABELS, "images/A1/ghost.png": "A1"}
         with pytest.raises(Exception, match="not found in embeddings"):
             Plant2PlantRequest(embeddings=_P2P_EMBEDDINGS, instance_labels=extra_labels)
 
@@ -506,7 +512,7 @@ class TestPlant2PlantEndpoint:
             json={"embeddings": _P2P_EMBEDDINGS, "instance_labels": _P2P_LABELS, "k_values": [3]},
         )
         data = response.json()
-        assert sorted(data["classes"]) == ["corn", "soy", "weed"]
+        assert sorted(data["classes"]) == ["A", "B", "C"]
 
     def test_unlabeled_embedding_rejected(self) -> None:
         bad_labels = {k: v for k, v in _P2P_LABELS.items() if "inst-0" not in k}
@@ -548,28 +554,30 @@ class TestPlant2ImageToMetadataEdgeCases:
         auto-root with one path strips too aggressively (strips the filename, leaving
         the directory as root, so the first folder is the bare filename).
         """
-        meta = plant2image_to_metadata({"ds/corn_cam/field.png": []}, dataset_root="ds")
-        group = meta["ds/corn_cam/field.png"]
-        assert group.images == ["ds/corn_cam/field.png"]
-        assert group.l1_cluster == "corn"
+        meta = plant2image_to_metadata({"ds/A1/field.png": []}, dataset_root="ds")
+        group = meta["ds/A1/field.png"]
+        assert group.images == ["ds/A1/field.png"]
+        assert group.class_name == "A1"
+        assert group.l1_cluster == "A"
 
     def test_parent_with_no_instances_auto_root_limitation(self) -> None:
         """Without dataset_root a single-parent map cannot reliably extract the class."""
-        meta = plant2image_to_metadata({"ds/corn_cam/field.png": []})
-        group = meta["ds/corn_cam/field.png"]
-        assert "ds/corn_cam/field.png" in group.images
+        meta = plant2image_to_metadata({"ds/A1/field.png": []})
+        group = meta["ds/A1/field.png"]
+        assert "ds/A1/field.png" in group.images
 
     def test_class_extracted_with_explicit_root(self) -> None:
-        p2i = {"images/corn_HB-25000SBC/field.png": ["images/corn_HB-25000SBC/field-0.png"]}
+        p2i = {"images/A1/field.png": ["images/A1/field-0.png"]}
         meta = plant2image_to_metadata(p2i, dataset_root="images")
-        assert meta["images/corn_HB-25000SBC/field.png"].l1_cluster == "corn"
+        assert meta["images/A1/field.png"].class_name == "A1"
+        assert meta["images/A1/field.png"].l1_cluster == "A"
 
     def test_all_instances_appear_in_group_images(self) -> None:
-        instances = [f"ds/corn_cam/field-{i}.png" for i in range(3)]
-        p2i = {"ds/corn_cam/field.png": instances}
+        instances = [f"ds/A1/field-{i}.png" for i in range(3)]
+        p2i = {"ds/A1/field.png": instances}
         meta = plant2image_to_metadata(p2i)
-        group_images = set(meta["ds/corn_cam/field.png"].images)
-        assert "ds/corn_cam/field.png" in group_images
+        group_images = set(meta["ds/A1/field.png"].images)
+        assert "ds/A1/field.png" in group_images
         assert all(inst in group_images for inst in instances)
         assert len(group_images) == 4
 

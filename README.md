@@ -61,9 +61,8 @@ Each `metadata.json` identifies which images belong to the group and carries sha
 
 ```json
 {
-  "l1_cluster": "A",
-  "l2_cluster": "A1",
-  "attributes": { "camera_source": "HB-25000SBC", "time_period": "ss" },
+  "class_name": "A1",
+  "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" },
   "images": [
     "images/A1/220622-img1.png",
     "images/A1/220622-img2.png"
@@ -71,9 +70,7 @@ Each `metadata.json` identifies which images belong to the group and carries sha
 }
 ```
 
-`l2_cluster` is the fine-grained cluster identifier (same as the folder name, e.g. `A1`). `l1_cluster` is the coarse class label shared by all L2 subgroups with the same plant-species composition (e.g. `A`).
-
-> **Backward compatibility** — older files using `class_name` instead of `l1_cluster`/`l2_cluster` are still accepted. The API derives `l2_cluster` from `class_name` and infers `l1_cluster` from its leading letters (`A1` → `A`). New files should use the canonical fields above.
+`class_name` is the cluster identifier (same as the folder name, e.g. `A1`). The leading letters form the coarse L1 class label (`A1` → `A`), shared by all subgroups with the same plant-species composition.
 
 The `images` list uses the same path strings that will be used as embedding keys in the API request. All images listed in the same `metadata.json` are considered explicit positives of each other.
 
@@ -107,7 +104,7 @@ images/
 
 ### Wiring 2 — embeddings + metadata
 
-Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is an **L2 group** of images that share L1/L2 cluster labels and optional attributes. Use the L2 cluster name as the group key.
+Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is a cluster group of images sharing a `class_name` and optional attributes. Use the cluster name as the group key.
 
 ```json
 {
@@ -119,28 +116,24 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is an **
   },
   "metadata": {
     "A1": {
+      "class_name": "A1",
       "images": ["images/A1/220622-img.png"],
-      "l1_cluster": "A",
-      "l2_cluster": "A1",
-      "attributes": { "camera_source": "HB-25000SBC", "time_period": "ss" }
+      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" }
     },
     "A2": {
+      "class_name": "A2",
       "images": ["images/A2/190627-img.JPG"],
-      "l1_cluster": "A",
-      "l2_cluster": "A2",
-      "attributes": { "camera_source": "nikon_d610", "time_period": "ss" }
+      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "nikon_d610", "time_period": "ss" }
     },
     "B1": {
+      "class_name": "B1",
       "images": ["images/B1/220608-img.png"],
-      "l1_cluster": "B",
-      "l2_cluster": "B1",
-      "attributes": { "camera_source": "HB-25000SBC", "time_period": "ss" }
+      "attributes": { "class_instances": ["Crop | Soybean"], "camera_source": "HB-25000SBC", "time_period": "ss" }
     },
     "B2": {
+      "class_name": "B2",
       "images": ["images/B2/210625-img.JPG"],
-      "l1_cluster": "B",
-      "l2_cluster": "B2",
-      "attributes": { "camera_source": "anafi", "time_period": "ss" }
+      "attributes": { "class_instances": ["Crop | Soybean"], "camera_source": "anafi", "time_period": "ss" }
     }
   }
 }
@@ -151,13 +144,12 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is an **
 | Key | Type | Required | Description |
 |---|---|---|---|
 | `images` | `list[str]` | yes | Exact embedding path keys — must match the keys used in `embeddings`. |
-| `l1_cluster` | `str` | **yes** | Coarse cluster label (e.g. `"A"`). Shared by all L2 subgroups with the same plant-species composition. Used as the class label for all label-aware metrics. |
-| `l2_cluster` | `str` | **yes** | Fine-grained cluster identifier (e.g. `"A1"`). All images in this group are treated as explicit positives (grade 3) of each other. |
-| `attributes` | `dict[str, Any]` | no | Open key-value pairs shared by all images in this group. Values may be strings, lists, or `null`. Common examples: `camera_source`, `time_period`, `collecting_date`, `plants`. One `knn_attribute_ndcg` metric is produced **per attribute key** present across all groups. |
+| `class_name` | `str` | **yes** | Cluster identifier (e.g. `"A1"`). The L1 class label is derived from its leading letters (`"A1"` → `"A"`). All images in this group are treated as explicit positives (grade 3). |
+| `attributes` | `dict[str, Any]` | no | Open key-value pairs shared by all images in this group. Values may be strings, lists, or `null`. Common examples: `class_instances`, `camera_source`, `time_period`, `collecting_date`. One `knn_attribute_ndcg` metric is produced **per attribute key** present across all groups. |
 
-**Group key** — use the L2 cluster name (e.g. `A1`) as a convention; any unique string is accepted.
+**Group key** — use the cluster name (e.g. `A1`) as a convention; any unique string is accepted.
 
-**Multiple L2 groups per L1 cluster** — all L2 groups sharing the same `l1_cluster` value belong to the same coarse class. Images within the same L2 group are explicit positives of each other (grade 3); images in different L2 groups of the same L1 cluster score grade 2 when attributes also match, or grade 1 otherwise:
+**Multiple groups per L1 class** — all groups whose `class_name` shares the same leading letters belong to the same coarse class. Images within the same group are explicit positives of each other (grade 3); images in different groups of the same L1 class score grade 2; images from a different L1 class score grade 1 if their `class_instances` lists overlap, or grade 0 otherwise:
 
 ```json
 {
@@ -169,28 +161,26 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is an **
   },
   "metadata": {
     "A1": {
+      "class_name": "A1",
       "images": ["images/A1/220622-img1.png", "images/A1/220622-img2.png"],
-      "l1_cluster": "A",
-      "l2_cluster": "A1",
-      "attributes": { "camera_source": "HB-25000SBC", "time_period": "ss" }
+      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" }
     },
     "A2": {
+      "class_name": "A2",
       "images": ["images/A2/190627-img1.JPG", "images/A2/190627-img2.JPG"],
-      "l1_cluster": "A",
-      "l2_cluster": "A2",
-      "attributes": { "camera_source": "nikon_d610", "time_period": "ss" }
+      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "nikon_d610", "time_period": "ss" }
     }
   }
 }
 ```
 
-Both L2 groups share `l1_cluster: "A"` — the group key (`A1`, `A2`) is the L2 identifier. Images within the same L2 group are explicit positives of each other (grade 3). An A1 image queried against an A2 image yields grade 2 if all query attributes match, or grade 1 if any differ — the attribute nDCG captures this distinction.
+Both groups share L1 class `A` (derived from their `class_name` leading letters) — the group key (`A1`, `A2`) is the cluster identifier. Images within the same group are explicit positives of each other (grade 3). An A1 image queried against an A2 image yields grade 2 (same L1 class). Images from a different L1 class score grade 1 if their `class_instances` lists share at least one entry, or grade 0 otherwise.
 
 Each group defines its own explicit-positive set and `attributes` dict. The number of groups, their sizes, and the number of attribute keys are all open — KPIs automatically scale to however many attribute keys appear across all groups.
 
 **Exact path matching** — each string in `images` must be the exact key used in the `embeddings` dictionary. The client assembling the JSON has full context over the paths, so no normalisation is performed server-side.
 
-**`dataset_root`** — used only for Wiring 1 label extraction from paths. When `metadata` is provided, class labels come from `l1_cluster` in each group; `dataset_root` has no effect on metadata matching.
+**`dataset_root`** — used only for Wiring 1 label extraction from paths. When `metadata` is provided, class labels come from `class_name` in each group (L1 is derived from its leading letters); `dataset_root` has no effect on metadata matching.
 
 **Unmatched images** — embedding paths with no entry in any metadata group fall back to path-extracted class labels and receive relevance grade 0 in the metadata-aware nDCG.
 
@@ -199,9 +189,9 @@ Each group defines its own explicit-positive set and `attributes` dict. The numb
 | Grade | Condition |
 |---|---|
 | `3` | Explicit positive — candidate is in the same L2 group as the query |
-| `2` | Same `l1_cluster` **and** all query attributes match the candidate |
-| `1` | Same `l1_cluster`, no attributes or at least one attribute differs |
-| `0` | Self, different class, or no class information |
+| `2` | Same L1 class (different L2 group) |
+| `1` | Different L1 class, but at least one `class_instances` value overlaps |
+| `0` | Different class with no `class_instances` overlap, or no class information |
 
 ---
 
@@ -212,26 +202,26 @@ Pass a **mixed corpus** of full-field image embeddings and instance crop embeddi
 ```json
 {
   "embeddings": {
-    "images/corn_cam/field001.png":   [...],
-    "images/corn_cam/field001-0.png": [...],
-    "images/corn_cam/field001-1.png": [...],
-    "images/soybean_cam/field002.png":    [...],
-    "images/soybean_cam/field002-0.png":  [...]
+    "images/A1/field001.png":   [...],
+    "images/A1/field001-0.png": [...],
+    "images/A1/field001-1.png": [...],
+    "images/B1/field002.png":   [...],
+    "images/B1/field002-0.png": [...]
   },
   "instance_to_image": {
-    "images/corn_cam/field001.png": [
-      "images/corn_cam/field001-0.png",
-      "images/corn_cam/field001-1.png"
+    "images/A1/field001.png": [
+      "images/A1/field001-0.png",
+      "images/A1/field001-1.png"
     ],
-    "images/soybean_cam/field002.png": [
-      "images/soybean_cam/field002-0.png"
+    "images/B1/field002.png": [
+      "images/B1/field002-0.png"
     ]
   },
   "k_values": [5, 10]
 }
 ```
 
-**Ground truth:** when an instance is the query, its parent full image is grade-3; when a full image is the query, all its instances are grade-3. Items sharing the same class (inferred from the parent's folder name) but from different groups are grade-1.
+**Ground truth:** when an instance is the query, its parent full image is grade-3; when a full image is the query, all its instances are grade-3. Different parent groups under the same class folder are grade-2 matches, and different class folders are grade-0.
 
 Instance paths must follow the naming scheme `{original_image_name}-{ID}{ext}`, where `ID` is a zero-based integer counter or a short UUID suffix.
 
@@ -244,14 +234,14 @@ Pass **instance crop embeddings only** with an `instance_labels` mapping that as
 ```json
 {
   "embeddings": {
-    "images/corn_cam/inst-0.png":    [...],
-    "images/corn_cam/inst-1.png":    [...],
-    "images/soybean_cam/inst-2.png": [...]
+    "images/A1/inst-0.png": [...],
+    "images/A1/inst-1.png": [...],
+    "images/B1/inst-2.png": [...]
   },
   "instance_labels": {
-    "images/corn_cam/inst-0.png":    "corn",
-    "images/corn_cam/inst-1.png":    "corn",
-    "images/soybean_cam/inst-2.png": "soybean"
+    "images/A1/inst-0.png": "A1",
+    "images/A1/inst-1.png": "A1",
+    "images/B1/inst-2.png": "B1"
   },
   "k_values": [5, 10]
 }
@@ -309,8 +299,8 @@ Only `embeddings` is required. All other fields use server defaults.
     "images/B2/210625-img.JPG": [-0.45, 0.18, "..."]
   },
   "metadata": {
-    "A1": { "images": ["images/A1/220622-img.png"], "l1_cluster": "A", "l2_cluster": "A1", "attributes": { "camera_source": "HB-25000SBC", "time_period": "ss" } },
-    "B2": { "images": ["images/B2/210625-img.JPG"], "l1_cluster": "B", "l2_cluster": "B2", "attributes": { "camera_source": "anafi",       "time_period": "ss" } }
+    "A1": { "class_name": "A1", "images": ["images/A1/220622-img.png"], "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" } },
+    "B2": { "class_name": "B2", "images": ["images/B2/210625-img.JPG"], "attributes": { "class_instances": ["Crop | Soybean"], "camera_source": "anafi", "time_period": "ss" } }
   },
   "k_values": [5, 10]
 }
@@ -373,20 +363,18 @@ result = run_image2image_eval(
     sample_pairs=None,
 )
 
-# Wiring 2 — Image→Image with explicit L1/L2 groups (graded nDCG, explicit positives)
+# Wiring 2 — Image→Image with explicit groups (graded nDCG, explicit positives)
 metadata = {
-    "A1": MetadataGroup(
-        images=["images/A1/img1.png"],
-        l1_cluster="A",
-        l2_cluster="A1",
-        attributes={"camera_source": "HB-25000SBC", "time_period": "ss"},
-    ),
-    "B2": MetadataGroup(
-        images=["images/B2/img2.JPG"],
-        l1_cluster="B",
-        l2_cluster="B2",
-        attributes={"camera_source": "anafi", "time_period": "ss"},
-    ),
+    "A1": MetadataGroup.model_validate({
+        "class_name": "A1",
+        "images": ["images/A1/img1.png"],
+        "attributes": {"class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss"},
+    }),
+    "B2": MetadataGroup.model_validate({
+        "class_name": "B2",
+        "images": ["images/B2/img2.JPG"],
+        "attributes": {"class_instances": ["Crop | Soybean"], "camera_source": "anafi", "time_period": "ss"},
+    }),
 }
 result = run_image2image_eval(
     image_embeddings=embeddings,
@@ -398,17 +386,17 @@ result = run_image2image_eval(
 
 # Wiring 3 — Plant→Image (mixed corpus of full images and instance crops)
 mixed_embeddings = {
-    "images/corn_cam/field001.png":   [...],
-    "images/corn_cam/field001-0.png": [...],
-    "images/corn_cam/field001-1.png": [...],
-    "images/soybean_cam/field002.png":    [...],
-    "images/soybean_cam/field002-0.png":  [...],
+    "images/A1/field001.png":   [...],
+    "images/A1/field001-0.png": [...],
+    "images/A1/field001-1.png": [...],
+    "images/B1/field002.png":   [...],
+    "images/B1/field002-0.png": [...],
 }
 result = run_plant2image_eval(
     embeddings=mixed_embeddings,
     instance_to_image={
-        "images/corn_cam/field001.png": ["images/corn_cam/field001-0.png", "images/corn_cam/field001-1.png"],
-        "images/soybean_cam/field002.png": ["images/soybean_cam/field002-0.png"],
+        "images/A1/field001.png": ["images/A1/field001-0.png", "images/A1/field001-1.png"],
+        "images/B1/field002.png": ["images/B1/field002-0.png"],
     },
     k_values=[5, 10],
     dataset_root=None,
@@ -417,16 +405,16 @@ result = run_plant2image_eval(
 
 # Wiring 4 — Plant→Plant (instance crops with explicit class labels)
 instance_embeddings = {
-    "images/corn_cam/inst-0.png":    [...],
-    "images/corn_cam/inst-1.png":    [...],
-    "images/soybean_cam/inst-2.png": [...],
+    "images/A1/inst-0.png": [...],
+    "images/A1/inst-1.png": [...],
+    "images/B1/inst-2.png": [...],
 }
 result = run_plant2plant_eval(
     embeddings=instance_embeddings,
     instance_labels={
-        "images/corn_cam/inst-0.png":    "corn",
-        "images/corn_cam/inst-1.png":    "corn",
-        "images/soybean_cam/inst-2.png": "soybean",
+        "images/A1/inst-0.png": "A1",
+        "images/A1/inst-1.png": "A1",
+        "images/B1/inst-2.png": "B1",
     },
     k_values=[5, 10],
     sample_pairs=None,
@@ -465,7 +453,7 @@ When metadata is provided, retrieval KPIs use explicit-positive ground truth fro
 | `knn_metadata_map@k` | How consistently does the model surface *all* explicit positives early in the ranked list? | **Higher** |
 | `knn_metadata_mrr@k` | How far down before the first explicit positive appears? | **Higher** |
 | `knn_metadata_r_precision` | Precision at R, where R equals the number of explicit positives declared for that image. | **Higher** |
-| `knn_attribute_ndcg@k` | One score per metadata attribute (e.g. `camera`, `growth_stage`). Measures whether images sharing the same attribute value are ranked above those that differ on it. | **Higher** per attribute |
+| `knn_attribute_ndcg@k` | One score per metadata attribute (e.g. `class_instances`, `camera_source`). Measures whether images sharing the same attribute value are ranked above those that differ on it. | **Higher** per attribute |
 
 ---
 
@@ -503,9 +491,9 @@ When metadata is provided, retrieval KPIs use explicit-positive ground truth fro
 | `knn_metadata_map@k` | **MAP@K** — average precision at finding all explicit positives early |
 | `knn_metadata_mrr@k` | **MRR@K** — reciprocal rank of the first explicit positive |
 | `knn_metadata_r_precision` | **R-Precision** — precision at R where R = number of explicit positives |
-| `knn_attribute_ndcg@k` | One binary nDCG entry **per attribute key** (e.g. `growth_stage`, `camera`) — only present when at least one metadata group has a non-empty `attributes` dict |
+| `knn_attribute_ndcg@k` | One binary nDCG entry **per attribute key** (e.g. `class_instances`, `camera_source`) — only present when at least one metadata group has a non-empty `attributes` dict |
 
-> **Graded relevance for nDCG** — grade 3: same explicit group; grade 2: same class + all attributes match; grade 1: same class; grade 0: different class or no match.
+> **Graded relevance for nDCG** — grade 3: same L2 group (explicit positive); grade 2: same L1 class; grade 1: different L1 but overlapping `class_instances`; grade 0: no relationship.
 
 ### Group analysis (with metadata only)
 
@@ -558,13 +546,11 @@ plot_lle(embeddings, result, output_path="output/lle.html")
 
 ## Example notebooks
 
-Three notebooks are provided — start Jupyter from the `examples/` directory.
+Two notebooks are provided — start Jupyter from the `examples/` directory.
 
-**[`examples/example.ipynb`](examples/example.ipynb)** — Image→Image, embeddings only (`emb_image2image.json`).
-Covers KNN purity, nDCG, MAP, pairwise similarity, and all visualizations.
-
-**[`examples/example_meta.ipynb`](examples/example_meta.ipynb)** — Image→Image with metadata (`emb_image2image_meta.json`).
-Adds graded `knn_metadata_ndcg` and per-attribute `knn_attribute_ndcg` (one entry per attribute key).
+**[`examples/example.ipynb`](examples/example.ipynb)** — Image→Image, two parts.
+- **Part 1 — Basic** (`emb_image2image.json`): class labels inferred from the L2 path hierarchy. Covers KNN purity, nDCG, MAP, pairwise similarity, and all visualizations.
+- **Part 2 — With Metadata** (`emb_image2image_meta.json`): explicit `MetadataGroup` clusters (A1, A2, B1, B2). Adds graded `knn_metadata_ndcg` and per-attribute `knn_attribute_ndcg`.
 
 **[`examples/example_plant.ipynb`](examples/example_plant.ipynb)** — Plant wirings (`emb_plant2image.json` / `emb_plant2plant.json`).
 Covers Plant→Image with `instance_to_image` mapping and Plant→Plant with `instance_labels`.
@@ -572,7 +558,6 @@ Covers Plant→Image with `instance_to_image` mapping and Plant→Plant with `in
 ```bash
 # From the project root
 jupyter notebook examples/example.ipynb
-jupyter notebook examples/example_meta.ipynb
 jupyter notebook examples/example_plant.ipynb
 ```
 
