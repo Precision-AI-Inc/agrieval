@@ -428,6 +428,18 @@ class TestPlant2ImageRequestValidation:
         with pytest.raises(Exception, match="positive"):
             Plant2ImageRequest(embeddings=_P2I_EMBEDDINGS, instance_to_image=_P2I_MAP, k_values=[-1])
 
+    def test_unsupported_extension_raises(self) -> None:
+        bad_embeddings = {
+            "images/A1/field001.tiff": _norm_vec(0),
+            "images/B1/field002.png": _norm_vec(1),
+        }
+        with pytest.raises(Exception, match="Unsupported file extension"):
+            Plant2ImageRequest(
+                embeddings=bad_embeddings,
+                instance_to_image={"images/A1/field001.tiff": []},
+                k_values=[1],
+            )
+
 
 # ---------------------------------------------------------------------------
 # Schema validation — Plant2PlantRequest
@@ -455,6 +467,18 @@ class TestPlant2PlantRequestValidation:
                 embeddings=_P2P_EMBEDDINGS,
                 instance_labels=_P2P_LABELS,
                 k_values=[0],
+            )
+
+    def test_unsupported_extension_raises(self) -> None:
+        bad_embeddings = {
+            "images/A1/inst-0.tiff": _norm_vec(0),
+            "images/B1/inst-1.png": _norm_vec(1),
+        }
+        with pytest.raises(Exception, match="Unsupported file extension"):
+            Plant2PlantRequest(
+                embeddings=bad_embeddings,
+                instance_labels={"images/A1/inst-0.tiff": "A1", "images/B1/inst-1.png": "B1"},
+                k_values=[1],
             )
 
 

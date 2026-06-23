@@ -321,6 +321,18 @@ class TestRunAnalysis:
         with pytest.raises(ValueError, match="Unsupported file extension"):
             run_image2image_eval(bad, k_values=[1], dataset_root=None, sample_pairs=None)
 
+    def test_large_local_eval_warns_without_failing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_ITEMS", "2")
+        with pytest.warns(RuntimeWarning, match="Large evaluation"):
+            result = run_image2image_eval(
+                _make_two_class(n_per_class=2),
+                k_values=[1],
+                dataset_root="ds",
+                sample_pairs=20,
+            )
+        assert result["warnings"]
+        assert "Large evaluation" in result["warnings"][0]
+
 
 # ---------------------------------------------------------------------------
 # API endpoint
@@ -734,6 +746,19 @@ class TestEmptyKValues:
         response = client.post(
             "/v1/embeddings/evaluate/image2image",
             json={"embeddings": _make_two_class(), "k_values": []},
+        )
+        assert response.status_code == 422
+
+
+class TestSamplePairsValidation:
+    def test_schema_rejects_negative_sample_pairs(self) -> None:
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
+            EmbeddingEvaluateRequest(embeddings=_make_two_class(n_per_class=2), sample_pairs=-1)
+
+    def test_negative_sample_pairs_rejected_by_api(self) -> None:
+        response = client.post(
+            "/v1/embeddings/evaluate/image2image",
+            json={"embeddings": _make_two_class(), "k_values": [3], "sample_pairs": -1},
         )
         assert response.status_code == 422
 
@@ -1278,35 +1303,27 @@ class TestAPIBoundaryConditions:
         )
         assert response.status_code == 422
 
-    def test_unsupported_extension_causes_service_error(self) -> None:
-        """Paths ending in .tiff are rejected by the service layer (not the schema).
-
-        The schema does not validate extensions; the service ``_validate_embeddings``
-        raises ValueError which propagates as 500.  The schema should also validate
-        extensions so clients receive 422 instead.
-        """
-        lax_client = TestClient(app, raise_server_exceptions=False)
+    def test_unsupported_extension_rejected_422(self) -> None:
         embeddings = {
             "ds/A1/img.tiff": [1.0, 0.0],
             "ds/B1/img.tiff": [0.0, 1.0],
         }
-        response = lax_client.post(
+        response = client.post(
             "/v1/embeddings/evaluate/image2image",
             json={"embeddings": embeddings, "k_values": [1]},
         )
-        assert response.status_code in {400, 422, 500}
+        assert response.status_code == 422
 
-    def test_case_sensitive_extension_wrong_case_causes_service_error(self) -> None:
-        lax_client = TestClient(app, raise_server_exceptions=False)
+    def test_case_sensitive_extension_wrong_case_rejected_422(self) -> None:
         embeddings = {
             "ds/A1/img.Png": [1.0, 0.0],
             "ds/B1/img.Jpg": [0.0, 1.0],
         }
-        response = lax_client.post(
+        response = client.post(
             "/v1/embeddings/evaluate/image2image",
             json={"embeddings": embeddings, "k_values": [1]},
         )
-        assert response.status_code in {400, 422, 500}
+        assert response.status_code == 422
 
     def test_sample_pairs_one_does_not_crash(self) -> None:
         response = client.post(
@@ -1329,6 +1346,16 @@ class TestAPIBoundaryConditions:
         )
         assert response.status_code == 200
 
+    def test_large_local_eval_warning_returned_by_api(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_ITEMS", "2")
+        with pytest.warns(RuntimeWarning, match="Large evaluation"):
+            response = client.post(
+                "/v1/embeddings/evaluate/image2image",
+                json={"embeddings": _make_two_class(n_per_class=2), "k_values": [1], "dataset_root": "ds"},
+            )
+        assert response.status_code == 200
+        assert response.json()["warnings"]
+
     def test_plant2image_endpoint_with_dataset_root_override(self) -> None:
         response = client.post(
             "/v1/embeddings/evaluate/plant2image",
@@ -1340,3 +1367,23 @@ class TestAPIBoundaryConditions:
             },
         )
         assert response.status_code == 200
+
+    def test_plant2image_uses_configured_dataset_root_when_omitted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_DATASET_ROOT", "images")
+        embeddings = {
+            "images/A1/field.png": [1.0, 0.0],
+            "images/A1/field-0.png": [1.0, 0.0],
+            "images/B1/other.png": [0.0, 1.0],
+        }
+        response = client.post(
+            "/v1/embeddings/evaluate/plant2image",
+            json={
+                "embeddings": embeddings,
+                "instance_to_image": {"images/A1/field.png": ["images/A1/field-0.png"]},
+                "k_values": [1],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["classes"] == ["A", "B"]
+        assert data["item_labels"] == ["A", "A", "B"]

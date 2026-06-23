@@ -12,8 +12,12 @@ Three named endpoints cover the full agricultural retrieval taxonomy:
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from collections.abc import Callable
+from typing import Any
 
+from fastapi import APIRouter, HTTPException
+
+from precisionai.agrieval.emb.api.config import get_dataset_root
 from precisionai.agrieval.emb.schemas.evaluate import (
     EmbeddingEvaluateRequest,
     EmbeddingEvaluateResponse,
@@ -27,6 +31,20 @@ from precisionai.agrieval.emb.services.evaluate import (
 )
 
 router = APIRouter(prefix="/embeddings", tags=["evaluate"])
+
+
+def _resolve_dataset_root(dataset_root: str | None) -> str | None:
+    """Use the configured server default when a request omits dataset_root."""
+    return dataset_root if dataset_root is not None else get_dataset_root()
+
+
+def _run_or_400(func: Callable[..., dict[str, Any]], /, **kwargs: Any) -> EmbeddingEvaluateResponse:
+    """Convert service-layer ValueError exceptions into 400 responses."""
+    try:
+        result = func(**kwargs)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return EmbeddingEvaluateResponse(**result)
 
 
 @router.post("/evaluate/image2image", response_model=EmbeddingEvaluateResponse)
@@ -50,14 +68,14 @@ def evaluate_image2image(request: EmbeddingEvaluateRequest) -> EmbeddingEvaluate
       KNN label purity, effective rank, centroid similarity, duplicate counts.
     - **per_class** — the same metrics broken down per crop class.
     """
-    result = run_image2image_eval(
+    return _run_or_400(
+        run_image2image_eval,
         image_embeddings=request.embeddings,
         k_values=request.k_values,
-        dataset_root=request.dataset_root,
+        dataset_root=_resolve_dataset_root(request.dataset_root),
         sample_pairs=request.sample_pairs,
         metadata=request.metadata,
     )
-    return EmbeddingEvaluateResponse(**result)
 
 
 @router.post("/evaluate/plant2image", response_model=EmbeddingEvaluateResponse)
@@ -78,14 +96,14 @@ def evaluate_plant2image(request: Plant2ImageRequest) -> EmbeddingEvaluateRespon
     with metadata-aware KPIs enabled (``knn_metadata_precision``,
     ``knn_metadata_ndcg``, ``alignment``, etc.).
     """
-    result = run_plant2image_eval(
+    return _run_or_400(
+        run_plant2image_eval,
         embeddings=request.embeddings,
         instance_to_image=request.instance_to_image,
         k_values=request.k_values,
-        dataset_root=request.dataset_root,
+        dataset_root=_resolve_dataset_root(request.dataset_root),
         sample_pairs=request.sample_pairs,
     )
-    return EmbeddingEvaluateResponse(**result)
 
 
 @router.post("/evaluate/plant2plant", response_model=EmbeddingEvaluateResponse)
@@ -99,10 +117,10 @@ def evaluate_plant2plant(request: Plant2PlantRequest) -> EmbeddingEvaluateRespon
     Returns the same fixed JSON report as ``POST /v1/embeddings/evaluate``
     with metadata-aware KPIs enabled.
     """
-    result = run_plant2plant_eval(
+    return _run_or_400(
+        run_plant2plant_eval,
         embeddings=request.embeddings,
         instance_labels=request.instance_labels,
         k_values=request.k_values,
         sample_pairs=request.sample_pairs,
     )
-    return EmbeddingEvaluateResponse(**result)

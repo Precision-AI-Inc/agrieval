@@ -10,6 +10,7 @@ import json
 import math
 import os
 import re
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,16 @@ from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
 # Supported embedding path extensions — case-sensitive exact match.
 _SUPPORTED_EXTENSIONS = frozenset({".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"})
 
+# Advisory thresholds for local runs. Users can override these for larger machines.
+_WARN_ITEMS_ENV = "PAI_EMB_WARN_ITEMS"
+_WARN_COMPONENTS_ENV = "PAI_EMB_WARN_COMPONENTS"
+_WARN_METADATA_CELLS_ENV = "PAI_EMB_WARN_METADATA_CELLS"
+_WARN_EXACT_PAIRS_ENV = "PAI_EMB_WARN_EXACT_PAIRS"
+_DEFAULT_WARN_ITEMS = 10_000
+_DEFAULT_WARN_COMPONENTS = 20_000_000
+_DEFAULT_WARN_METADATA_CELLS = 25_000_000
+_DEFAULT_WARN_EXACT_PAIRS = 10_000_000
+
 # Matches a class name whose leading letters define the coarse L1 label.
 _L1_LABEL_RE = re.compile(r"^([A-Za-z]+)\d+$")
 
@@ -101,6 +112,9 @@ def _extract_class_names(paths: list[str], dataset_root: str | None = None) -> l
 
     if dataset_root is not None:
         root_prefix = Path(dataset_root.replace("\\", "/")).as_posix().rstrip("/") + "/"
+        if not any(posix_path.startswith(root_prefix) for posix_path in posix_paths):
+            raw = os.path.commonprefix(posix_paths)
+            root_prefix = raw[: raw.rfind("/") + 1] if "/" in raw else ""
     else:
         raw = os.path.commonprefix(posix_paths)
         # Trim to the last directory separator so we don't clip mid-word
@@ -329,6 +343,64 @@ def _validate_embeddings(paths: list[str], vectors: list[list[float]]) -> None:
     if bad:
         supported = ", ".join(sorted(_SUPPORTED_EXTENSIONS))
         raise ValueError(f"Unsupported file extension(s) in embedding paths (supported: {supported}): {bad}")
+
+
+def _warn_threshold(env_name: str, default: int) -> int:
+    """Read an integer advisory threshold from the environment."""
+    raw = os.environ.get(env_name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return max(value, 0)
+
+
+def _build_evaluation_warnings(
+    *,
+    n_items: int,
+    embedding_dim: int,
+    metadata: dict[str, MetadataGroup] | None,
+    sample_pairs: int | None,
+) -> list[str]:
+    """Build non-blocking warnings for expensive local evaluations."""
+    messages: list[str] = []
+    item_threshold = _warn_threshold(_WARN_ITEMS_ENV, _DEFAULT_WARN_ITEMS)
+    component_threshold = _warn_threshold(_WARN_COMPONENTS_ENV, _DEFAULT_WARN_COMPONENTS)
+    metadata_cell_threshold = _warn_threshold(_WARN_METADATA_CELLS_ENV, _DEFAULT_WARN_METADATA_CELLS)
+    exact_pair_threshold = _warn_threshold(_WARN_EXACT_PAIRS_ENV, _DEFAULT_WARN_EXACT_PAIRS)
+
+    if item_threshold and n_items >= item_threshold:
+        messages.append(
+            f"Large evaluation: {n_items} embeddings were provided. Runtime scales roughly with the number of items."
+        )
+
+    total_components = n_items * embedding_dim
+    if component_threshold and total_components >= component_threshold:
+        approx_mb = total_components * np.dtype(np.float32).itemsize / (1024 * 1024)
+        messages.append(
+            f"Large embedding matrix: {n_items} x {embedding_dim} contains {total_components:,} values "
+            f"(about {approx_mb:.1f} MiB as float32)."
+        )
+
+    if metadata is not None:
+        metadata_cells = n_items * n_items
+        if metadata_cell_threshold and metadata_cells >= metadata_cell_threshold:
+            approx_mb = metadata_cells * 2 / (1024 * 1024)
+            messages.append(
+                f"Metadata-aware metrics build dense {n_items} x {n_items} relevance matrices "
+                f"(at least about {approx_mb:.1f} MiB before temporary arrays)."
+            )
+
+    if sample_pairs is None:
+        exact_pairs = n_items * (n_items - 1) // 2
+        if exact_pair_threshold and exact_pairs >= exact_pair_threshold:
+            messages.append(
+                f"Exact pairwise statistics will evaluate {exact_pairs:,} pairs; set sample_pairs to bound this work."
+            )
+
+    return messages
 
 
 def _slice_knn_stats(per_item_by_k: dict[int, np.ndarray], indices: np.ndarray) -> dict:
@@ -778,6 +850,14 @@ def run_image2image_eval(
     embeddings = np.array(vectors, dtype=np.float32)
     n, d = embeddings.shape
     unique_classes = sorted(set(labels_list))
+    advisory_warnings = _build_evaluation_warnings(
+        n_items=n,
+        embedding_dim=d,
+        metadata=metadata,
+        sample_pairs=sample_pairs,
+    )
+    for message in advisory_warnings:
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
 
     # Stage 1: Build the k-NN graph (all subsequent stages depend on this).
     neighbors = top_k_neighbors(embeddings, ks=k_values)
@@ -826,6 +906,8 @@ def run_image2image_eval(
         "global_metrics": _jsonify(global_metrics),
         "per_class": {cls: _jsonify(m) for cls, m in per_class.items()},
     }
+    if advisory_warnings:
+        result["warnings"] = advisory_warnings
     if group_analysis is not None:
         result["group_analysis"] = _jsonify(group_analysis)
     return result

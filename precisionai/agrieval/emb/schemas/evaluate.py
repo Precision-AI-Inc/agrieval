@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import re
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -14,6 +15,16 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # Acceptable deviation from unit norm for L2-normalised inputs.
 # float32 round-trip through JSON can introduce ~1e-5 error; 1e-3 is generous.
 _NORM_TOLERANCE = 1e-3
+_SUPPORTED_EMBEDDING_EXTENSIONS = frozenset({".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"})
+
+
+def _validate_embedding_paths(v: dict[str, list[float]]) -> dict[str, list[float]]:
+    """Validate supported file extensions for embedding paths."""
+    bad_paths = [path for path in v if Path(path).suffix not in _SUPPORTED_EMBEDDING_EXTENSIONS]
+    if bad_paths:
+        supported = ", ".join(sorted(_SUPPORTED_EMBEDDING_EXTENSIONS))
+        raise ValueError(f"Unsupported file extension(s) in embedding paths (supported: {supported}): {bad_paths}")
+    return v
 
 
 class MetadataGroup(BaseModel):
@@ -132,6 +143,7 @@ class EmbeddingEvaluateRequest(BaseModel):
     sample_pairs: int | None = Field(
         default=1_000_000,
         description="Max random pairs for global pairwise stats. None = exact (slow for large N).",
+        ge=0,
     )
 
     @field_validator("embeddings")
@@ -160,6 +172,12 @@ class EmbeddingEvaluateRequest(BaseModel):
                     f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
                 )
         return v
+
+    @field_validator("embeddings")
+    @classmethod
+    def validate_embedding_paths(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
+        """Validate supported file extensions for embedding paths."""
+        return _validate_embedding_paths(v)
 
     @field_validator("k_values")
     @classmethod
@@ -262,6 +280,7 @@ class Plant2ImageRequest(BaseModel):
     sample_pairs: int | None = Field(
         default=1_000_000,
         description="Max random pairs for global pairwise stats. None = exact (slow for large N).",
+        ge=0,
     )
 
     @field_validator("embeddings")
@@ -289,6 +308,12 @@ class Plant2ImageRequest(BaseModel):
                     f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
                 )
         return v
+
+    @field_validator("embeddings")
+    @classmethod
+    def validate_embedding_paths(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
+        """Validate supported file extensions for embedding paths."""
+        return _validate_embedding_paths(v)
 
     @field_validator("k_values")
     @classmethod
@@ -369,6 +394,7 @@ class Plant2PlantRequest(BaseModel):
     sample_pairs: int | None = Field(
         default=1_000_000,
         description="Max random pairs for global pairwise stats. None = exact (slow for large N).",
+        ge=0,
     )
 
     @field_validator("embeddings")
@@ -396,6 +422,12 @@ class Plant2PlantRequest(BaseModel):
                     f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
                 )
         return v
+
+    @field_validator("embeddings")
+    @classmethod
+    def validate_embedding_paths(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
+        """Validate supported file extensions for embedding paths."""
+        return _validate_embedding_paths(v)
 
     @field_validator("k_values")
     @classmethod
@@ -435,4 +467,5 @@ class EmbeddingEvaluateResponse(BaseModel):
     knn_confusion: dict[str, Any]
     global_metrics: dict[str, Any]
     per_class: dict[str, dict[str, Any]]
+    warnings: list[str] | None = None
     group_analysis: dict[str, Any] | None = None
