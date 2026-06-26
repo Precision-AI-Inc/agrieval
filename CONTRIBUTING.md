@@ -32,7 +32,7 @@ If a hook auto-fixes files (ruff lint/format), stage the changes and commit agai
 
 | Hook | What it checks |
 |---|---|
-| File hygiene | Large files (>1000 KB), trailing whitespace, merge conflicts, private keys, debug statements |
+| File hygiene | Large files (>1800 KB), trailing whitespace, merge conflicts, private keys, debug statements, BOM removal |
 | `ruff` | Linting and import sorting (auto-fix); includes `ANN` rules that enforce PEP 484 annotations |
 | `ruff-format` | Code formatting (auto-fix) |
 | `pyright` | Static type checking (pylance engine) — config in `[tool.pyright]` in `pyproject.toml` |

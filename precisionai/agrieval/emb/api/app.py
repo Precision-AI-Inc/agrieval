@@ -24,9 +24,9 @@ Everything else is optional.
 ```json
 {
   "embeddings": {
-    "images/A1/220622-corn-54e94639.png":  [0.12, -0.31, 0.27, ...],
-    "images/A2/190627-corn-bded43cb.JPG":  [0.11, -0.30, 0.26, ...],
-    "images/B1/210625-soybeans-fce5a850.png": [-0.45, 0.18, -0.09, ...]
+    "images/A1/pai-abc123.png": [0.12, -0.31, 0.27, ...],
+    "images/A2/pai-def456.png": [0.11, -0.30, 0.26, ...],
+    "images/D1/pai-ghi789.png": [-0.45, 0.18, -0.09, ...]
   }
 }
 ```
@@ -41,13 +41,13 @@ Everything else is optional.
 
 The L1 cluster label is extracted automatically from the L2 folder name:
 ```
-images / A1 / 220622-img.png
+images / A1 / pai-abc123.png
          ^^
          L2 folder  →  L1 = "A"  (leading letters)
 ```
 
-Supply a `metadata` dict (loaded from the dataset's `metadata/` directory) to
-enable graded nDCG and per-attribute KPIs based on the explicit L1/L2 cluster structure.
+Supply a `metadata` dict to enable graded nDCG and per-attribute KPIs based on
+the explicit L1/L2 cluster structure (see `image2image.json` in the dataset root).
 
 **Response**
 

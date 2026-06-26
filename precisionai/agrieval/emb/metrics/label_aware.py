@@ -52,7 +52,7 @@ def relevance_grade(query: ImageItem, candidate: ImageItem) -> int:
         Relevance grade:
 
         * ``0`` — self, or no semantic relationship (different L1 class).
-        * ``1`` — different L1 class but at least one ``class_instances`` value overlaps.
+        * ``1`` — different L1 class but at least one ``plants`` value overlaps.
         * ``2`` — same L1 class (same coarse crop/weed category).
         * ``3`` — explicit positive (same L2 metadata group).
     """
@@ -62,8 +62,8 @@ def relevance_grade(query: ImageItem, candidate: ImageItem) -> int:
         return 3
     if query.class_name and candidate.class_name and query.class_name == candidate.class_name:
         return 2
-    q_ci = query.attributes.get("class_instances", "")
-    c_ci = candidate.attributes.get("class_instances", "")
+    q_ci = query.attributes.get("plants", "")
+    c_ci = candidate.attributes.get("plants", "")
     if q_ci and c_ci:
         q_set = set(q_ci.split(",")) - {""}
         c_set = set(c_ci.split(",")) - {""}
@@ -115,10 +115,10 @@ def _encode_class_names(items: list[ImageItem]) -> tuple[list[int], np.ndarray]:
 
 
 def _build_class_instance_sets(items: list[ImageItem]) -> list[set[str]]:
-    """Collect per-item ``class_instances`` values as sets."""
+    """Collect per-item ``plants`` values as sets."""
     ci_sets: list[set[str]] = []
     for item in items:
-        ci_val = item.attributes.get("class_instances", "")
+        ci_val = item.attributes.get("plants", "")
         ci_sets.append(set(ci_val.split(",")) - {""} if ci_val else set())
     return ci_sets
 
@@ -150,7 +150,7 @@ def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
 
     * ``3`` — explicit positive (same L2 metadata group)
     * ``2`` — same L1 class
-    * ``1`` — different L1 class but overlapping ``class_instances`` attribute values
+    * ``1`` — different L1 class but overlapping ``plants`` attribute values
     * ``0`` — no relationship or self
 
     Building the matrix once and reusing it across all K values avoids
@@ -700,7 +700,7 @@ def knn_metadata_ndcg_at_k(
 
     * ``3`` — explicit positive (same L2 metadata group)
     * ``2`` — same L1 class
-    * ``1`` — different L1 class but overlapping ``class_instances`` attribute values
+    * ``1`` — different L1 class but overlapping ``plants`` attribute values
     * ``0`` — no relationship
 
     The ideal DCG is computed against all other items in the corpus.

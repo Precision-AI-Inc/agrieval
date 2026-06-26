@@ -1,0 +1,82 @@
+{
+  "metadata": {
+    "A1": {
+      "images": [
+        "images/A1/pai-1NY5xYvV.png",
+        "images/A1/pai-3Dab9LlQ.png",
+        "images/A1/pai-3OXbEPn6.png",
+        "images/A1/pai-f38SBAd9.png",
+        "images/A1/pai-FvearqMK.png"
+      ],
+      "class_name": "A1",
+      "attributes": {
+        "plants": [
+          "Crop | Soybean",
+          "Weed | Weed"
+        ],
+        "time_period": "ss_sr",
+        "camera_model": "HB-25000SBC",
+        "camera_source": "drone",
+        "collecting_date": null
+      }
+    },
+    "A2": {
+      "images": [
+        "images/A2/pai-26WHawSw.png",
+        "images/A2/pai-dkPCBr8L.png",
+        "images/A2/pai-DZKRM3dU.png",
+        "images/A2/pai-Ejp0NKNw.png",
+        "images/A2/pai-GhQu5RLm.png"
+      ],
+      "class_name": "A2",
+      "attributes": {
+        "plants": [
+          "Crop | Soybean",
+          "Weed | Weed"
+        ],
+        "time_period": "noon",
+        "camera_model": "HB-25000SBC",
+        "camera_source": "drone",
+        "collecting_date": null
+      }
+    },
+    "D1": {
+      "images": [
+        "images/D1/pai-6DJYEp8X.png",
+        "images/D1/pai-79OPrdAS.png",
+        "images/D1/pai-7aipYdIM.png",
+        "images/D1/pai-8R9gk2PK.png",
+        "images/D1/pai-BLSTub91.png"
+      ],
+      "class_name": "D1",
+      "attributes": {
+        "plants": [
+          "Crop | Soybean"
+        ],
+        "time_period": "ss_sr",
+        "camera_model": "HB-25000SBC",
+        "camera_source": "drone",
+        "collecting_date": null
+      }
+    },
+    "D2": {
+      "images": [
+        "images/D2/pai-7SvYku65.png",
+        "images/D2/pai-84MMLArI.png",
+        "images/D2/pai-hzCkAxJC.png",
+        "images/D2/pai-U1jTMm7E.png",
+        "images/D2/pai-UEFhLLhV.png"
+      ],
+      "class_name": "D2",
+      "attributes": {
+        "plants": [
+          "Crop | Soybean"
+        ],
+        "time_period": "noon",
+        "camera_model": "HB-25000SBC",
+        "camera_source": "drone",
+        "collecting_date": null
+      }
+    }
+  }
+}

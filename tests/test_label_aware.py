@@ -405,20 +405,18 @@ class TestRelevanceGrade:
         candidate = self._item("b.png", class_name="corn", attrs={"growth_stage": "early", "camera": "nikon"})
         assert relevance_grade(query, candidate) == 2
 
-    def test_different_class_shared_class_instances_is_one(self) -> None:
+    def test_different_class_shared_plants_is_one(self) -> None:
         ci = "Crop | Corn,Weed | Waterhemp"
-        query = self._item("a.png", class_name="A", attrs={"class_instances": ci})
-        candidate = self._item(
-            "b.png", class_name="B", attrs={"class_instances": "Weed | Waterhemp,Weed | Lambsquarters"}
-        )
+        query = self._item("a.png", class_name="A", attrs={"plants": ci})
+        candidate = self._item("b.png", class_name="B", attrs={"plants": "Weed | Waterhemp,Weed | Lambsquarters"})
         assert relevance_grade(query, candidate) == 1
 
-    def test_different_class_no_shared_class_instances_is_zero(self) -> None:
-        query = self._item("a.png", class_name="A", attrs={"class_instances": "Crop | Corn"})
-        candidate = self._item("b.png", class_name="B", attrs={"class_instances": "Weed | Waterhemp"})
+    def test_different_class_no_shared_plants_is_zero(self) -> None:
+        query = self._item("a.png", class_name="A", attrs={"plants": "Crop | Corn"})
+        candidate = self._item("b.png", class_name="B", attrs={"plants": "Weed | Waterhemp"})
         assert relevance_grade(query, candidate) == 0
 
-    def test_different_class_missing_class_instances_is_zero(self) -> None:
+    def test_different_class_missing_plants_is_zero(self) -> None:
         query = self._item("a.png", class_name="corn", attrs={"growth_stage": "medium"})
         candidate = self._item("b.png", class_name="soybean", attrs={"growth_stage": "medium"})
         assert relevance_grade(query, candidate) == 0
@@ -446,28 +444,28 @@ class TestBuildGradeMatrix:
                 "a0.png",
                 explicit_positive_ids=frozenset({"a1.png"}),
                 class_name="A",
-                attributes={"class_instances": "Crop | Corn"},
+                attributes={"plants": "Crop | Corn"},
             ),
             ImageItem(
                 "a1.png",
                 explicit_positive_ids=frozenset({"a0.png"}),
                 class_name="A",
-                attributes={"class_instances": "Crop | Corn"},
+                attributes={"plants": "Crop | Corn"},
             ),
             ImageItem(
                 "a2.png",
                 class_name="A",
-                attributes={"class_instances": "Crop | Corn"},
+                attributes={"plants": "Crop | Corn"},
             ),
             ImageItem(
                 "b0.png",
                 class_name="B",
-                attributes={"class_instances": "Crop | Corn,Weed | Waterhemp"},
+                attributes={"plants": "Crop | Corn,Weed | Waterhemp"},
             ),
             ImageItem(
                 "c0.png",
                 class_name="C",
-                attributes={"class_instances": "Weed | Lambsquarters"},
+                attributes={"plants": "Weed | Lambsquarters"},
             ),
         ]
 
@@ -482,8 +480,8 @@ class TestBuildGradeMatrix:
 
     def test_same_l1_overrides_class_instance_overlap(self) -> None:
         items = [
-            ImageItem("a0.png", class_name="A", attributes={"class_instances": "Crop | Corn"}),
-            ImageItem("a1.png", class_name="A", attributes={"class_instances": "Crop | Corn,Weed | Waterhemp"}),
+            ImageItem("a0.png", class_name="A", attributes={"plants": "Crop | Corn"}),
+            ImageItem("a1.png", class_name="A", attributes={"plants": "Crop | Corn,Weed | Waterhemp"}),
         ]
 
         grades = _build_grade_matrix(items)
@@ -506,9 +504,9 @@ class TestLabelAwareHelpers:
 
     def test_encode_class_names_and_class_instance_sets_handle_missing_values(self) -> None:
         items = [
-            ImageItem("a.png", class_name="A", attributes={"class_instances": "Crop | Corn,Weed | Waterhemp"}),
+            ImageItem("a.png", class_name="A", attributes={"plants": "Crop | Corn,Weed | Waterhemp"}),
             ImageItem("b.png", class_name="A", attributes={}),
-            ImageItem("c.png", class_name=None, attributes={"class_instances": ""}),
+            ImageItem("c.png", class_name=None, attributes={"plants": ""}),
         ]
 
         class_ints, has_class = _encode_class_names(items)

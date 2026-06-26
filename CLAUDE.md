@@ -93,9 +93,10 @@ reportMissingModuleSource = false
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
-    hooks: [check-added-large-files (--maxkb=1000), check-yaml, check-json,
+    hooks: [check-added-large-files (--maxkb=1800), check-yaml, check-json,
             check-toml, end-of-file-fixer, trailing-whitespace,
-            check-merge-conflict, detect-private-key, debug-statements]
+            check-merge-conflict, detect-private-key, debug-statements,
+            fix-byte-order-marker]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.17

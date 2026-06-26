@@ -44,9 +44,9 @@ class MetadataGroup(BaseModel):
     attributes : dict[str, Any]
         Optional key-value attributes shared by all images in this group.
         Values may be strings, lists of strings, or ``None``.  Examples:
-        ``{"class_instances": ["Crop | Soybean", "Weed | Weed"], "time_period": "ss_sr"}``.
+        ``{"plants": ["Crop | Soybean", "Weed | Weed"], "time_period": "ss_sr"}``.
         Used by the graded relevance function: two items score grade 1 when they
-        have different L1 classes but share at least one ``class_instances``
+        have different L1 classes but share at least one ``plants``
         value; grade 2 is same L1 class; grade 3 is same L2 group (explicit
         positive).  List values are sorted and joined; nulls are excluded.
     """
@@ -64,7 +64,7 @@ class MetadataGroup(BaseModel):
     )
     attributes: dict[str, Any] = Field(
         default_factory=dict,
-        description="Optional key-value attributes (class_instances, time_period, camera_model, camera_source, collecting_date).",
+        description="Optional key-value attributes (plants, time_period, camera_model, camera_source, collecting_date).",
     )
 
     @property
@@ -103,7 +103,7 @@ class EmbeddingEvaluateRequest(BaseModel):
         name); each value is a :class:`MetadataGroup` listing the exact embedding
         path keys (not basenames) in that group together with their ``class_name``
         and optional ``attributes``
-        (e.g. ``class_instances``, ``time_period``, ``camera_model``, ``camera_source``).
+        (e.g. ``plants``, ``time_period``, ``camera_model``, ``camera_source``).
         Images that belong to the same group are treated as explicit
         positives (relevance grade 3) in the metadata-aware nDCG metric.
     ``dataset_root``
