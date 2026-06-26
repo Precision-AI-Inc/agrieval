@@ -12,7 +12,7 @@ Agricultural embedding evaluation API for Precision AI. Measures how well image 
 | **Plant→Image** | `/v1/embeddings/evaluate/plant2image` | Instance crop | Full field image |
 | **Plant→Plant** | `/v1/embeddings/evaluate/plant2plant` | Instance crop | Instance crop |
 
-[![Coverage](.github/badges/coverage.svg)](https://github.com/Precision-AI-Inc/precisionai-agrieval-emb/actions/workflows/workflow.yml) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 
 ---
 

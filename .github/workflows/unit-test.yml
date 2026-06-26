@@ -6,8 +6,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     strategy:
       fail-fast: false
@@ -27,17 +25,6 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests/ -q --tb=short --no-header --cov-report=xml:coverage.xml
-
-      - name: Generate coverage badge
-        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.10'
-        run: |
-          mkdir -p .github/badges
-          genbadge coverage -i coverage.xml -o .github/badges/coverage.svg
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/coverage.svg
-          git diff --staged --quiet || git commit -m "chore: update coverage badge [skip ci]"
-          git push
 
       - name: Coverage summary
         run: python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
