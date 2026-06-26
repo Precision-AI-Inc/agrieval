@@ -3,14 +3,22 @@
 
 """Shared pytest fixtures.
 
-``image_embeddings`` — session-scoped fixture that walks ``tests/data/``,
+``image_embeddings`` — session-scoped fixture that walks ``tests/data/images/``,
 infers crop class from each path, and generates synthetic 16-D embeddings
-where images from the same crop cluster together.  This lets the full
-analysis endpoint run as an integration smoke test without a real model.
+where images from the same crop cluster together.
+
+``plant2image_payload`` — session-scoped fixture that loads
+``tests/data/plant2image.json`` and generates synthetic embeddings for both
+parent full-field images and instance crops.
+
+``plant2plant_payload`` — session-scoped fixture that loads
+``tests/data/plant2plant.json`` and generates synthetic embeddings for instance
+crops, clustered by their species label.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -34,8 +42,8 @@ _IMAGE_EXTS = {".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"}
 
 
 def _collect_paths() -> list[Path]:
-    """Return all image paths under tests/data/ sorted for reproducibility."""
-    return sorted(p for p in TESTS_DATA.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTS)
+    """Return image paths under tests/data/images/ sorted for reproducibility."""
+    return sorted(p for p in (TESTS_DATA / "images").rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTS)
 
 
 def _crop_from_path(path: Path) -> str:
@@ -88,9 +96,78 @@ def image_embeddings() -> dict[str, list[float]]:
     """
     paths = _collect_paths()
     if not paths:
-        pytest.skip("tests/data/ contains no images — run scripts/build_test_data.py first")
+        pytest.skip("tests/data/images/ contains no images")
 
     crops = sorted({_crop_from_path(p) for p in paths})
     protos = _class_prototypes(crops)
 
     return {str(p.relative_to(_PROJECT_ROOT)): _make_embedding(p, protos[_crop_from_path(p)]) for p in paths}
+
+
+@pytest.fixture(scope="session")
+def plant2image_payload() -> dict[str, object]:
+    """Mixed embeddings payload for the plant2image smoke tests.
+
+    Loads the instance-to-image mapping from ``tests/data/plant2image.json``
+    and generates synthetic 16-D embeddings for every parent full-field image
+    and every instance crop, clustered by L2 crop class.
+
+    Returns a dict with keys ``embeddings`` and ``instance_to_image``, both
+    using project-root-relative path strings as keys.
+    """
+    p2i_path = TESTS_DATA / "plant2image.json"
+    if not p2i_path.exists():
+        pytest.skip("tests/data/plant2image.json not found")
+
+    with p2i_path.open() as f:
+        raw: dict[str, list[str]] = json.load(f)["instance_to_image"]
+
+    # Translate JSON-relative paths (e.g. "images/A1/…") to project-root paths.
+    instance_to_image: dict[str, list[str]] = {}
+    path_to_cls: dict[str, str] = {}
+
+    for parent_json, instances_json in raw.items():
+        parent_full = TESTS_DATA / parent_json
+        parent_key = str(parent_full.relative_to(_PROJECT_ROOT))
+        inst_keys = [str((TESTS_DATA / inst).relative_to(_PROJECT_ROOT)) for inst in instances_json]
+        instance_to_image[parent_key] = inst_keys
+
+        cls = _crop_from_path(parent_full)  # parent is always under images/ — safe
+        path_to_cls[parent_key] = cls
+        for k in inst_keys:
+            path_to_cls[k] = cls  # instances inherit parent class
+
+    protos = _class_prototypes(sorted(set(path_to_cls.values())))
+    embeddings = {k: _make_embedding(Path(k), protos[path_to_cls[k]]) for k in path_to_cls}
+
+    return {"embeddings": embeddings, "instance_to_image": instance_to_image}
+
+
+@pytest.fixture(scope="session")
+def plant2plant_payload() -> dict[str, object]:
+    """Instance embeddings payload for the plant2plant smoke tests.
+
+    Loads instance labels from ``tests/data/plant2plant.json`` and generates
+    synthetic 16-D embeddings for every instance crop, clustered by species label
+    (e.g. ``"Crop | Soybean"``, ``"Weed | Weed"``).
+
+    Returns a dict with keys ``embeddings`` and ``instance_labels``, both
+    using project-root-relative path strings as keys.
+    """
+    p2p_path = TESTS_DATA / "plant2plant.json"
+    if not p2p_path.exists():
+        pytest.skip("tests/data/plant2plant.json not found")
+
+    with p2p_path.open() as f:
+        raw: dict[str, str] = json.load(f)["instance_labels"]
+
+    # Translate JSON-relative paths to project-root paths.
+    instance_labels: dict[str, str] = {
+        str((TESTS_DATA / inst_json).relative_to(_PROJECT_ROOT)): label for inst_json, label in raw.items()
+    }
+
+    unique_labels = sorted(set(instance_labels.values()))
+    protos = _class_prototypes(unique_labels)
+    embeddings = {k: _make_embedding(Path(k), protos[label]) for k, label in instance_labels.items()}
+
+    return {"embeddings": embeddings, "instance_labels": instance_labels}

@@ -21,6 +21,7 @@ from precisionai.agrieval.emb.services.evaluate import (
     _parse_crop,
     build_image_items,
     extract_labels,
+    load_image2image_metadata,
     run_image2image_eval,
 )
 from tests.test_plant_wirings import _P2I_EMBEDDINGS, _P2I_MAP
@@ -1387,3 +1388,46 @@ class TestAPIBoundaryConditions:
         data = response.json()
         assert data["classes"] == ["A", "B"]
         assert data["item_labels"] == ["A", "A", "B"]
+
+
+# ---------------------------------------------------------------------------
+# load_image2image_metadata
+# ---------------------------------------------------------------------------
+
+_IMAGE2IMAGE_JSON = "tests/data/image2image.json"
+
+
+class TestLoadImage2ImageMetadata:
+    def test_loads_real_fixture(self) -> None:
+        groups = load_image2image_metadata(_IMAGE2IMAGE_JSON)
+        assert isinstance(groups, dict)
+        assert len(groups) > 0
+
+    def test_keys_match_class_names(self) -> None:
+        groups = load_image2image_metadata(_IMAGE2IMAGE_JSON)
+        for key, group in groups.items():
+            assert key == group.class_name
+
+    def test_expected_classes_present(self) -> None:
+        groups = load_image2image_metadata(_IMAGE2IMAGE_JSON)
+        assert set(groups.keys()) >= {"A1", "A2", "D1", "D2"}
+
+    def test_images_list_is_non_empty(self) -> None:
+        groups = load_image2image_metadata(_IMAGE2IMAGE_JSON)
+        for cls, group in groups.items():
+            assert len(group.images) > 0, f"No images for class {cls}"
+
+    def test_attributes_is_dict(self) -> None:
+        groups = load_image2image_metadata(_IMAGE2IMAGE_JSON)
+        for group in groups.values():
+            assert isinstance(group.attributes, dict)
+
+    def test_raises_file_not_found(self) -> None:
+        with pytest.raises(FileNotFoundError, match="image2image metadata file not found"):
+            load_image2image_metadata("nonexistent/image2image.json")
+
+    def test_raises_value_error_on_missing_metadata_key(self, tmp_path: pytest.TempPathFactory) -> None:
+        bad = tmp_path / "bad.json"  # type: ignore[operator]
+        bad.write_text(json.dumps({"not_metadata": {}}))
+        with pytest.raises(ValueError, match="Expected a top-level 'metadata' key"):
+            load_image2image_metadata(str(bad))

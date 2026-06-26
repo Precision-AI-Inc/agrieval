@@ -36,43 +36,65 @@ pip install -e ".[dev]"
 ```
 images/
   A1/
-    220622-img.png
-    220622-img2.png
+    pai-abc123.png
+    pai-def456.png
   A2/
-    190627-img.JPG
-  B1/
-    220608-img.png
-  B2/
-    210625-img.JPG
-metadata/
+    pai-ghi789.png
+  D1/
+    pai-jkl012.png
+  D2/
+    pai-mno345.png
+instances/
   A1/
-    metadata.json
-  A2/
-    metadata.json
-  B1/
-    metadata.json
-  B2/
-    metadata.json
+    pai-abc123-1.png
+    pai-abc123-2.png
+  D1/
+    pai-jkl012-1.png
+image2image.json
+plant2image.json
+plant2plant.json
 ```
 
-Directory names follow the **L1/L2 cluster convention**: L2 folders are letter+number identifiers (e.g. `A1`, `A2`, `B1`). The L1 cluster label is the leading letter(s) of the L2 name — `A1` and `A2` both belong to L1 cluster `A`. Both `images/` and `metadata/` mirror the same L2 folder structure.
+Directory names follow the **L1/L2 cluster convention**: L2 folders are letter+number identifiers (e.g. `A1`, `A2`, `D1`). The L1 cluster label is the leading letter(s) of the L2 name — `A1` and `A2` both belong to L1 cluster `A`.
 
-Each `metadata.json` identifies which images belong to the group and carries shared metadata for all of them:
+`image2image.json` identifies which images belong to each cluster and carries shared metadata:
 
 ```json
 {
-  "class_name": "A1",
-  "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null },
-  "images": [
-    "images/A1/220622-img1.png",
-    "images/A1/220622-img2.png"
-  ]
+  "metadata": {
+    "A1": {
+      "class_name": "A1",
+      "attributes": { "plants": ["Crop | Soybean", "Weed | Weed"], "time_period": "ss_sr", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null },
+      "images": ["images/A1/pai-abc123.png", "images/A1/pai-def456.png"]
+    }
+  }
 }
 ```
 
-`class_name` is the cluster identifier (same as the folder name, e.g. `A1`). The leading letters form the coarse L1 class label (`A1` → `A`), shared by all subgroups with the same plant-species composition.
+`plant2image.json` maps each parent full-field image to its instance crops:
 
-The `images` list uses the same path strings that will be used as embedding keys in the API request. All images listed in the same `metadata.json` are considered explicit positives of each other.
+```json
+{
+  "instance_to_image": {
+    "images/A1/pai-abc123.png": ["instances/A1/pai-abc123-1.png", "instances/A1/pai-abc123-2.png"]
+  }
+}
+```
+
+`plant2plant.json` assigns a species label to each instance crop:
+
+```json
+{
+  "instance_labels": {
+    "instances/A1/pai-abc123-1.png": "Crop | Soybean",
+    "instances/A1/pai-abc123-2.png": "Weed | Weed"
+  }
+}
+```
+
+`class_name` is the cluster identifier (e.g. `A1`). The leading letters form the coarse L1 class label (`A1` → `A`), shared by all subgroups with the same plant-species composition.
+
+The `images` list uses the same path strings that will be used as embedding keys in the API request. All images listed in the same cluster group are considered explicit positives of each other.
 
 **Supported image extensions (case-sensitive):** `.jpg`, `.JPG`, `.jpeg`, `.JPEG`, `.png`, `.PNG`. Requests with any other extension are rejected with a validation error listing the offending paths.
 
@@ -88,7 +110,7 @@ Pass a dict of `image_path → embedding`. The crop class label is inferred auto
 images/
   A1/220622-img.png    →  class: A  (leading letters of "A1")
   A2/190627-img.JPG   →  class: A  (leading letters of "A2")
-  B2/210625-img.JPG   →  class: B  (leading letters of "B2")
+  D2/210625-img.JPG   →  class: D  (leading letters of "D2")
 ```
 
 `dataset_root` should point to the `images/` directory (direct parent of L2 folders). Unbalanced subgroup sizes are expected and accepted.
@@ -111,8 +133,8 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is a clu
   "embeddings": {
     "images/A1/220622-img.png":  [0.12, -0.31, "..."],
     "images/A2/190627-img.JPG":  [0.11, -0.29, "..."],
-    "images/B1/220608-img.png":  [-0.45, 0.18, "..."],
-    "images/B2/210625-img.JPG":  [-0.44, 0.17, "..."]
+    "images/D1/220608-img.png":  [-0.45, 0.18, "..."],
+    "images/D2/210625-img.JPG":  [-0.44, 0.17, "..."]
   },
   "metadata": {
     "A1": {
@@ -125,14 +147,14 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is a clu
       "images": ["images/A2/190627-img.JPG"],
       "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "nikon d610", "camera_source": "ground", "collecting_date": null }
     },
-    "B1": {
-      "class_name": "B1",
-      "images": ["images/B1/220608-img.png"],
+    "D1": {
+      "class_name": "D1",
+      "images": ["images/D1/220608-img.png"],
       "attributes": { "plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null }
     },
-    "B2": {
-      "class_name": "B2",
-      "images": ["images/B2/210625-img.JPG"],
+    "D2": {
+      "class_name": "D2",
+      "images": ["images/D2/210625-img.JPG"],
       "attributes": { "plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "Anafi", "camera_source": "drone", "collecting_date": null }
     }
   }
@@ -205,16 +227,16 @@ Pass a **mixed corpus** of full-field image embeddings and instance crop embeddi
     "images/A1/field001.png":   [...],
     "images/A1/field001-0.png": [...],
     "images/A1/field001-1.png": [...],
-    "images/B1/field002.png":   [...],
-    "images/B1/field002-0.png": [...]
+    "images/D1/field002.png":   [...],
+    "images/D1/field002-0.png": [...]
   },
   "instance_to_image": {
     "images/A1/field001.png": [
       "images/A1/field001-0.png",
       "images/A1/field001-1.png"
     ],
-    "images/B1/field002.png": [
-      "images/B1/field002-0.png"
+    "images/D1/field002.png": [
+      "images/D1/field002-0.png"
     ]
   },
   "k_values": [5, 10]
@@ -236,12 +258,12 @@ Pass **instance crop embeddings only** with an `instance_labels` mapping that as
   "embeddings": {
     "images/A1/inst-0.png": [...],
     "images/A1/inst-1.png": [...],
-    "images/B1/inst-2.png": [...]
+    "images/D1/inst-2.png": [...]
   },
   "instance_labels": {
     "images/A1/inst-0.png": "A1",
     "images/A1/inst-1.png": "A1",
-    "images/B1/inst-2.png": "B1"
+    "images/D1/inst-2.png": "D1"
   },
   "k_values": [5, 10]
 }
@@ -282,7 +304,7 @@ Only `embeddings` is required. All other fields use server defaults.
 {
   "embeddings": {
     "images/A1/220622-img.png": [0.12, -0.31, 0.27, "..."],
-    "images/B2/210625-img.JPG": [-0.45, 0.18, -0.09, "..."]
+    "images/D2/210625-img.JPG": [-0.45, 0.18, -0.09, "..."]
   },
   "dataset_root": "images",
   "k_values": [5, 10],
@@ -296,11 +318,11 @@ Only `embeddings` is required. All other fields use server defaults.
 {
   "embeddings": {
     "images/A1/220622-img.png": [0.12, -0.31, "..."],
-    "images/B2/210625-img.JPG": [-0.45, 0.18, "..."]
+    "images/D2/210625-img.JPG": [-0.45, 0.18, "..."]
   },
   "metadata": {
     "A1": { "class_name": "A1", "images": ["images/A1/220622-img.png"], "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null } },
-    "B2": { "class_name": "B2", "images": ["images/B2/210625-img.JPG"], "attributes": { "plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "Anafi", "camera_source": "drone", "collecting_date": null } }
+    "D2": { "class_name": "D2", "images": ["images/D2/210625-img.JPG"], "attributes": { "plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "Anafi", "camera_source": "drone", "collecting_date": null } }
   },
   "k_values": [5, 10]
 }
@@ -352,7 +374,7 @@ from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
 
 embeddings = {
     "images/A1/img1.png":  [...],  # L2-normalised float32
-    "images/B2/img2.JPG":  [...],
+    "images/D2/img2.JPG":  [...],
 }
 
 # Wiring 1 — Image→Image, L1 class inferred from L2 folder name
@@ -370,9 +392,9 @@ metadata = {
         "images": ["images/A1/img1.png"],
         "attributes": {"plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": None},
     }),
-    "B2": MetadataGroup.model_validate({
-        "class_name": "B2",
-        "images": ["images/B2/img2.JPG"],
+    "D2": MetadataGroup.model_validate({
+        "class_name": "D2",
+        "images": ["images/D2/img2.JPG"],
         "attributes": {"plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "Anafi", "camera_source": "drone", "collecting_date": None},
     }),
 }
@@ -389,14 +411,14 @@ mixed_embeddings = {
     "images/A1/field001.png":   [...],
     "images/A1/field001-0.png": [...],
     "images/A1/field001-1.png": [...],
-    "images/B1/field002.png":   [...],
-    "images/B1/field002-0.png": [...],
+    "images/D1/field002.png":   [...],
+    "images/D1/field002-0.png": [...],
 }
 result = run_plant2image_eval(
     embeddings=mixed_embeddings,
     instance_to_image={
         "images/A1/field001.png": ["images/A1/field001-0.png", "images/A1/field001-1.png"],
-        "images/B1/field002.png": ["images/B1/field002-0.png"],
+        "images/D1/field002.png": ["images/D1/field002-0.png"],
     },
     k_values=[5, 10],
     dataset_root=None,
@@ -407,14 +429,14 @@ result = run_plant2image_eval(
 instance_embeddings = {
     "images/A1/inst-0.png": [...],
     "images/A1/inst-1.png": [...],
-    "images/B1/inst-2.png": [...],
+    "images/D1/inst-2.png": [...],
 }
 result = run_plant2plant_eval(
     embeddings=instance_embeddings,
     instance_labels={
         "images/A1/inst-0.png": "A1",
         "images/A1/inst-1.png": "A1",
-        "images/B1/inst-2.png": "B1",
+        "images/D1/inst-2.png": "D1",
     },
     k_values=[5, 10],
     sample_pairs=None,
@@ -550,7 +572,7 @@ Two notebooks are provided — start Jupyter from the `examples/` directory.
 
 **[`examples/example.ipynb`](examples/example.ipynb)** — Image→Image, two parts.
 - **Part 1 — Basic** (`emb_image2image.json`): class labels inferred from the L2 path hierarchy. Covers KNN purity, nDCG, MAP, pairwise similarity, and all visualizations.
-- **Part 2 — With Metadata** (`emb_image2image_meta.json`): explicit `MetadataGroup` clusters (A1, A2, B1, B2). Adds graded `knn_metadata_ndcg` and per-attribute `knn_attribute_ndcg`.
+- **Part 2 — With Metadata** (`emb_image2image_meta.json`): explicit `MetadataGroup` clusters (A1, A2, D1, D2). Adds graded `knn_metadata_ndcg` and per-attribute `knn_attribute_ndcg`.
 
 **[`examples/example_plant.ipynb`](examples/example_plant.ipynb)** — Plant wirings (`emb_plant2image.json` / `emb_plant2plant.json`).
 Covers Plant→Image with `instance_to_image` mapping and Plant→Plant with `instance_labels`.

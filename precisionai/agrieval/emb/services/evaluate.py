@@ -918,48 +918,56 @@ def run_image2image_eval(
 # ---------------------------------------------------------------------------
 
 
-def load_dataset_metadata(dataset_root: str) -> dict[str, MetadataGroup]:
-    """Load all cluster metadata from the dataset directory.
+def load_image2image_metadata(json_path: str) -> dict[str, MetadataGroup]:
+    """Load cluster metadata from an ``image2image.json`` file.
 
-    Reads every ``metadata/{L2}/metadata.json`` file under ``dataset_root``
-    and returns a dict keyed by ``class_name`` (e.g. ``"A1"``).
-    Each JSON file is parsed as a :class:`MetadataGroup` — see that class for
-    the required fields.
+    Reads the top-level ``"metadata"`` dict from the JSON file and returns one
+    :class:`MetadataGroup` per cluster, keyed by ``class_name``
+    (e.g. ``"A1"``).
 
-    Image paths in the returned groups are stored exactly as written in the
-    JSON files (relative to ``dataset_root``).  Ensure the embedding dict
-    keys use the same relative convention, or prepend the dataset root before
-    passing to the evaluation functions.
+    The expected file structure is::
+
+        {
+          "metadata": {
+            "A1": {
+              "class_name": "A1",
+              "images": ["images/A1/pai-abc.png", ...],
+              "attributes": {"plants": ["Crop | Soybean"], ...}
+            },
+            ...
+          }
+        }
+
+    Image paths are stored exactly as written in the JSON file.  Pass the same
+    relative paths as embedding keys when calling the evaluation functions.
 
     Parameters
     ----------
-    dataset_root : str
-        Root directory of the dataset (e.g. ``"dataset"``).
+    json_path : str
+        Path to the ``image2image.json`` file (e.g. ``"dataset/image2image.json"``).
 
     Returns
     -------
     dict[str, MetadataGroup]
         Keyed by ``class_name`` (e.g. ``"A1"``).  Each value is a
         :class:`MetadataGroup` with ``class_name``, ``images``, and
-        ``attributes`` populated from the JSON file.
+        ``attributes`` populated from the JSON.
 
     Raises
     ------
     FileNotFoundError
-        If the ``metadata/`` subdirectory does not exist under ``dataset_root``.
+        If ``json_path`` does not exist.
+    ValueError
+        If the file does not contain a top-level ``"metadata"`` key.
     """
-    root = Path(dataset_root.replace("\\", "/"))
-    metadata_dir = root / "metadata"
-    if not metadata_dir.is_dir():
-        raise FileNotFoundError(f"Dataset metadata directory not found: {metadata_dir}")
-
-    groups: dict[str, MetadataGroup] = {}
-    for meta_file in sorted(metadata_dir.glob("*/metadata.json")):
-        with meta_file.open(encoding="utf-8") as fh:
-            data = json.load(fh)
-        group = MetadataGroup(**data)
-        groups[group.class_name] = group
-    return groups
+    path = Path(json_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"image2image metadata file not found: {path}")
+    with path.open(encoding="utf-8") as fh:
+        data = json.load(fh)
+    if "metadata" not in data:
+        raise ValueError(f"Expected a top-level 'metadata' key in {path}")
+    return {cls: MetadataGroup(**group) for cls, group in data["metadata"].items()}
 
 
 # ---------------------------------------------------------------------------

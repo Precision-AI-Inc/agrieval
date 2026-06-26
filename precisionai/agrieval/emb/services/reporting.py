@@ -286,10 +286,14 @@ def _print_group_analysis(group_analysis: dict) -> None:
         flag = "  *** suggested_split ***" if entry.get("suggested_split") else ""
         sil = entry.get("silhouette_score")
         sil_str = f"{sil:.4f}" if sil is not None else "n/a"
+        mean_intra = entry.get("mean_intra_cosine")
+        std_intra = entry.get("std_intra_cosine")
+        intra_str = (
+            f"mean={mean_intra:.4f}  std={std_intra:.4f}" if mean_intra is not None and std_intra is not None else "n/a"
+        )
         print(
             f"\n  [{group_key}]  n={entry['n_images']}{flag}\n"
-            f"    intra cosine     : mean={entry['mean_intra_cosine']:.4f}"
-            f"  std={entry['std_intra_cosine']:.4f}\n"
+            f"    intra cosine     : {intra_str}\n"
             f"    clusters         : {entry['cluster_count']}"
             f"  noise={entry['noise_count']}"
             f"  silhouette={sil_str}"
@@ -675,9 +679,9 @@ def plot_tsne(
     vectors = np.array(list(image_embeddings.values()), dtype=np.float32)
     n = len(vectors)
 
-    # Color by subgroup (path parent dir) rather than class so all 4 clusters
-    # are visible as distinct colours instead of collapsing corn↔corn and
-    # soybean↔soybean into single blobs.
+    # Color by subgroup (path parent dir) rather than L1 class so all L2
+    # clusters are visible as distinct colours instead of collapsing into
+    # single blobs per L1 label.
     groups = _subgroup_labels(paths)
     unique_groups = sorted(set(groups))
     label_arr = np.array(groups)
