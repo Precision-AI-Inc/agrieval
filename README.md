@@ -62,7 +62,7 @@ Each `metadata.json` identifies which images belong to the group and carries sha
 ```json
 {
   "class_name": "A1",
-  "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" },
+  "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null },
   "images": [
     "images/A1/220622-img1.png",
     "images/A1/220622-img2.png"
@@ -118,22 +118,22 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is a clu
     "A1": {
       "class_name": "A1",
       "images": ["images/A1/220622-img.png"],
-      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" }
+      "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null }
     },
     "A2": {
       "class_name": "A2",
       "images": ["images/A2/190627-img.JPG"],
-      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "nikon_d610", "time_period": "ss" }
+      "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "nikon d610", "camera_source": "ground", "collecting_date": null }
     },
     "B1": {
       "class_name": "B1",
       "images": ["images/B1/220608-img.png"],
-      "attributes": { "class_instances": ["Crop | Soybean"], "camera_source": "HB-25000SBC", "time_period": "ss" }
+      "attributes": { "plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null }
     },
     "B2": {
       "class_name": "B2",
       "images": ["images/B2/210625-img.JPG"],
-      "attributes": { "class_instances": ["Crop | Soybean"], "camera_source": "anafi", "time_period": "ss" }
+      "attributes": { "plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "Anafi", "camera_source": "drone", "collecting_date": null }
     }
   }
 }
@@ -145,11 +145,11 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is a clu
 |---|---|---|---|
 | `images` | `list[str]` | yes | Exact embedding path keys — must match the keys used in `embeddings`. |
 | `class_name` | `str` | **yes** | Cluster identifier (e.g. `"A1"`). The L1 class label is derived from its leading letters (`"A1"` → `"A"`). All images in this group are treated as explicit positives (grade 3). |
-| `attributes` | `dict[str, Any]` | no | Open key-value pairs shared by all images in this group. Values may be strings, lists, or `null`. Common examples: `class_instances`, `camera_source`, `time_period`, `collecting_date`. One `knn_attribute_ndcg` metric is produced **per attribute key** present across all groups. |
+| `attributes` | `dict[str, Any]` | no | Open key-value pairs shared by all images in this group. Values may be strings, lists, or `null`. Common examples: `plants`, `time_period`, `camera_model`, `camera_source`, `collecting_date`. One `knn_attribute_ndcg` metric is produced **per attribute key** present across all groups. |
 
 **Group key** — use the cluster name (e.g. `A1`) as a convention; any unique string is accepted.
 
-**Multiple groups per L1 class** — all groups whose `class_name` shares the same leading letters belong to the same coarse class. Images within the same group are explicit positives of each other (grade 3); images in different groups of the same L1 class score grade 2; images from a different L1 class score grade 1 if their `class_instances` lists overlap, or grade 0 otherwise:
+**Multiple groups per L1 class** — all groups whose `class_name` shares the same leading letters belong to the same coarse class. Images within the same group are explicit positives of each other (grade 3); images in different groups of the same L1 class score grade 2; images from a different L1 class score grade 1 if their `plants` lists overlap, or grade 0 otherwise:
 
 ```json
 {
@@ -163,18 +163,18 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is a clu
     "A1": {
       "class_name": "A1",
       "images": ["images/A1/220622-img1.png", "images/A1/220622-img2.png"],
-      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" }
+      "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null }
     },
     "A2": {
       "class_name": "A2",
       "images": ["images/A2/190627-img1.JPG", "images/A2/190627-img2.JPG"],
-      "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "nikon_d610", "time_period": "ss" }
+      "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "nikon d610", "camera_source": "ground", "collecting_date": null }
     }
   }
 }
 ```
 
-Both groups share L1 class `A` (derived from their `class_name` leading letters) — the group key (`A1`, `A2`) is the cluster identifier. Images within the same group are explicit positives of each other (grade 3). An A1 image queried against an A2 image yields grade 2 (same L1 class). Images from a different L1 class score grade 1 if their `class_instances` lists share at least one entry, or grade 0 otherwise.
+Both groups share L1 class `A` (derived from their `class_name` leading letters) — the group key (`A1`, `A2`) is the cluster identifier. Images within the same group are explicit positives of each other (grade 3). An A1 image queried against an A2 image yields grade 2 (same L1 class). Images from a different L1 class score grade 1 if their `plants` lists share at least one entry, or grade 0 otherwise.
 
 Each group defines its own explicit-positive set and `attributes` dict. The number of groups, their sizes, and the number of attribute keys are all open — KPIs automatically scale to however many attribute keys appear across all groups.
 
@@ -190,8 +190,8 @@ Each group defines its own explicit-positive set and `attributes` dict. The numb
 |---|---|
 | `3` | Explicit positive — candidate is in the same L2 group as the query |
 | `2` | Same L1 class (different L2 group) |
-| `1` | Different L1 class, but at least one `class_instances` value overlaps |
-| `0` | Different class with no `class_instances` overlap, or no class information |
+| `1` | Different L1 class, but at least one `plants` value overlaps |
+| `0` | Different class with no `plants` overlap, or no class information |
 
 ---
 
@@ -299,8 +299,8 @@ Only `embeddings` is required. All other fields use server defaults.
     "images/B2/210625-img.JPG": [-0.45, 0.18, "..."]
   },
   "metadata": {
-    "A1": { "class_name": "A1", "images": ["images/A1/220622-img.png"], "attributes": { "class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss" } },
-    "B2": { "class_name": "B2", "images": ["images/B2/210625-img.JPG"], "attributes": { "class_instances": ["Crop | Soybean"], "camera_source": "anafi", "time_period": "ss" } }
+    "A1": { "class_name": "A1", "images": ["images/A1/220622-img.png"], "attributes": { "plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": null } },
+    "B2": { "class_name": "B2", "images": ["images/B2/210625-img.JPG"], "attributes": { "plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "Anafi", "camera_source": "drone", "collecting_date": null } }
   },
   "k_values": [5, 10]
 }
@@ -368,12 +368,12 @@ metadata = {
     "A1": MetadataGroup.model_validate({
         "class_name": "A1",
         "images": ["images/A1/img1.png"],
-        "attributes": {"class_instances": ["Crop | Corn"], "camera_source": "HB-25000SBC", "time_period": "ss"},
+        "attributes": {"plants": ["Crop | Corn"], "time_period": "ss", "camera_model": "HB-25000SBC", "camera_source": "drone", "collecting_date": None},
     }),
     "B2": MetadataGroup.model_validate({
         "class_name": "B2",
         "images": ["images/B2/img2.JPG"],
-        "attributes": {"class_instances": ["Crop | Soybean"], "camera_source": "anafi", "time_period": "ss"},
+        "attributes": {"plants": ["Crop | Soybean"], "time_period": "ss", "camera_model": "Anafi", "camera_source": "drone", "collecting_date": None},
     }),
 }
 result = run_image2image_eval(
@@ -453,7 +453,7 @@ When metadata is provided, retrieval KPIs use explicit-positive ground truth fro
 | `knn_metadata_map@k` | How consistently does the model surface *all* explicit positives early in the ranked list? | **Higher** |
 | `knn_metadata_mrr@k` | How far down before the first explicit positive appears? | **Higher** |
 | `knn_metadata_r_precision` | Precision at R, where R equals the number of explicit positives declared for that image. | **Higher** |
-| `knn_attribute_ndcg@k` | One score per metadata attribute (e.g. `class_instances`, `camera_source`). Measures whether images sharing the same attribute value are ranked above those that differ on it. | **Higher** per attribute |
+| `knn_attribute_ndcg@k` | One score per metadata attribute (e.g. `plants`, `camera_source`). Measures whether images sharing the same attribute value are ranked above those that differ on it. | **Higher** per attribute |
 
 ---
 
@@ -491,9 +491,9 @@ When metadata is provided, retrieval KPIs use explicit-positive ground truth fro
 | `knn_metadata_map@k` | **MAP@K** — average precision at finding all explicit positives early |
 | `knn_metadata_mrr@k` | **MRR@K** — reciprocal rank of the first explicit positive |
 | `knn_metadata_r_precision` | **R-Precision** — precision at R where R = number of explicit positives |
-| `knn_attribute_ndcg@k` | One binary nDCG entry **per attribute key** (e.g. `class_instances`, `camera_source`) — only present when at least one metadata group has a non-empty `attributes` dict |
+| `knn_attribute_ndcg@k` | One binary nDCG entry **per attribute key** (e.g. `plants`, `camera_source`) — only present when at least one metadata group has a non-empty `attributes` dict |
 
-> **Graded relevance for nDCG** — grade 3: same L2 group (explicit positive); grade 2: same L1 class; grade 1: different L1 but overlapping `class_instances`; grade 0: no relationship.
+> **Graded relevance for nDCG** — grade 3: same L2 group (explicit positive); grade 2: same L1 class; grade 1: different L1 but overlapping `plants`; grade 0: no relationship.
 
 ### Group analysis (with metadata only)
 

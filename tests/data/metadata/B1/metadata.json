@@ -1,8 +1,11 @@
 {
   "class_name": "B1",
   "attributes": {
+    "plants": ["Crop | Soybean"],
     "time_period": "ss",
-    "camera_source": "HB-25000SBC"
+    "camera_model": "HB-25000SBC",
+    "camera_source": "drone",
+    "collecting_date": null
   },
   "images": [
     "images/B1/220608-143001-soybeans-HB-25000SBC-37dc1b2c.png",

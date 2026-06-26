@@ -59,7 +59,7 @@ def evaluate_image2image(request: EmbeddingEvaluateRequest) -> EmbeddingEvaluate
     omitted the L1 class label is inferred from the folder name of each path
     (e.g. ``images/A1/img.png`` → ``A``).  Supply ``metadata`` to enable
     explicit-positive groups, graded nDCG (0-3 by L2/L1 hierarchy and
-    ``class_instances`` overlap), and per-attribute KPIs.
+    ``plants`` overlap), and per-attribute KPIs.
 
     **Only ``embeddings`` is required** — all other fields use server defaults.
 

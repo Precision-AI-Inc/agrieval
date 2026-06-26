@@ -1,8 +1,11 @@
 {
   "class_name": "A2",
   "attributes": {
+    "plants": ["Crop | Corn"],
     "time_period": "ss",
-    "camera_source": "nikon_d610"
+    "camera_model": "nikon d610",
+    "camera_source": "ground",
+    "collecting_date": null
   },
   "images": [
     "images/A2/190627-090803-corn-nikon_d610-84e374af.JPG",

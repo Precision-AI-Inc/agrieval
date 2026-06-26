@@ -1,8 +1,11 @@
 {
   "class_name": "B2",
   "attributes": {
+    "plants": ["Crop | Soybean"],
     "time_period": "ss",
-    "camera_source": "anafi"
+    "camera_model": "Anafi",
+    "camera_source": "drone",
+    "collecting_date": null
   },
   "images": [
     "images/B2/210625-131202-soybeans-Anafi-fce5a850.JPG",
