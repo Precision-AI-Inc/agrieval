@@ -3,16 +3,16 @@
 
 """Shared pytest fixtures.
 
-``image_embeddings`` — session-scoped fixture that walks ``tests/data/images/``,
+``image_embeddings`` — session-scoped fixture that walks ``tests/emb/data/images/``,
 infers crop class from each path, and generates synthetic 16-D embeddings
 where images from the same crop cluster together.
 
 ``plant2image_payload`` — session-scoped fixture that loads
-``tests/data/plant2image.json`` and generates synthetic embeddings for both
+``tests/emb/data/plant2image.json`` and generates synthetic embeddings for both
 parent full-field images and instance crops.
 
 ``plant2plant_payload`` — session-scoped fixture that loads
-``tests/data/plant2plant.json`` and generates synthetic embeddings for instance
+``tests/emb/data/plant2plant.json`` and generates synthetic embeddings for instance
 crops, clustered by their species label.
 """
 
@@ -42,13 +42,13 @@ _IMAGE_EXTS = {".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"}
 
 
 def _collect_paths() -> list[Path]:
-    """Return image paths under tests/data/images/ sorted for reproducibility."""
+    """Return image paths under tests/emb/data/images/ sorted for reproducibility."""
     return sorted(p for p in (TESTS_DATA / "images").rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTS)
 
 
 def _crop_from_path(path: Path) -> str:
-    """Extract crop label from a tests/data/ path using the service convention."""
-    # Layout: tests/data/images/{L2}/{filename}
+    """Extract crop label from a tests/emb/data/ path using the service convention."""
+    # Layout: tests/emb/data/images/{L2}/{filename}
     # parts[0] = "images", parts[1] = L2 folder (e.g. "A1"), etc.
     rel = path.relative_to(TESTS_DATA)
     idx = 1 if len(rel.parts) > 1 and rel.parts[0] == "images" else 0
@@ -89,14 +89,14 @@ def _make_embedding(path: Path, prototype: np.ndarray) -> list[float]:
 
 @pytest.fixture(scope="session")
 def image_embeddings() -> dict[str, list[float]]:
-    """Map of ``tests/data``-relative image path → 16-D embedding.
+    """Map of ``tests/emb/data``-relative image path → 16-D embedding.
 
     Same-crop images cluster tightly; different crops are well-separated.
     Suitable for end-to-end smoke tests of the analysis endpoint.
     """
     paths = _collect_paths()
     if not paths:
-        pytest.skip("tests/data/images/ contains no images")
+        pytest.skip("tests/emb/data/images/ contains no images")
 
     crops = sorted({_crop_from_path(p) for p in paths})
     protos = _class_prototypes(crops)
@@ -117,7 +117,7 @@ def plant2image_payload() -> dict[str, object]:
     """
     p2i_path = TESTS_DATA / "plant2image.json"
     if not p2i_path.exists():
-        pytest.skip("tests/data/plant2image.json not found")
+        pytest.skip("tests/emb/data/plant2image.json not found")
 
     with p2i_path.open() as f:
         raw: dict[str, list[str]] = json.load(f)["instance_to_image"]
@@ -156,7 +156,7 @@ def plant2plant_payload() -> dict[str, object]:
     """
     p2p_path = TESTS_DATA / "plant2plant.json"
     if not p2p_path.exists():
-        pytest.skip("tests/data/plant2plant.json not found")
+        pytest.skip("tests/emb/data/plant2plant.json not found")
 
     with p2p_path.open() as f:
         raw: dict[str, str] = json.load(f)["instance_labels"]

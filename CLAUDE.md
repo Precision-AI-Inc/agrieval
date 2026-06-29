@@ -25,8 +25,8 @@ precisionai/<namespace>/<subpackage>/
   metrics/       # Pure computation modules
     __init__.py  # re-exports only — no logic
 docs/            # Sphinx (HTML + LaTeX/PDF)
-tests/           # mirrors package structure
-examples/        # standalone runnable scripts
+tests/emb/       # mirrors precisionai.agrieval.emb
+examples/emb/    # standalone runnable scripts for emb
 ```
 
 ---
@@ -53,7 +53,7 @@ ignore = [
 ]
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
-"tests/**"       = ["D","PLR","ANN","S"]
+"tests/emb/**"   = ["D","PLR","ANN","S"]
 "docs/conf.py"   = ["E402","UP031","ANN","S"]
 
 [tool.ruff.lint.pydocstyle]
@@ -116,7 +116,7 @@ repos:
       - id: pytest
         entry: python -m pytest
         language: system
-        args: [tests/, -q, --tb=short, --no-header]
+        args: [tests/emb/, -q, --tb=short, --no-header]
         always_run: true
 ```
 
@@ -193,8 +193,8 @@ docs/
 
 ## Testing
 
-- Mirror package structure: `tests/test_<module>.py`
-- Shared fixtures in `tests/conftest.py`
+- Mirror package structure: `tests/emb/test_<module>.py`
+- Shared fixtures in `tests/emb/conftest.py`
 - 90% coverage hard minimum — enforced by pytest and pre-commit
 - No mocks for database/filesystem unless truly unavoidable
 - Integration tests marked `@pytest.mark.integration` and excluded from default runs

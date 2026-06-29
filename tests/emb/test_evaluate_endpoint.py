@@ -24,7 +24,7 @@ from precisionai.agrieval.emb.services.evaluate import (
     load_image2image_metadata,
     run_image2image_eval,
 )
-from tests.test_plant_wirings import _P2I_EMBEDDINGS, _P2I_MAP
+from tests.emb.test_plant_wirings import _P2I_EMBEDDINGS, _P2I_MAP
 
 client = TestClient(app)
 
@@ -1394,7 +1394,7 @@ class TestAPIBoundaryConditions:
 # load_image2image_metadata
 # ---------------------------------------------------------------------------
 
-_IMAGE2IMAGE_JSON = "tests/data/image2image.json"
+_IMAGE2IMAGE_JSON = "tests/emb/data/image2image.json"
 
 
 class TestLoadImage2ImageMetadata:

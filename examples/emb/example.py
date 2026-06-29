@@ -13,12 +13,12 @@ Four example modes are bundled, one per retrieval wiring:
 
 Usage (from repo root)::
 
-    python examples/example.py
-    python examples/example.py --mode image2image_meta
-    python examples/example.py --mode plant2image
-    python examples/example.py --mode plant2plant
-    python examples/example.py --k-values 1 5 10
-    python examples/example.py --output-dir output --tsne-dimensions 2
+    python examples/emb/example.py
+    python examples/emb/example.py --mode image2image_meta
+    python examples/emb/example.py --mode plant2image
+    python examples/emb/example.py --mode plant2plant
+    python examples/emb/example.py --k-values 1 5 10
+    python examples/emb/example.py --output-dir output --tsne-dimensions 2
 """
 
 from __future__ import annotations
