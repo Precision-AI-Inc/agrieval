@@ -1,0 +1,326 @@
+{
+  "description": "AgriBench v1.0.0 segmentation mask class map. Each foreground class is painted with `color` (RGB) in the PNG masks; background is black. Look up a mask pixel's RGB here to get its class name.",
+  "classes": [
+    {
+      "id": 0,
+      "name": "background",
+      "color": [
+        0,
+        0,
+        0
+      ],
+      "hex": "#000000"
+    },
+    {
+      "id": 1,
+      "name": "Crop | Barley",
+      "color": [
+        95,
+        140,
+        49
+      ],
+      "hex": "#5f8c31"
+    },
+    {
+      "id": 2,
+      "name": "Crop | Canola",
+      "color": [
+        143,
+        242,
+        85
+      ],
+      "hex": "#8ff255"
+    },
+    {
+      "id": 3,
+      "name": "Crop | Chickpea",
+      "color": [
+        70,
+        140,
+        49
+      ],
+      "hex": "#468c31"
+    },
+    {
+      "id": 4,
+      "name": "Crop | Corn",
+      "color": [
+        101,
+        242,
+        85
+      ],
+      "hex": "#65f255"
+    },
+    {
+      "id": 5,
+      "name": "Crop | Flax",
+      "color": [
+        49,
+        140,
+        52
+      ],
+      "hex": "#318c34"
+    },
+    {
+      "id": 6,
+      "name": "Crop | Lentil",
+      "color": [
+        85,
+        242,
+        111
+      ],
+      "hex": "#55f26f"
+    },
+    {
+      "id": 7,
+      "name": "Crop | Oat",
+      "color": [
+        49,
+        140,
+        76
+      ],
+      "hex": "#318c4c"
+    },
+    {
+      "id": 8,
+      "name": "Crop | Peas",
+      "color": [
+        85,
+        242,
+        153
+      ],
+      "hex": "#55f299"
+    },
+    {
+      "id": 9,
+      "name": "Crop | Soybean",
+      "color": [
+        49,
+        140,
+        101
+      ],
+      "hex": "#318c65"
+    },
+    {
+      "id": 10,
+      "name": "Crop | Wheat",
+      "color": [
+        85,
+        242,
+        195
+      ],
+      "hex": "#55f2c3"
+    },
+    {
+      "id": 11,
+      "name": "Weed | Broadleaf",
+      "color": [
+        178,
+        54,
+        91
+      ],
+      "hex": "#b2365b"
+    },
+    {
+      "id": 12,
+      "name": "Weed | Chickweed",
+      "color": [
+        242,
+        73,
+        108
+      ],
+      "hex": "#f2496c"
+    },
+    {
+      "id": 13,
+      "name": "Weed | Dandelion",
+      "color": [
+        178,
+        54,
+        68
+      ],
+      "hex": "#b23644"
+    },
+    {
+      "id": 14,
+      "name": "Weed | Grass",
+      "color": [
+        242,
+        73,
+        76
+      ],
+      "hex": "#f2494c"
+    },
+    {
+      "id": 15,
+      "name": "Weed | Green foxtail",
+      "color": [
+        178,
+        63,
+        54
+      ],
+      "hex": "#b23f36"
+    },
+    {
+      "id": 16,
+      "name": "Weed | Lamb's-quarters",
+      "color": [
+        242,
+        101,
+        73
+      ],
+      "hex": "#f26549"
+    },
+    {
+      "id": 17,
+      "name": "Weed | Marestail",
+      "color": [
+        178,
+        86,
+        54
+      ],
+      "hex": "#b25636"
+    },
+    {
+      "id": 18,
+      "name": "Weed | Maretail",
+      "color": [
+        242,
+        133,
+        73
+      ],
+      "hex": "#f28549"
+    },
+    {
+      "id": 19,
+      "name": "Weed | Milkweed",
+      "color": [
+        178,
+        110,
+        54
+      ],
+      "hex": "#b26e36"
+    },
+    {
+      "id": 20,
+      "name": "Weed | Morning Glory",
+      "color": [
+        242,
+        165,
+        73
+      ],
+      "hex": "#f2a549"
+    },
+    {
+      "id": 21,
+      "name": "Weed | Palmer Amaranth",
+      "color": [
+        178,
+        133,
+        54
+      ],
+      "hex": "#b28536"
+    },
+    {
+      "id": 22,
+      "name": "Weed | Ragweed",
+      "color": [
+        242,
+        197,
+        73
+      ],
+      "hex": "#f2c549"
+    },
+    {
+      "id": 23,
+      "name": "Weed | Redroot Pigweed",
+      "color": [
+        178,
+        157,
+        54
+      ],
+      "hex": "#b29d36"
+    },
+    {
+      "id": 24,
+      "name": "Weed | Thyme-leaved spurge",
+      "color": [
+        242,
+        228,
+        73
+      ],
+      "hex": "#f2e449"
+    },
+    {
+      "id": 25,
+      "name": "Weed | Velvetleaf",
+      "color": [
+        177,
+        178,
+        54
+      ],
+      "hex": "#b1b236"
+    },
+    {
+      "id": 26,
+      "name": "Weed | Water Hemp",
+      "color": [
+        224,
+        242,
+        73
+      ],
+      "hex": "#e0f249"
+    },
+    {
+      "id": 27,
+      "name": "Weed | Weed",
+      "color": [
+        154,
+        178,
+        54
+      ],
+      "hex": "#9ab236"
+    },
+    {
+      "id": 28,
+      "name": "Stubble",
+      "color": [
+        115,
+        88,
+        63
+      ],
+      "hex": "#73583f"
+    }
+  ],
+  "by_color": {
+    "#000000": "background",
+    "#5f8c31": "Crop | Barley",
+    "#8ff255": "Crop | Canola",
+    "#468c31": "Crop | Chickpea",
+    "#65f255": "Crop | Corn",
+    "#318c34": "Crop | Flax",
+    "#55f26f": "Crop | Lentil",
+    "#318c4c": "Crop | Oat",
+    "#55f299": "Crop | Peas",
+    "#318c65": "Crop | Soybean",
+    "#55f2c3": "Crop | Wheat",
+    "#b2365b": "Weed | Broadleaf",
+    "#f2496c": "Weed | Chickweed",
+    "#b23644": "Weed | Dandelion",
+    "#f2494c": "Weed | Grass",
+    "#b23f36": "Weed | Green foxtail",
+    "#f26549": "Weed | Lamb's-quarters",
+    "#b25636": "Weed | Marestail",
+    "#f28549": "Weed | Maretail",
+    "#b26e36": "Weed | Milkweed",
+    "#f2a549": "Weed | Morning Glory",
+    "#b28536": "Weed | Palmer Amaranth",
+    "#f2c549": "Weed | Ragweed",
+    "#b29d36": "Weed | Redroot Pigweed",
+    "#f2e449": "Weed | Thyme-leaved spurge",
+    "#b1b236": "Weed | Velvetleaf",
+    "#e0f249": "Weed | Water Hemp",
+    "#9ab236": "Weed | Weed",
+    "#73583f": "Stubble"
+  }
+}

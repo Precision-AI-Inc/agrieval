@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
     "numpy>=1.26,<3",
+    "Pillow>=10.0",
     "pydantic>=2.0",
     "tqdm>=4.64",
 ]
@@ -44,13 +45,14 @@ dev = [
 
 [project.scripts]
 precisionai-agrieval = "precisionai.agrieval.emb.api.app:main"
+precisionai-agrieval-seg = "precisionai.agrieval.seg.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["precisionai*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/emb"]
+testpaths = ["tests/emb", "tests/seg"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "--cov=precisionai --cov-report=term-missing --cov-fail-under=90"
@@ -60,7 +62,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["precisionai"]
-omit = ["*/tests/emb/*", "*/__init__.py"]
+omit = ["*/tests/emb/*", "*/tests/seg/*", "*/__init__.py"]
 relative_files = true
 
 [tool.coverage.report]
@@ -119,6 +121,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
 "tests/emb/**" = ["D", "PLR", "ANN", "S"]
+"tests/seg/**" = ["D", "PLR", "ANN", "S"]
 "docs/conf.py" = ["E402", "UP031", "ANN", "S"]
 
 [tool.ruff.lint.pydocstyle]
