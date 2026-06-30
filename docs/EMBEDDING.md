@@ -38,6 +38,8 @@ plant2plant.json
 
 Directory names follow the **L1/L2 cluster convention**: L2 folders are letter+number identifiers (e.g. `A1`, `A2`, `D1`). The L1 cluster label is the leading letter(s) of the L2 name — `A1` and `A2` both belong to L1 cluster `A`.
 
+Committed image fixtures should be downsampled/compressed before commit. Test image fixtures use `1332x540` optimized RGB PNGs and must stay at or below **1800 KB per file**, enforced for newly added files by pre-commit.
+
 `image2image.json` identifies which images belong to each cluster and carries shared metadata:
 
 ```json

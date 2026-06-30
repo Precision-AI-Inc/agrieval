@@ -1,0 +1,32 @@
+{
+    "multi-class": [
+        ["background", [0, 0, 0], 0],
+        ["Crop | Soybean", [0, 128, 0], 1],
+        ["Weed | Weed", [128, 0, 0], 2],
+        ["Crop | Corn", [0, 0, 128], 3],
+        ["Crop | Barley", [255, 0, 255], 4],
+        ["Crop | Canola", [255, 255, 0], 5],
+        ["Crop | Peas", [0, 255, 255], 6],
+        ["Crop | Wheat", [100, 50, 100], 7],
+        ["Crop | Flax", [50, 0, 50], 8],
+        ["Crop | Chickpea", [150, 50, 100], 9],
+        ["Crop | Oat", [50, 50, 100], 10],
+        ["Crop | Lentil", [50, 100, 100], 11],
+        ["Weed | Grass", [70, 0, 0], 12],
+        ["Weed | Velvetleaf", [70, 0, 70], 13],
+        ["Weed | Ragweed", [80, 80, 80], 14],
+        ["Weed | Water Hemp", [90, 90, 0], 15],
+        ["Weed | Green foxtail", [25, 0, 0], 16],
+        ["Weed | Maretail", [0, 25, 0], 17],
+        ["Weed | Palmer Amaranth", [0, 150, 0], 18],
+        ["Weed | Morning Glory", [0, 0, 80], 19],
+        ["Weed | Milkweed", [100, 0, 60], 20],
+        ["Weed | Redroot Pigweed", [40, 0, 40], 21],
+        ["Weed | Broadleaf", [80, 0, 0], 22],
+        ["Weed | Thyme-leaved spurge", [40, 30, 50], 23],
+        ["Weed | Dandelion", [0, 200, 0], 24],
+        ["Weed | Chickweed", [0, 0, 150], 25],
+        ["Weed | Lamb's-quarters", [100, 0, 0], 26],
+        ["Stubble", [200, 150, 100], 27]
+    ]
+}

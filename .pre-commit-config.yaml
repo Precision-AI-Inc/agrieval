@@ -4,6 +4,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+        # Keep committed test/image fixtures small enough for fast clones and CI.
         args: ["--maxkb=1800"]
       - id: check-yaml
       - id: check-json

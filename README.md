@@ -39,6 +39,8 @@ images/
 
 Each subpackage extends this foundation with domain-specific annotation files (embedding vectors, segmentation masks, instance crops) and evaluation wirings suited to that modality. See each subpackage's documentation for the full data format.
 
+Repository image fixtures and other committed data files must stay at or below **1800 KB** each. Test image fixtures should use the shared `1332x540` resolution and optimized RGB PNG encoding. The size limit is enforced for newly added files by the `check-added-large-files` pre-commit hook.
+
 ---
 
 ## Subpackage layout
@@ -120,6 +122,8 @@ python -m pytest tests/emb/
 # Run pre-commit hooks manually
 pre-commit run --all-files
 ```
+
+Pre-commit rejects newly added files larger than **1800 KB**. Downsample test image fixtures to `1332x540` and save them as optimized RGB PNGs before committing them.
 
 ---
 
