@@ -40,7 +40,15 @@ def create_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="Filename for the per-image summary.",
     )
-    parser.add_argument("--verbose", action="store_true", help="Print summary metrics to stdout.")
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Number of worker threads. Defaults to auto, up to 4. Use 1 for sequential processing.",
+    )
+    parser.add_argument("--no-progress", action="store_true", help="Disable the tqdm progress bar.")
+    parser.add_argument("--verbose", action="store_true", help="Print detailed per-image and per-class metrics.")
     return parser
 
 
@@ -56,6 +64,8 @@ def main() -> None:
         output_summary_name=args.output_summary,
         image_summary_name=args.image_summary,
         verbose=args.verbose,
+        show_progress=not args.no_progress,
+        num_workers=args.num_workers,
     )
 
 

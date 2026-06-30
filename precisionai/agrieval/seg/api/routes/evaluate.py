@@ -61,6 +61,8 @@ def evaluate(request: SegEvalRequest) -> SegEvalResponse:
             output_dir=output_dir,
             output_summary_name=request.output_summary_name,
             image_summary_name=request.image_summary_name,
+            show_progress=False,
+            num_workers=request.num_workers,
         )
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

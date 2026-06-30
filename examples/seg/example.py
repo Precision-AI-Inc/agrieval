@@ -12,6 +12,8 @@ Usage (from repo root)::
     python examples/seg/example.py
     python examples/seg/example.py --pred path/to/predictions --masks path/to/gt --classes path/to/class_map.json
     python examples/seg/example.py --output-dir output --verbose
+    python examples/seg/example.py --num-workers 8
+    python examples/seg/example.py --no-progress
 """
 
 from __future__ import annotations
@@ -65,7 +67,11 @@ def main() -> None:
         Directory to write ``output_summary.json`` and ``image_summary.json``.
         Omit to skip file output.
     --verbose
-        Print summary metrics to stdout after evaluation.
+        Print detailed per-image and per-class metrics.
+    --num-workers
+        Number of worker threads. Defaults to auto, up to 4.
+    --no-progress
+        Disable the tqdm progress bar.
     """
     parser = argparse.ArgumentParser(
         description="Evaluate semantic segmentation predictions against ground-truth masks.",
@@ -99,7 +105,15 @@ def main() -> None:
         metavar="DIR",
         help="Directory to write JSON output files.  Omit to skip file output.",
     )
-    parser.add_argument("--verbose", action="store_true", help="Print summary metrics to stdout.")
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Number of worker threads. Defaults to auto, up to 4. Use 1 for sequential processing.",
+    )
+    parser.add_argument("--no-progress", action="store_true", help="Disable the tqdm progress bar.")
+    parser.add_argument("--verbose", action="store_true", help="Print detailed per-image and per-class metrics.")
     args = parser.parse_args()
 
     print(f"Predictions : {args.pred}")
@@ -113,6 +127,8 @@ def main() -> None:
         classes_path=args.classes,
         output_dir=args.output_dir,
         verbose=args.verbose,
+        show_progress=not args.no_progress,
+        num_workers=args.num_workers,
     )
 
     n = dataset_summary["n_images"]

@@ -6,11 +6,15 @@ the results to JSON.
 """
 
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 
 from precisionai.agrieval.seg.metrics.segmentation import (
     confusion_matrix,
@@ -147,6 +151,33 @@ def _rgb_to_class_ids(mask_rgb: np.ndarray, lut: np.ndarray) -> np.ndarray:
     return lut[packed].reshape(mask_rgb.shape[:2])
 
 
+def _evaluate_pair_cm(
+    pred_path: Path,
+    gt_path: Path,
+    pred_dir: Path,
+    color_map: dict[tuple[int, int, int], int],
+    lut: np.ndarray,
+    n_classes: int,
+) -> tuple[str, np.ndarray]:
+    """Load, validate, decode, and score one prediction/ground-truth pair."""
+    pred_rgb = _load_mask(pred_path)
+    gt_rgb = _load_mask(gt_path)
+
+    if pred_rgb.shape[:2] != gt_rgb.shape[:2]:
+        raise ValueError(
+            f"Size mismatch for '{pred_path.name}': prediction {pred_rgb.shape[:2]} vs ground truth {gt_rgb.shape[:2]}"
+        )
+
+    _validate_colors(pred_rgb, color_map, pred_path)
+    _validate_colors(gt_rgb, color_map, gt_path)
+
+    pred_ids = _rgb_to_class_ids(pred_rgb, lut)
+    gt_ids = _rgb_to_class_ids(gt_rgb, lut)
+
+    rel_key = pred_path.relative_to(pred_dir).as_posix()
+    return rel_key, confusion_matrix(pred_ids, gt_ids, n_classes)
+
+
 def _discover_pairs(pred_dir: Path, masks_dir: Path) -> list[tuple[Path, Path]]:
     """Match prediction files to ground-truth files by relative path and stem.
 
@@ -243,6 +274,194 @@ def _metrics_from_cm(cm: np.ndarray, class_names: list[str]) -> dict[str, Any]:
     }
 
 
+def _fmt_metric(v: float | None) -> str:
+    """Format a metric value for human-readable logging."""
+    return f"{v:.4f}" if v is not None else "N/A"
+
+
+def _log(message: str, show_progress: bool) -> None:
+    """Write a message without corrupting an active tqdm progress bar."""
+    if show_progress:
+        tqdm.write(message)
+    else:
+        print(message)
+
+
+def _resolve_worker_count(num_workers: int | None, pair_count: int) -> int:
+    """Return a validated worker count bounded by the number of image pairs."""
+    if num_workers is None:
+        worker_count = min(4, os.cpu_count() or 1)
+    elif num_workers < 1:
+        raise ValueError(f"num_workers must be at least 1; got {num_workers}")
+    else:
+        worker_count = int(num_workers)
+    return min(worker_count, pair_count)
+
+
+def _log_eval_start(
+    *,
+    pred_dir: Path,
+    masks_dir: Path,
+    classes_path: Path,
+    output_dir: Path | str | None,
+    pair_count: int,
+    n_classes: int,
+    worker_count: int,
+    show_progress: bool,
+) -> None:
+    """Log input context before evaluation starts."""
+    _log("Segmentation evaluation", show_progress)
+    _log(f"  predictions : {pred_dir}", show_progress)
+    _log(f"  ground truth: {masks_dir}", show_progress)
+    _log(f"  classes     : {classes_path}", show_progress)
+    _log(f"  image pairs : {pair_count}", show_progress)
+    _log(f"  class count : {n_classes}", show_progress)
+    _log(f"  workers     : {worker_count}", show_progress)
+    if output_dir is not None:
+        _log(f"  output dir  : {output_dir}", show_progress)
+
+
+def _evaluate_pair_from_tuple(
+    pair: tuple[Path, Path],
+    *,
+    pred_dir: Path,
+    color_map: dict[tuple[int, int, int], int],
+    lut: np.ndarray,
+    n_classes: int,
+) -> tuple[str, np.ndarray]:
+    """Evaluate one pair from a tuple so it can be submitted to an executor."""
+    pred_path, gt_path = pair
+    return _evaluate_pair_cm(
+        pred_path=pred_path,
+        gt_path=gt_path,
+        pred_dir=pred_dir,
+        color_map=color_map,
+        lut=lut,
+        n_classes=n_classes,
+    )
+
+
+def _evaluate_pairs(
+    *,
+    pairs: list[tuple[Path, Path]],
+    pred_dir: Path,
+    color_map: dict[tuple[int, int, int], int],
+    lut: np.ndarray,
+    n_classes: int,
+    worker_count: int,
+    show_progress: bool,
+) -> list[tuple[str, np.ndarray]]:
+    """Evaluate all image pairs, optionally using worker threads."""
+    score_pair = partial(
+        _evaluate_pair_from_tuple,
+        pred_dir=pred_dir,
+        color_map=color_map,
+        lut=lut,
+        n_classes=n_classes,
+    )
+    if worker_count == 1:
+        results_iter = map(score_pair, pairs)
+        return list(_progress(results_iter, total=len(pairs), show_progress=show_progress))
+    return _evaluate_pairs_threaded(score_pair, pairs, worker_count, show_progress)
+
+
+def _progress(iterable: Any, *, total: int, show_progress: bool) -> Any:
+    """Wrap an iterable in the standard mask-evaluation progress bar."""
+    return tqdm(
+        iterable,
+        total=total,
+        desc="Evaluating masks",
+        unit="image",
+        dynamic_ncols=True,
+        disable=not show_progress,
+    )
+
+
+def _evaluate_pairs_threaded(
+    score_pair: Any,
+    pairs: list[tuple[Path, Path]],
+    worker_count: int,
+    show_progress: bool,
+) -> list[tuple[str, np.ndarray]]:
+    """Evaluate image pairs with a thread pool while preserving pair order."""
+    completed: list[tuple[str, np.ndarray] | None] = [None] * len(pairs)
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
+        future_to_index = {pool.submit(score_pair, pair): idx for idx, pair in enumerate(pairs)}
+        for future in _progress(as_completed(future_to_index), total=len(pairs), show_progress=show_progress):
+            completed[future_to_index[future]] = future.result()
+    return [result for result in completed if result is not None]
+
+
+def _summarise_pair_results(
+    *,
+    results: list[tuple[str, np.ndarray]],
+    class_names: list[str],
+    verbose: bool,
+    show_progress: bool,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build dataset-level and per-image summaries from pair confusion matrices."""
+    n_classes = len(class_names)
+    agg_cm = np.zeros((n_classes, n_classes), dtype=np.int64)
+    image_summary: dict[str, Any] = {}
+    for rel_key, cm_i in results:
+        agg_cm += cm_i
+        image_summary[rel_key] = _metrics_from_cm(cm_i, class_names)
+        if verbose:
+            _log_image_summary(rel_key, image_summary[rel_key]["summary"], show_progress)
+
+    dataset_summary: dict[str, Any] = {
+        "n_images": len(results),
+        **_metrics_from_cm(agg_cm, class_names),
+    }
+    return dataset_summary, image_summary
+
+
+def _log_image_summary(rel_key: str, summary: dict[str, float | None], show_progress: bool) -> None:
+    """Log one per-image metric summary."""
+    _log(
+        f"  {rel_key}: "
+        f"mIoU={_fmt_metric(summary['mIoU'])} "
+        f"mAcc={_fmt_metric(summary['mAcc'])} "
+        f"FWIoU={_fmt_metric(summary['FWIoU'])}",
+        show_progress,
+    )
+
+
+def _log_dataset_summary(dataset_summary: dict[str, Any], show_progress: bool) -> None:
+    """Log dataset-level and per-class metrics."""
+    summary = dataset_summary["summary"]
+    _log(f"Evaluated {dataset_summary['n_images']} image(s)", show_progress)
+    _log(f"  mIoU:  {_fmt_metric(summary['mIoU'])}", show_progress)
+    _log(f"  mAcc:  {_fmt_metric(summary['mAcc'])}", show_progress)
+    _log(f"  FWIoU: {_fmt_metric(summary['FWIoU'])}", show_progress)
+    _log("Per-class metrics:", show_progress)
+    for cls_name, metrics in dataset_summary["classes"].items():
+        _log(
+            f"  {cls_name}: "
+            f"IoU={_fmt_metric(metrics['iou'])} "
+            f"Dice={_fmt_metric(metrics['dice'])} "
+            f"Acc={_fmt_metric(metrics['accuracy'])}",
+            show_progress,
+        )
+
+
+def _write_json_outputs(
+    *,
+    output_dir: Path | str,
+    output_summary_name: str,
+    image_summary_name: str,
+    dataset_summary: dict[str, Any],
+    image_summary: dict[str, Any],
+) -> None:
+    """Write dataset and per-image summaries to disk."""
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    with (out / output_summary_name).open("w") as f:
+        json.dump(dataset_summary, f, indent=2)
+    with (out / image_summary_name).open("w") as f:
+        json.dump(image_summary, f, indent=2)
+
+
 def run_seg_eval(
     pred_dir: Path | str,
     masks_dir: Path | str,
@@ -252,6 +471,8 @@ def run_seg_eval(
     output_summary_name: str = "output_summary.json",
     image_summary_name: str = "image_summary.json",
     verbose: bool = False,
+    show_progress: bool = True,
+    num_workers: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Run semantic segmentation evaluation over a directory of masks.
 
@@ -270,7 +491,13 @@ def run_seg_eval(
     image_summary_name : str
         Filename for the per-image summary.  Default: ``"image_summary.json"``.
     verbose : bool
-        Print summary metrics to stdout after evaluation.
+        Print detailed evaluation progress and metrics to stdout.
+    show_progress : bool
+        Display a tqdm progress bar while image pairs are evaluated. Default: ``True``.
+    num_workers : int | None
+        Number of worker threads for independent mask-pair processing.
+        ``None`` uses up to 4 threads, matching the embedding evaluator.
+        Use ``1`` for sequential processing.
 
     Returns
     -------
@@ -301,54 +528,46 @@ def run_seg_eval(
         raise ValueError(f"Class IDs in classes.json must be contiguous 0..{n_classes - 1}; got: {sorted(class_ids)}")
 
     pairs = _discover_pairs(pred_dir, masks_dir)
-
-    agg_cm = np.zeros((n_classes, n_classes), dtype=np.int64)
-    image_summary: dict[str, Any] = {}
-
-    for pred_path, gt_path in pairs:
-        pred_rgb = _load_mask(pred_path)
-        gt_rgb = _load_mask(gt_path)
-
-        if pred_rgb.shape[:2] != gt_rgb.shape[:2]:
-            raise ValueError(
-                f"Size mismatch for '{pred_path.name}': "
-                f"prediction {pred_rgb.shape[:2]} vs ground truth {gt_rgb.shape[:2]}"
-            )
-
-        _validate_colors(pred_rgb, color_map, pred_path)
-        _validate_colors(gt_rgb, color_map, gt_path)
-
-        pred_ids = _rgb_to_class_ids(pred_rgb, lut)
-        gt_ids = _rgb_to_class_ids(gt_rgb, lut)
-
-        cm_i = confusion_matrix(pred_ids, gt_ids, n_classes)
-        agg_cm += cm_i
-
-        rel_key = pred_path.relative_to(pred_dir).as_posix()
-        image_summary[rel_key] = _metrics_from_cm(cm_i, class_names)
-
-    dataset_summary: dict[str, Any] = {
-        "n_images": len(pairs),
-        **_metrics_from_cm(agg_cm, class_names),
-    }
+    worker_count = _resolve_worker_count(num_workers, len(pairs))
 
     if verbose:
-        s = dataset_summary["summary"]
+        _log_eval_start(
+            pred_dir=pred_dir,
+            masks_dir=masks_dir,
+            classes_path=classes_path,
+            output_dir=output_dir,
+            pair_count=len(pairs),
+            n_classes=n_classes,
+            worker_count=worker_count,
+            show_progress=show_progress,
+        )
 
-        def _fmt(v: float | None) -> str:
-            return f"{v:.4f}" if v is not None else "N/A"
+    pair_results = _evaluate_pairs(
+        pairs=pairs,
+        pred_dir=pred_dir,
+        color_map=color_map,
+        lut=lut,
+        n_classes=n_classes,
+        worker_count=worker_count,
+        show_progress=show_progress,
+    )
+    dataset_summary, image_summary = _summarise_pair_results(
+        results=pair_results,
+        class_names=class_names,
+        verbose=verbose,
+        show_progress=show_progress,
+    )
 
-        print(f"Evaluated {len(pairs)} image(s)")
-        print(f"  mIoU:  {_fmt(s['mIoU'])}")
-        print(f"  mAcc:  {_fmt(s['mAcc'])}")
-        print(f"  FWIoU: {_fmt(s['FWIoU'])}")
+    if verbose:
+        _log_dataset_summary(dataset_summary, show_progress)
 
     if output_dir is not None:
-        out = Path(output_dir)
-        out.mkdir(parents=True, exist_ok=True)
-        with (out / output_summary_name).open("w") as f:
-            json.dump(dataset_summary, f, indent=2)
-        with (out / image_summary_name).open("w") as f:
-            json.dump(image_summary, f, indent=2)
+        _write_json_outputs(
+            output_dir=output_dir,
+            output_summary_name=output_summary_name,
+            image_summary_name=image_summary_name,
+            dataset_summary=dataset_summary,
+            image_summary=image_summary,
+        )
 
     return dataset_summary, image_summary

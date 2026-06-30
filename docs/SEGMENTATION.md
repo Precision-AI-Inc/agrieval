@@ -90,7 +90,9 @@ One wiring is defined for segmentation evaluation. It accepts a directory of pre
 | `output_dir` | directory | Where to write JSON output. `None` skips file output. |
 | `output_summary_name` | str | Dataset-level output filename. Default: `output_summary.json`. |
 | `image_summary_name` | str | Per-image output filename. Default: `image_summary.json`. |
-| `verbose` | bool | Print summary metrics to stdout. Default: `False`. |
+| `verbose` | bool | Print detailed run context plus per-image, dataset, and per-class metrics. Default: `False`. |
+| `show_progress` | bool | Display a tqdm progress bar while image pairs are evaluated. Default: `True`. |
+| `num_workers` | int \| None | Worker threads for mask-pair processing. `None` selects auto, up to 4. Use `1` for sequential processing. |
 
 ### Outputs
 
@@ -194,6 +196,7 @@ precisionai-agrieval-seg \
   --masks   ground_truth/ \
   --classes class_map.json \
   --output-dir results/ \
+  --num-workers 4 \
   --verbose
 
 # Custom output filenames
@@ -216,7 +219,9 @@ precisionai-agrieval-seg \
 | `--output-dir DIR` | `.` | Output directory for JSON files. |
 | `--output-summary NAME` | `output_summary.json` | Filename for dataset-level summary. |
 | `--image-summary NAME` | `image_summary.json` | Filename for per-image summary. |
-| `--verbose` | off | Print summary metrics (mIoU, mAcc, FWIoU) to stdout after evaluation. |
+| `--num-workers N` | auto, up to 4 | Number of worker threads. Use `1` for sequential processing. |
+| `--no-progress` | off | Disable the tqdm progress bar. |
+| `--verbose` | off | Print detailed run context plus per-image, dataset, and per-class metrics. |
 
 ---
 
@@ -257,6 +262,7 @@ curl -X POST http://localhost:8000/v1/segmentation/evaluate \
 | `output_dir` | string \| null | `null` | Output directory for JSON files. `null` skips file output. |
 | `output_summary_name` | string | `"output_summary.json"` | Filename for dataset-level summary. |
 | `image_summary_name` | string | `"image_summary.json"` | Filename for per-image summary. |
+| `num_workers` | integer \| null | `null` | Worker threads for mask-pair processing. `null` selects auto, up to 4. |
 | `dataset_root` | string \| null | `null` | Base path for relative path fields. Falls back to `PAI_DATASET_ROOT`. |
 
 **Response body** — mirrors `output_summary.json` with `image_summary` appended:
@@ -293,6 +299,7 @@ dataset_summary, image_summary = run_seg_eval(
     masks_dir="ground_truth/",
     classes_path="class_map.json",
     output_dir="results/",
+    num_workers=4,
     verbose=True,
 )
 

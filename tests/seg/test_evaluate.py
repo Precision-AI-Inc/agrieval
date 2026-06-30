@@ -483,3 +483,22 @@ def test_dataset_metrics_aggregated_not_per_image_average(tmp_path, classes_path
     assert imgs["img2.png"]["summary"]["mIoU"] == pytest.approx(0.0)
     # Aggregated dataset mIoU (0.25) must differ from the naive per-image mean (0.5)
     assert ds["summary"]["mIoU"] == pytest.approx(0.25)
+
+
+def test_num_workers_matches_sequential(tmp_path, classes_path):
+    pred_dir = tmp_path / "pred"
+    gt_dir = tmp_path / "gt"
+    pred_dir.mkdir()
+    gt_dir.mkdir()
+    soy = [49, 140, 101]
+    _make_mask(pred_dir / "img1.png", np.zeros((2, 2, 3), dtype=np.uint8))
+    _make_mask(gt_dir / "img1.png", np.zeros((2, 2, 3), dtype=np.uint8))
+    gt2 = np.array([[[0, 0, 0], soy], [[0, 0, 0], soy]], dtype=np.uint8)
+    pred2 = np.array([soy, [0, 0, 0], soy, [0, 0, 0]], dtype=np.uint8).reshape(2, 2, 3)
+    _make_mask(pred_dir / "img2.png", pred2)
+    _make_mask(gt_dir / "img2.png", gt2)
+
+    sequential = run_seg_eval(pred_dir, gt_dir, classes_path, show_progress=False, num_workers=1)
+    threaded = run_seg_eval(pred_dir, gt_dir, classes_path, show_progress=False, num_workers=2)
+
+    assert threaded == sequential

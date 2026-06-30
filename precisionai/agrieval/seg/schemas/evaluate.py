@@ -27,6 +27,9 @@ class SegEvalRequest(BaseModel):
         Filename for the dataset-level summary.  Default: ``output_summary.json``.
     image_summary_name : str
         Filename for the per-image summary.  Default: ``image_summary.json``.
+    num_workers : int | None
+        Number of worker threads for mask-pair processing.  ``None`` selects
+        an automatic default.
     dataset_root : str | None
         Base directory prepended to relative ``pred_dir``, ``masks_dir``,
         ``classes_path``, and ``output_dir`` values.  Falls back to the
@@ -43,6 +46,11 @@ class SegEvalRequest(BaseModel):
         default="output_summary.json", description="Filename for the dataset-level summary."
     )
     image_summary_name: str = Field(default="image_summary.json", description="Filename for the per-image summary.")
+    num_workers: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of worker threads. None selects an automatic default, up to 4.",
+    )
     dataset_root: str | None = Field(default=None, description="Base path prepended to relative directory arguments.")
 
 

@@ -134,6 +134,7 @@ dataset_summary, image_summary = run_seg_eval(
     masks_dir="ground_truth/",
     classes_path="class_map.json",
     output_dir="results/",
+    num_workers=4,
     verbose=True,
 )
 
@@ -148,6 +149,7 @@ precisionai-agrieval-seg \
   --masks   ground_truth/ \
   --classes class_map.json \
   --output-dir results/ \
+  --num-workers 4 \
   --verbose
 ```
 
