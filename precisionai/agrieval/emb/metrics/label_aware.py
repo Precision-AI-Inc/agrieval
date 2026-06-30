@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 
@@ -146,8 +147,12 @@ def _assign_class_instance_overlap_grades(
             continue
         arr = np.array(items_list, dtype=np.intp)
         ci = class_int_arr[arr]
-        ii, jj = np.where(ci[:, None] != ci[None, :])
-        grades[arr[ii], arr[jj]] = 1
+        has_class_arr = has_class[arr]
+        # same_l1[i,j] = has_class[i] AND has_class[j] AND same class int
+        same_l1_m = (has_class_arr[:, None] & has_class_arr[None, :]) & (ci[:, None] == ci[None, :])
+        ii, jj = np.where(~same_l1_m)
+        non_self = ii != jj
+        grades[arr[ii[non_self]], arr[jj[non_self]]] = 1
 
 
 def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
@@ -204,8 +209,8 @@ def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
 
 
 def intra_inter_similarity_gap(
-    embeddings: object,
-    labels: object,
+    embeddings: Any,
+    labels: Any,
     *,
     normalize: bool = True,
     sample_pairs: int | None = 1_000_000,

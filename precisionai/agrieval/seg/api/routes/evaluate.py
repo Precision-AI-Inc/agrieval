@@ -37,22 +37,35 @@ def evaluate(request: SegEvalRequest) -> SegEvalResponse:
 
     Returns the full dataset-level and per-image confusion-matrix-derived KPIs.
     Raises HTTP 400 for any input validation error (unknown colours, size
-    mismatch, missing ground-truth mask, non-contiguous class IDs).
+    mismatch, missing ground-truth mask, non-contiguous class IDs, missing or
+    unreadable paths, or invalid image files).
     """
     root = Path(_resolve_dataset_root(request.dataset_root))
+    pred_dir = root / request.pred_dir
+    masks_dir = root / request.masks_dir
+    classes_path = root / request.classes_path
     output_dir = (root / request.output_dir) if request.output_dir is not None else None
+
+    if not pred_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"pred_dir does not exist or is not a directory: '{pred_dir}'")
+    if not masks_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"masks_dir does not exist or is not a directory: '{masks_dir}'")
+    if not classes_path.is_file():
+        raise HTTPException(status_code=400, detail=f"classes_path does not exist or is not a file: '{classes_path}'")
 
     try:
         dataset_summary, image_summary = run_seg_eval(
-            pred_dir=root / request.pred_dir,
-            masks_dir=root / request.masks_dir,
-            classes_path=root / request.classes_path,
+            pred_dir=pred_dir,
+            masks_dir=masks_dir,
+            classes_path=classes_path,
             output_dir=output_dir,
             output_summary_name=request.output_summary_name,
             image_summary_name=request.image_summary_name,
         )
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=f"I/O error: {exc}") from exc
 
     return SegEvalResponse(
         **dataset_summary,

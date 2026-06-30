@@ -169,6 +169,11 @@ def _discover_pairs(pred_dir: Path, masks_dir: Path) -> list[tuple[Path, Path]]:
     FileNotFoundError
         If a prediction file has no corresponding ground-truth mask.
     """
+    if not pred_dir.is_dir():
+        raise FileNotFoundError(f"pred_dir does not exist or is not a directory: '{pred_dir}'")
+    if not masks_dir.is_dir():
+        raise FileNotFoundError(f"masks_dir does not exist or is not a directory: '{masks_dir}'")
+
     gt_index: dict[tuple[str, str], Path] = {}
     for gt_file in masks_dir.rglob("*"):
         if gt_file.suffix in _SUPPORTED_EXTENSIONS:
@@ -182,7 +187,11 @@ def _discover_pairs(pred_dir: Path, masks_dir: Path) -> list[tuple[Path, Path]]:
         rel_parent = pred_file.parent.relative_to(pred_dir).as_posix()
         key = (rel_parent, pred_file.stem)
         if key not in gt_index:
-            raise FileNotFoundError(f"Prediction '{pred_file}' has no corresponding ground-truth mask in '{masks_dir}'")
+            raise FileNotFoundError(
+                f"no corresponding ground-truth mask found for '{pred_file.name}' "
+                f"(stem='{pred_file.stem}', subdir='{rel_parent}') in '{masks_dir}'. "
+                "Prediction and ground-truth files must share the same relative path and stem."
+            )
         pairs.append((pred_file, gt_index[key]))
 
     if not pairs:
@@ -300,7 +309,7 @@ def run_seg_eval(
         pred_rgb = _load_mask(pred_path)
         gt_rgb = _load_mask(gt_path)
 
-        if pred_rgb.shape != gt_rgb.shape:
+        if pred_rgb.shape[:2] != gt_rgb.shape[:2]:
             raise ValueError(
                 f"Size mismatch for '{pred_path.name}': "
                 f"prediction {pred_rgb.shape[:2]} vs ground truth {gt_rgb.shape[:2]}"

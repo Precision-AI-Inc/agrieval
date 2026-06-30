@@ -33,7 +33,7 @@ from precisionai.agrieval.emb.services.evaluate import (
 router = APIRouter(prefix="/embeddings", tags=["evaluate"])
 
 
-def _resolve_dataset_root(dataset_root: str | None) -> str | None:
+def _resolve_dataset_root(dataset_root: str | None) -> str:
     """Use the configured server default when a request omits dataset_root."""
     return dataset_root if dataset_root is not None else get_dataset_root()
 
