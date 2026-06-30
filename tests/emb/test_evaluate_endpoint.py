@@ -1394,7 +1394,7 @@ class TestAPIBoundaryConditions:
 # load_image2image_metadata
 # ---------------------------------------------------------------------------
 
-_IMAGE2IMAGE_JSON = "tests/emb/data/image2image.json"
+_IMAGE2IMAGE_JSON = "tests/data/image2image.json"
 
 
 class TestLoadImage2ImageMetadata:
