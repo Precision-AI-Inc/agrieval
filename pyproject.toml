@@ -3,7 +3,7 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "precisionai-agrieval-emb"
+name = "precisionai-agrieval"
 version = "0.1.0"
 description = "Precision AI Agricultural Embedding API"
 license = { file = "LICENSE.md" }
@@ -43,14 +43,14 @@ dev = [
 ]
 
 [project.scripts]
-precisionai-agrieval-emb = "precisionai.agrieval.emb.api.app:main"
+precisionai-agrieval = "precisionai.agrieval.emb.api.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["precisionai*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/emb"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "--cov=precisionai --cov-report=term-missing --cov-fail-under=90"
@@ -60,7 +60,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["precisionai"]
-omit = ["*/tests/*", "*/__init__.py"]
+omit = ["*/tests/emb/*", "*/__init__.py"]
 relative_files = true
 
 [tool.coverage.report]
@@ -118,7 +118,7 @@ ignore = [
 ]
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
-"tests/**" = ["D", "PLR", "ANN", "S"]
+"tests/emb/**" = ["D", "PLR", "ANN", "S"]
 "docs/conf.py" = ["E402", "UP031", "ANN", "S"]
 
 [tool.ruff.lint.pydocstyle]

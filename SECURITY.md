@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Security fixes are provided for the latest released version of `precisionai-agrieval-emb`.
+Security fixes are provided for the latest released version of `precisionai-agrieval`.
 
 Older versions are not guaranteed to receive patches. Please upgrade to the latest release before reporting a vulnerability where practical.
 
@@ -19,7 +19,7 @@ Please include as much of the following as possible:
 - A brief description of the issue
 - Steps to reproduce, including the request payload or input data (redact any proprietary embeddings or field imagery)
 - A minimal proof of concept, if available
-- The affected package version (`pip show precisionai-agrieval-emb`)
+- The affected package version (`pip show precisionai-agrieval`)
 - Python version and operating system
 - Any known impact or realistic attack scenario
 
@@ -59,5 +59,5 @@ If a vulnerability is confirmed, we will:
 Security fixes are distributed through normal package channels. Upgrade with:
 
 ```bash
-pip install --upgrade precisionai-agrieval-emb
+pip install --upgrade precisionai-agrieval
 ```

@@ -8,7 +8,7 @@ Requires Python 3.10+.
 
 ```bash
 git clone <repo-url>
-cd precisionai-agrieval-emb
+cd pai-agrieval
 
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
@@ -54,9 +54,9 @@ pre-commit run --all-files
 ## Tests
 
 ```bash
-pytest                          # run all tests with coverage report
-pytest tests/test_metrics.py    # run a specific file
-pytest -k "test_purity"         # run tests matching a pattern
+pytest                              # run all tests with coverage report
+pytest tests/emb/test_metrics.py   # run a specific file
+pytest -k "test_purity"             # run tests matching a pattern
 ```
 
 Tests live in `tests/` and mirror the package structure. The coverage threshold (90%) is enforced both by `pytest` directly and by the pre-commit hook.
