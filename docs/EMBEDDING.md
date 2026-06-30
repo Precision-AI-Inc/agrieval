@@ -232,11 +232,11 @@ Every embedding key must have a label and every label key must exist in `embeddi
 ## Running the API server
 
 ```bash
-# Default: dataset root = ./dataset, port 8000
-precisionai-agrieval
+# Unified server — embedding + segmentation on one port (default 8000)
+precisionai-agrieval-api --dataset-root /path/to/dataset
 
-# Or explicitly
-python -m precisionai.agrieval.emb.api.app --dataset-root /path/to/dataset --port 8000
+# Embedding-only server (legacy entry point)
+precisionai-agrieval
 
 # Interactive docs
 open http://localhost:8000/docs

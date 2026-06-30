@@ -45,6 +45,7 @@ dev = [
 
 [project.scripts]
 precisionai-agrieval = "precisionai.agrieval.emb.api.app:main"
+precisionai-agrieval-api = "precisionai.agrieval.api.app:main"
 precisionai-agrieval-seg = "precisionai.agrieval.seg.cli:main"
 
 [tool.setuptools.packages.find]
@@ -117,6 +118,7 @@ ignore = [
     "ANN401",  # typing.Any is allowed for genuinely dynamic types
     "S311",    # pseudo-random generators are intentional in scientific code
     "S104",    # binding to 0.0.0.0 is intentional for a configurable server host
+    "N815",    # mixedCase metric names (mIoU, mAcc, FWIoU, mAP, nDCG) are domain-standard
 ]
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
