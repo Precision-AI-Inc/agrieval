@@ -8,17 +8,17 @@ from precisionai.agrieval.seg.services.evaluate import _build_color_map, load_cl
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def classes_path() -> Path:
     return DATA_DIR / "class_map.json"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def classes(classes_path: Path) -> list:
     return load_classes(classes_path)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def color_map(classes: list) -> dict:
     return _build_color_map(classes)
 
@@ -28,7 +28,7 @@ def masks_dir() -> Path:
     return DATA_DIR / "masks"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def n_classes(classes: list) -> int:
     return len(classes)
 

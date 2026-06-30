@@ -100,8 +100,7 @@ def top_k_neighbors(
             sims = (emb[start:end] @ emb.T).astype(np.float32)  # [B, N]
 
             if exclude_self:
-                for local_i, global_i in enumerate(range(start, end)):
-                    sims[local_i, global_i] = -np.inf
+                sims[np.arange(b), np.arange(start, end)] = -np.inf
 
             b_range = np.arange(b)[:, None]
             if max_k >= sims.shape[1]:

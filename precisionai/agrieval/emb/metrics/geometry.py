@@ -243,10 +243,9 @@ def alignment(
     if not positive_pairs:
         return None
     emb = _prepare_embeddings(embeddings, normalize=True)
-    dists: list[float] = []
-    for i, j in positive_pairs:
-        sq = float(2.0 * max(0.0, 1.0 - float(emb[i] @ emb[j])))
-        dists.append(sq if alpha == 2.0 else sq ** (alpha / 2.0))
+    pairs = np.array(positive_pairs, dtype=np.intp)
+    sq_dists = 2.0 * np.maximum(0.0, 1.0 - np.einsum("ij,ij->i", emb[pairs[:, 0]], emb[pairs[:, 1]]))
+    dists = sq_dists if alpha == 2.0 else sq_dists ** (alpha / 2.0)
     return float(np.mean(dists))
 
 

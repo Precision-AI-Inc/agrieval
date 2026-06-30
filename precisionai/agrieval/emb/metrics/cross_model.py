@@ -133,15 +133,13 @@ def _knn_set_metric(
         n = idx_a.shape[0]
         per_item = np.empty(n, dtype=np.float32)
 
-        for i in range(n):
-            set_a = set(idx_a[i].tolist())
-            set_b = set(idx_b[i].tolist())
-            intersection = len(set_a & set_b)
-            if metric == "overlap":
-                per_item[i] = intersection / k
-            else:
-                union = len(set_a | set_b)
-                per_item[i] = intersection / union if union > 0 else 0.0
+        combined = np.sort(np.concatenate([idx_a, idx_b], axis=1), axis=1)
+        intersections = (combined[:, 1:] == combined[:, :-1]).sum(axis=1).astype(np.float32)
+        if metric == "overlap":
+            per_item[:] = intersections / k
+        else:
+            unions = (2 * k - intersections).astype(np.float32)
+            per_item[:] = np.where(unions > 0, intersections / unions, 0.0)
 
         result[k] = _neighbor_stats(per_item)
 

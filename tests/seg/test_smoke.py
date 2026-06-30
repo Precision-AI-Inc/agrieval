@@ -60,7 +60,7 @@ def _build_synth_mask(classes: list, rng: np.random.Generator) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def real_mask_files() -> list[Path]:
     files = sorted(MASKS_DIR.rglob("*.png")) + sorted(MASKS_DIR.rglob("*.jpg"))
     if not files:
