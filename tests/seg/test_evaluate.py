@@ -9,6 +9,7 @@ from PIL import Image
 from precisionai.agrieval.seg.cli import create_parser, main
 from precisionai.agrieval.seg.services.evaluate import (
     _build_color_map,
+    _build_lut,
     _discover_pairs,
     _nan_to_none,
     _rgb_to_class_ids,
@@ -116,9 +117,10 @@ def test_validate_colors_multiple_unknown(color_map):
 
 
 def test_rgb_to_class_ids(color_map):
+    lut = _build_lut(color_map)
     mask = np.zeros((2, 2, 3), dtype=np.uint8)
     mask[1, 1] = [49, 140, 101]  # Crop | Soybean in class_map.json → id 9
-    ids = _rgb_to_class_ids(mask, color_map)
+    ids = _rgb_to_class_ids(mask, lut)
     assert ids.shape == (2, 2)
     assert ids[0, 0] == 0
     assert ids[1, 1] == 9

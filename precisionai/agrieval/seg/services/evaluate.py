@@ -99,31 +99,52 @@ def _validate_colors(
         raise ValueError(f"Mask '{path}' contains {len(unknown)} unknown color(s) not in classes.json: {samples}")
 
 
-def _rgb_to_class_ids(
-    mask_rgb: np.ndarray,
-    color_map: dict[tuple[int, int, int], int],
-) -> np.ndarray:
+def _build_lut(color_map: dict[tuple[int, int, int], int]) -> np.ndarray:
+    """Build a 24-bit packed-RGB lookup table mapping colour → class ID.
+
+    Packs each ``(R, G, B)`` triple as ``R<<16 | G<<8 | B`` to index a flat
+    array of length 2²⁴ (16 M entries, 64 MB).  Colours not in *color_map*
+    default to 0 (background); ``_validate_colors`` guarantees they never
+    appear in a mask passed to :func:`_rgb_to_class_ids`.
+
+    Parameters
+    ----------
+    color_map : dict[tuple[int, int, int], int]
+        Colour → class-ID mapping from :func:`_build_color_map`.
+
+    Returns
+    -------
+    np.ndarray
+        Lookup table of shape (2²⁴,), dtype int32.
+    """
+    lut = np.zeros(1 << 24, dtype=np.int32)
+    for (r, g, b), cid in color_map.items():
+        lut[(int(r) << 16) | (int(g) << 8) | int(b)] = cid
+    return lut
+
+
+def _rgb_to_class_ids(mask_rgb: np.ndarray, lut: np.ndarray) -> np.ndarray:
     """Convert an RGB mask to a class-ID mask of shape (H, W).
+
+    Uses a pre-built packed-RGB lookup table for O(H·W) decoding — one
+    vectorised index operation with no per-class Python loops.
 
     Parameters
     ----------
     mask_rgb : np.ndarray
-        RGB mask array, shape (H, W, 3), validated against *color_map*.
-    color_map : dict[tuple[int, int, int], int]
-        Colour → class-ID lookup (all colours present must be in the map).
+        RGB mask array, shape (H, W, 3), validated against the colour map
+        used to build *lut*.
+    lut : np.ndarray
+        Lookup table from :func:`_build_lut`.
 
     Returns
     -------
     np.ndarray
         Integer class-ID array, shape (H, W), dtype int32.
     """
-    h, w = mask_rgb.shape[:2]
-    flat = mask_rgb.reshape(-1, 3)
-    result = np.empty(h * w, dtype=np.int32)
-    for (r, g, b), class_id in color_map.items():
-        match = np.all(flat == np.array([r, g, b], dtype=np.uint8), axis=1)
-        result[match] = class_id
-    return result.reshape(h, w)
+    flat = mask_rgb.reshape(-1, 3).astype(np.uint32)
+    packed = (flat[:, 0] << 16) | (flat[:, 1] << 8) | flat[:, 2]
+    return lut[packed].reshape(mask_rgb.shape[:2])
 
 
 def _discover_pairs(pred_dir: Path, masks_dir: Path) -> list[tuple[Path, Path]]:
@@ -262,6 +283,7 @@ def run_seg_eval(
 
     classes = load_classes(classes_path)
     color_map = _build_color_map(classes)
+    lut = _build_lut(color_map)
     class_names: list[str] = [entry[0] for entry in classes]
     class_ids: list[int] = [int(entry[2]) for entry in classes]
     n_classes = len(classes)
@@ -287,8 +309,8 @@ def run_seg_eval(
         _validate_colors(pred_rgb, color_map, pred_path)
         _validate_colors(gt_rgb, color_map, gt_path)
 
-        pred_ids = _rgb_to_class_ids(pred_rgb, color_map)
-        gt_ids = _rgb_to_class_ids(gt_rgb, color_map)
+        pred_ids = _rgb_to_class_ids(pred_rgb, lut)
+        gt_ids = _rgb_to_class_ids(gt_rgb, lut)
 
         cm_i = confusion_matrix(pred_ids, gt_ids, n_classes)
         agg_cm += cm_i
