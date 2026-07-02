@@ -1,14 +1,16 @@
-Precision AI Agricultural Embedding API
-========================================
+Precision AI AgriEval
+======================
 
-Welcome to the **Precision AI Agricultural Embedding API** documentation. This package provides an evaluation API for
-agricultural image embeddings — measuring how well a model's embedding space clusters by
-crop class using KNN-based metrics, geometry diagnostics, and interactive visualizations.
+Welcome to the **Precision AI AgriEval** documentation. This package evaluates agricultural
+computer vision models: ``precisionai.agrieval.emb`` measures how well an embedding space
+supports image and plant retrieval using KNN-based metrics, geometry diagnostics, and
+interactive visualizations; ``precisionai.agrieval.seg`` scores semantic segmentation masks
+against ground truth using per-class IoU, Dice/F1, accuracy, mIoU, mAcc, and FWIoU.
 
 - The **Getting started** chapter is the project README: installation, dataset structure,
   API usage, metrics reference, and visualization guide.
-- The **Module Reference** chapter documents the full ``precisionai.agrieval.emb`` API — metrics,
-  services, schemas, and routes.
+- The **Module Reference** chapter documents the ``precisionai.agrieval.emb`` and
+  ``precisionai.agrieval.seg`` APIs — metrics, services, schemas, and routes.
 
 Contents
 --------

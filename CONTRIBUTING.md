@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to the Precision AI Agricultural Embedding API.
+Thank you for your interest in contributing to Precision AI AgriEval.
 
 ## Setup
 
@@ -54,9 +54,10 @@ pre-commit run --all-files
 ## Tests
 
 ```bash
-pytest                              # run all tests with coverage report
-pytest tests/emb/test_metrics.py   # run a specific file
-pytest -k "test_purity"             # run tests matching a pattern
+pytest                                    # run all tests with coverage report
+pytest tests/emb/test_metrics.py         # run a specific file
+pytest tests/seg/                        # run a single subpackage
+pytest -k "test_purity"                   # run tests matching a pattern
 ```
 
 Tests live in `tests/` and mirror the package structure. The coverage threshold (90%) is enforced both by `pytest` directly and by the pre-commit hook.

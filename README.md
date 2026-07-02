@@ -4,9 +4,9 @@
 
 # Precision AI AgriEval
 
-AgriEval is Precision AI's evaluation framework for agricultural computer vision models. It answers the question: **how well do your model outputs support the downstream retrieval and analysis tasks that agronomic workflows depend on?**
+AgriEval evaluates agricultural computer vision models. It has two subpackages: `emb` benchmarks how well an embedding space supports image and plant retrieval (nDCG, MAP, MRR, purity, geometry diagnostics), and `seg` scores semantic segmentation masks against ground truth (per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU).
 
-You bring model outputs — embeddings, segmentation masks, detections — alongside your dataset's ground-truth cluster annotations. AgriEval produces a structured report of retrieval KPIs, geometry diagnostics, and per-class breakdowns, accessible through a FastAPI server or directly from Python.
+Give it your model's outputs and the dataset's ground-truth annotations, and it returns the metrics as JSON — through a FastAPI server or directly from Python.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 
