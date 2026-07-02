@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
     "numpy>=1.26,<3",
+    "Pillow>=10.0",
     "pydantic>=2.0",
     "tqdm>=4.64",
 ]
@@ -44,13 +45,15 @@ dev = [
 
 [project.scripts]
 precisionai-agrieval = "precisionai.agrieval.emb.api.app:main"
+precisionai-agrieval-api = "precisionai.agrieval.api.app:main"
+precisionai-agrieval-seg = "precisionai.agrieval.seg.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["precisionai*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/emb"]
+testpaths = ["tests/emb", "tests/seg"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "--cov=precisionai --cov-report=term-missing --cov-fail-under=90"
@@ -60,7 +63,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["precisionai"]
-omit = ["*/tests/emb/*", "*/__init__.py"]
+omit = ["*/tests/emb/*", "*/tests/seg/*", "*/__init__.py"]
 relative_files = true
 
 [tool.coverage.report]
@@ -115,10 +118,12 @@ ignore = [
     "ANN401",  # typing.Any is allowed for genuinely dynamic types
     "S311",    # pseudo-random generators are intentional in scientific code
     "S104",    # binding to 0.0.0.0 is intentional for a configurable server host
+    "N815",    # mixedCase metric names (mIoU, mAcc, FWIoU, mAP, nDCG) are domain-standard
 ]
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
 "tests/emb/**" = ["D", "PLR", "ANN", "S"]
+"tests/seg/**" = ["D", "PLR", "ANN", "S"]
 "docs/conf.py" = ["E402", "UP031", "ANN", "S"]
 
 [tool.ruff.lint.pydocstyle]

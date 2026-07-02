@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 
@@ -129,18 +131,28 @@ def _assign_class_instance_overlap_grades(
     has_class: np.ndarray,
     ci_sets: list[set[str]],
 ) -> None:
-    """Assign grade 1 where items differ by L1 class but share class instances."""
-    for i, query_ci in enumerate(ci_sets):
-        if not query_ci:
+    """Assign grade 1 where items differ by L1 class but share class instances.
+
+    Uses an inverted index over plant values to avoid the O(N²) nested loop —
+    only item pairs that share at least one plant value are ever visited.
+    """
+    class_int_arr = np.array(class_ints, dtype=np.int32)
+    plant_to_items: dict[str, list[int]] = defaultdict(list)
+    for i, ci_set in enumerate(ci_sets):
+        for plant in ci_set:
+            plant_to_items[plant].append(i)
+
+    for items_list in plant_to_items.values():
+        if len(items_list) < 2:
             continue
-        for j, candidate_ci in enumerate(ci_sets):
-            if i == j or not candidate_ci:
-                continue
-            same_l1 = bool(has_class[i]) and bool(has_class[j]) and class_ints[i] == class_ints[j]
-            if same_l1:
-                continue
-            if query_ci & candidate_ci:
-                grades[i, j] = 1
+        arr = np.array(items_list, dtype=np.intp)
+        ci = class_int_arr[arr]
+        has_class_arr = has_class[arr]
+        # same_l1[i,j] = has_class[i] AND has_class[j] AND same class int
+        same_l1_m = (has_class_arr[:, None] & has_class_arr[None, :]) & (ci[:, None] == ci[None, :])
+        ii, jj = np.where(~same_l1_m)
+        non_self = ii != jj
+        grades[arr[ii[non_self]], arr[jj[non_self]]] = 1
 
 
 def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
@@ -197,8 +209,8 @@ def _build_grade_matrix(items: list[ImageItem]) -> np.ndarray:
 
 
 def intra_inter_similarity_gap(
-    embeddings: object,
-    labels: object,
+    embeddings: Any,
+    labels: Any,
     *,
     normalize: bool = True,
     sample_pairs: int | None = 1_000_000,

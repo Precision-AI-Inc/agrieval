@@ -17,6 +17,7 @@ You bring model outputs — embeddings, segmentation masks, detections — along
 | Subpackage | Domain | Docs |
 |---|---|---|
 | `precisionai.agrieval.emb` | Embedding evaluation — KNN retrieval benchmarking, geometry diagnostics, interactive visualizations | [EMBEDDING.md](docs/EMBEDDING.md) |
+| `precisionai.agrieval.seg` | Semantic segmentation evaluation — per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU from colour-coded masks | [SEGMENTATION.md](docs/SEGMENTATION.md) |
 
 ---
 
@@ -39,20 +40,31 @@ images/
 
 Each subpackage extends this foundation with domain-specific annotation files (embedding vectors, segmentation masks, instance crops) and evaluation wirings suited to that modality. See each subpackage's documentation for the full data format.
 
+Repository image fixtures and other committed data files must stay at or below **1800 KB** each. Test image fixtures should use the shared `1332x540` resolution and optimized RGB PNG encoding. The size limit is enforced for newly added files by the `check-added-large-files` pre-commit hook.
+
 ---
 
 ## Subpackage layout
 
 ```
 precisionai/agrieval/
+  api/          # Unified FastAPI app (emb + seg on one server)
   emb/          # Embedding evaluation
-    api/        # FastAPI app and route handlers
+    api/        # FastAPI app and route handlers (emb-only server)
     metrics/    # Pure computation — ranking, similarity, geometry, …
     schemas/    # Pydantic request/response models
     services/   # Evaluation orchestration and reporting
+  seg/          # Semantic segmentation evaluation
+    api/        # FastAPI route handlers
+    metrics/    # Pure computation — confusion matrix, IoU, Dice, mAcc, FWIoU
+    schemas/    # Pydantic request/response models
+    services/   # Evaluation orchestration and JSON output
+    cli.py      # CLI entry point (precisionai-agrieval-seg)
 
 tests/
   emb/          # Tests for precisionai.agrieval.emb
+  seg/          # Tests for precisionai.agrieval.seg
+  data/         # Shared fixtures — images, masks, class_map.json
 
 examples/
   emb/          # Runnable scripts and notebooks for emb
@@ -100,11 +112,45 @@ print_result(result)
 ```
 
 ```bash
-# Start the embedding evaluation API server (default port 8000)
+# Start the unified API server — all modalities on one port (default 8000)
+precisionai-agrieval-api --dataset-root /path/to/dataset
+
+# Embedding-only server (legacy entry point)
 precisionai-agrieval
 
 # Interactive API docs
 open http://localhost:8000/docs
+```
+
+### Segmentation evaluation
+
+See **[docs/SEGMENTATION.md](docs/SEGMENTATION.md)** for the full reference — mask format, class-definition file schemas, all KPIs, and output format.
+
+```python
+from precisionai.agrieval.seg.services.evaluate import run_seg_eval
+
+dataset_summary, image_summary = run_seg_eval(
+    pred_dir="predictions/",
+    masks_dir="ground_truth/",
+    classes_path="class_map.json",
+    output_dir="results/",
+    num_workers=4,
+    verbose=True,
+)
+
+print(dataset_summary["summary"])
+# {"mIoU": 0.8623, "mAcc": 0.9251, "FWIoU": 0.9117}
+```
+
+```bash
+# Evaluate from the command line
+precisionai-agrieval-seg \
+  --pred    predictions/ \
+  --masks   ground_truth/ \
+  --classes class_map.json \
+  --output-dir results/ \
+  --num-workers 4 \
+  --verbose
 ```
 
 ---
@@ -114,12 +160,18 @@ open http://localhost:8000/docs
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, branching, and PR guidelines. [CLAUDE.md](CLAUDE.md) documents the code style and conventions enforced in this repo.
 
 ```bash
-# Run embedding evaluation tests
+# Run all tests
+python -m pytest tests/emb/ tests/seg/
+
+# Run a single subpackage
 python -m pytest tests/emb/
+python -m pytest tests/seg/
 
 # Run pre-commit hooks manually
 pre-commit run --all-files
 ```
+
+Pre-commit rejects newly added files larger than **1800 KB**. Downsample test image fixtures to `1332x540` and save them as optimized RGB PNGs before committing them.
 
 ---
 

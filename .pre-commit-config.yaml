@@ -4,6 +4,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+        # Keep committed test/image fixtures small enough for fast clones and CI.
         args: ["--maxkb=1800"]
       - id: check-yaml
       - id: check-json
@@ -40,6 +41,6 @@ repos:
         name: pytest (coverage ≥ 90%)
         entry: python -m pytest
         language: system
-        args: ["tests/emb/", "-q", "--tb=short", "--no-header"]
+        args: ["tests/emb/", "tests/seg/", "-q", "--tb=short", "--no-header"]
         pass_filenames: false
         always_run: true

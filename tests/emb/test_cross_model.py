@@ -30,6 +30,9 @@ RNG = np.random.default_rng(99)
 VECS_A = RNG.random((30, 8)).astype(np.float32)
 VECS_B = RNG.random((30, 16)).astype(np.float32)  # different D
 
+_NEIGHBORS_A = top_k_neighbors(VECS_A, ks=[3])
+_NEIGHBORS_B = top_k_neighbors(VECS_B, ks=[3])
+
 
 class TestPairwiseSimCorrelation:
     def test_identical_embeddings_high_correlation(self) -> None:
@@ -53,56 +56,41 @@ class TestPairwiseSimCorrelation:
 
 
 class TestKnnOverlapAndJaccard:
-    @pytest.fixture
-    def neighbors_a(self) -> dict:
-        return top_k_neighbors(VECS_A, ks=[3])
-
-    @pytest.fixture
-    def neighbors_same(self) -> dict:
-        return top_k_neighbors(VECS_A, ks=[3])
-
-    def test_overlap_identical_neighbors_is_one(self, neighbors_a: dict, neighbors_same: dict) -> None:
-        result = knn_overlap_at_k(neighbors_a, neighbors_same)
+    def test_overlap_identical_neighbors_is_one(self) -> None:
+        result = knn_overlap_at_k(_NEIGHBORS_A, _NEIGHBORS_A)
         assert result[3]["mean"] == pytest.approx(1.0, abs=1e-5)
 
-    def test_jaccard_identical_neighbors_is_one(self, neighbors_a: dict, neighbors_same: dict) -> None:
-        result = knn_jaccard_at_k(neighbors_a, neighbors_same)
+    def test_jaccard_identical_neighbors_is_one(self) -> None:
+        result = knn_jaccard_at_k(_NEIGHBORS_A, _NEIGHBORS_A)
         assert result[3]["mean"] == pytest.approx(1.0, abs=1e-5)
 
-    def test_overlap_between_0_and_1(self, neighbors_a: dict) -> None:
-        neighbors_b = top_k_neighbors(VECS_B, ks=[3])
-        result = knn_overlap_at_k(neighbors_a, neighbors_b)
+    def test_overlap_between_0_and_1(self) -> None:
+        result = knn_overlap_at_k(_NEIGHBORS_A, _NEIGHBORS_B)
         assert 0.0 <= result[3]["mean"] <= 1.0
 
-    def test_jaccard_leq_overlap(self, neighbors_a: dict) -> None:
-        neighbors_b = top_k_neighbors(VECS_B, ks=[3])
-        overlap = knn_overlap_at_k(neighbors_a, neighbors_b)[3]["mean"]
-        jaccard = knn_jaccard_at_k(neighbors_a, neighbors_b)[3]["mean"]
+    def test_jaccard_leq_overlap(self) -> None:
+        overlap = knn_overlap_at_k(_NEIGHBORS_A, _NEIGHBORS_B)[3]["mean"]
+        jaccard = knn_jaccard_at_k(_NEIGHBORS_A, _NEIGHBORS_B)[3]["mean"]
         # Jaccard <= overlap always (|A&B|/|AuB| <= |A&B|/k)
         assert jaccard <= overlap + 1e-5
 
 
 class TestPerItemNeighborDisagreement:
     def test_zero_disagreement_when_identical(self) -> None:
-        nbrs = top_k_neighbors(VECS_A, ks=[3])
-        result = per_item_neighbor_disagreement(nbrs, nbrs)
+        result = per_item_neighbor_disagreement(_NEIGHBORS_A, _NEIGHBORS_A)
         np.testing.assert_allclose(result[3]["per_item"], 0.0, atol=1e-5)
 
     def test_top_disagreements_sorted(self) -> None:
-        nbrs_a = top_k_neighbors(VECS_A, ks=[3])
-        nbrs_b = top_k_neighbors(VECS_B, ks=[3])
-        result = per_item_neighbor_disagreement(nbrs_a, nbrs_b, top_n=5)
+        result = per_item_neighbor_disagreement(_NEIGHBORS_A, _NEIGHBORS_B, top_n=5)
         scores = [x["score"] for x in result[3]["top_disagreements"]]
         assert scores == sorted(scores, reverse=True)
 
     def test_invalid_metric_raises(self) -> None:
-        nbrs = top_k_neighbors(VECS_A, ks=[3])
         with pytest.raises(ValueError, match="Unknown metric"):
-            per_item_neighbor_disagreement(nbrs, nbrs, metric="bad")
+            per_item_neighbor_disagreement(_NEIGHBORS_A, _NEIGHBORS_A, metric="bad")
 
     def test_overlap_metric_accepted(self) -> None:
-        nbrs = top_k_neighbors(VECS_A, ks=[3])
-        result = per_item_neighbor_disagreement(nbrs, nbrs, metric="overlap")
+        result = per_item_neighbor_disagreement(_NEIGHBORS_A, _NEIGHBORS_A, metric="overlap")
         assert result[3]["mean"] == pytest.approx(0.0, abs=1e-5)
 
 

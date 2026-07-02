@@ -19,7 +19,7 @@ from precisionai.agrieval.emb.api.app import app
 
 client = TestClient(app)
 
-_IMAGE_DATASET_ROOT = "tests/emb/data/images"
+_IMAGE_DATASET_ROOT = "tests/data/images"
 
 
 class TestSmokeImage2Image:
