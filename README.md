@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Precision AI Logo" width="120"/>
+  <img src="https://raw.githubusercontent.com/Precision-AI-Inc/agrieval/main/docs/assets/logo.png" alt="Precision AI Logo" width="120"/>
 </p>
 
 # Precision AI AgriEval
@@ -8,10 +8,10 @@ AgriEval evaluates agricultural computer vision models. It has two subpackages: 
 
 Give it your model's outputs and the dataset's ground-truth annotations, and it returns the metrics as JSON — through a FastAPI server or directly from Python.
 
-[![PyPI](https://img.shields.io/pypi/v/precisionai-agrieval.svg)](https://pypi.org/project/precisionai-agrieval/)
-[![Python](https://img.shields.io/pypi/pyversions/precisionai-agrieval.svg)](https://pypi.org/project/precisionai-agrieval/)
+[![PyPI](https://img.shields.io/pypi/v/precisionai-agrieval.svg?include_prereleases)](https://pypi.org/project/precisionai-agrieval/)
+[![Python](https://img.shields.io/pypi/pyversions/precisionai-agrieval.svg?include_prereleases)](https://pypi.org/project/precisionai-agrieval/)
 [![CI](https://github.com/Precision-AI-Inc/agrieval/actions/workflows/workflow.yml/badge.svg)](https://github.com/Precision-AI-Inc/agrieval/actions/workflows/workflow.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Precision-AI-Inc/agrieval/blob/main/LICENSE.md)
 
 ---
 
@@ -19,8 +19,8 @@ Give it your model's outputs and the dataset's ground-truth annotations, and it 
 
 | Subpackage | Domain | Docs |
 |---|---|---|
-| `precisionai.agrieval.emb` | Embedding evaluation — KNN retrieval benchmarking, geometry diagnostics, interactive visualizations | [EMBEDDING.md](docs/EMBEDDING.md) |
-| `precisionai.agrieval.seg` | Semantic segmentation evaluation — per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU from colour-coded masks | [SEGMENTATION.md](docs/SEGMENTATION.md) |
+| `precisionai.agrieval.emb` | Embedding evaluation — KNN retrieval benchmarking, geometry diagnostics, interactive visualizations | [EMBEDDING.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/EMBEDDING.md) |
+| `precisionai.agrieval.seg` | Semantic segmentation evaluation — per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU from colour-coded masks | [SEGMENTATION.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/SEGMENTATION.md) |
 
 ---
 
@@ -95,7 +95,7 @@ pip install -r requirements.txt
 
 ### Embedding evaluation
 
-See **[docs/EMBEDDING.md](docs/EMBEDDING.md)** for the full reference — data format, all four retrieval wirings, API endpoints, metrics, and visualizations.
+See **[docs/EMBEDDING.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/EMBEDDING.md)** for the full reference — data format, all four retrieval wirings, API endpoints, metrics, and visualizations.
 
 ```python
 from precisionai.agrieval.emb import print_result, run_image2image_eval
@@ -126,7 +126,7 @@ open http://localhost:8000/docs
 
 ### Segmentation evaluation
 
-See **[docs/SEGMENTATION.md](docs/SEGMENTATION.md)** for the full reference — mask format, class-definition file schemas, all KPIs, and output format.
+See **[docs/SEGMENTATION.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/SEGMENTATION.md)** for the full reference — mask format, class-definition file schemas, all KPIs, and output format.
 
 ```python
 from precisionai.agrieval.seg import run_seg_eval
@@ -159,7 +159,7 @@ precisionai-agrieval-seg \
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, branching, and PR guidelines, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community expectations. [CLAUDE.md](CLAUDE.md) documents the code style and conventions enforced in this repo.
+See [CONTRIBUTING.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/CONTRIBUTING.md) for setup, branching, and PR guidelines, and [CODE_OF_CONDUCT.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/CODE_OF_CONDUCT.md) for community expectations. [CLAUDE.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/CLAUDE.md) documents the code style and conventions enforced in this repo.
 
 ```bash
 # Run all tests
@@ -179,6 +179,6 @@ Pre-commit rejects newly added files larger than **1800 KB**. Downsample test im
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md).
+Licensed under the Apache License, Version 2.0. See [LICENSE.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/LICENSE.md).
 
-See [CHANGELOG.md](CHANGELOG.md) for release history.
+See [CHANGELOG.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/CHANGELOG.md) for release history.
