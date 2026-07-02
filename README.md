@@ -98,8 +98,7 @@ pip install -r requirements.txt
 See **[docs/EMBEDDING.md](docs/EMBEDDING.md)** for the full reference — data format, all four retrieval wirings, API endpoints, metrics, and visualizations.
 
 ```python
-from precisionai.agrieval.emb.services.evaluate import run_image2image_eval
-from precisionai.agrieval.emb.services.reporting import print_result
+from precisionai.agrieval.emb import print_result, run_image2image_eval
 
 embeddings = {
     "images/A1/img1.png": [...],  # L2-normalised float32 vectors
@@ -130,7 +129,7 @@ open http://localhost:8000/docs
 See **[docs/SEGMENTATION.md](docs/SEGMENTATION.md)** for the full reference — mask format, class-definition file schemas, all KPIs, and output format.
 
 ```python
-from precisionai.agrieval.seg.services.evaluate import run_seg_eval
+from precisionai.agrieval.seg import run_seg_eval
 
 dataset_summary, image_summary = run_seg_eval(
     pred_dir="predictions/",

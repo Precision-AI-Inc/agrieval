@@ -292,7 +292,7 @@ HTTP 400 is returned for any input validation error (unknown colours, size misma
 ## Python usage
 
 ```python
-from precisionai.agrieval.seg.services.evaluate import run_seg_eval
+from precisionai.agrieval.seg import run_seg_eval
 
 dataset_summary, image_summary = run_seg_eval(
     pred_dir="predictions/",

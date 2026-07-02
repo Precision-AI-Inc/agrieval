@@ -71,7 +71,17 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Detect pre-release
+        id: prerelease
+        run: |
+          if [[ "${GITHUB_REF_NAME}" =~ [.]?(dev|a|b|rc)[0-9]+$ ]]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+          prerelease: ${{ steps.prerelease.outputs.value }}

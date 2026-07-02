@@ -4,6 +4,19 @@ Module Reference
 API documentation for the ``precisionai.agrieval.emb`` and ``precisionai.agrieval.seg``
 packages — metrics, services, schemas, and routes.
 
+precisionai.agrieval.emb
+------------------------
+
+Top-level package re-exports — the primary entry points for embedding evaluation:
+``run_image2image_eval``, ``run_plant2image_eval``, ``run_plant2plant_eval``,
+``print_result``, the Plotly visualizations (``plot_knn_confusion``,
+``plot_cosine_similarity``, ``plot_tsne``, ``plot_lle``), and :class:`MetadataGroup`.
+
+.. automodule:: precisionai.agrieval.emb
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 precisionai.agrieval.emb.metrics
 --------------------------------
 
@@ -133,6 +146,16 @@ Three retrieval evaluation endpoints:
 ``POST /v1/embeddings/evaluate/plant2plant``.
 
 .. automodule:: precisionai.agrieval.emb.api.routes.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.seg
+------------------------
+
+Top-level package re-exports — ``run_seg_eval`` and ``load_classes``.
+
+.. automodule:: precisionai.agrieval.seg
    :members:
    :undoc-members:
    :show-inheritance:
