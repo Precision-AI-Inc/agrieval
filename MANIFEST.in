@@ -1,0 +1,11 @@
+include README.md
+include LICENSE.md
+include SECURITY.md
+include CHANGELOG.md
+include requirements.txt
+include requirements-dev.txt
+
+prune tests
+prune examples
+prune docs
+prune .github
