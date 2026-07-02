@@ -1,14 +1,16 @@
 # Contributing
 
-Thank you for your interest in contributing to the Precision AI Agricultural Embedding API.
+Thank you for your interest in contributing to Precision AI AgriEval.
+
+By participating in this project, you agree to abide by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
 Requires Python 3.10+.
 
 ```bash
-git clone <repo-url>
-cd pai-agrieval
+git clone https://github.com/Precision-AI-Inc/agrieval.git
+cd agrieval
 
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
@@ -54,9 +56,10 @@ pre-commit run --all-files
 ## Tests
 
 ```bash
-pytest                              # run all tests with coverage report
-pytest tests/emb/test_metrics.py   # run a specific file
-pytest -k "test_purity"             # run tests matching a pattern
+pytest                                    # run all tests with coverage report
+pytest tests/emb/test_metrics.py         # run a specific file
+pytest tests/seg/                        # run a single subpackage
+pytest -k "test_purity"                   # run tests matching a pattern
 ```
 
 Tests live in `tests/` and mirror the package structure. The coverage threshold (90%) is enforced both by `pytest` directly and by the pre-commit hook.

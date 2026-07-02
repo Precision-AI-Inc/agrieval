@@ -26,7 +26,7 @@ from pathlib import Path
 # Allow running without `pip install -e .`
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from precisionai.agrieval.seg.services.evaluate import run_seg_eval
+from precisionai.agrieval.seg import run_seg_eval
 
 _REPO_ROOT = Path(__file__).parent.parent.parent
 _DEFAULT_PRED = _REPO_ROOT / "tests" / "data" / "masks"

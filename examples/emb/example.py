@@ -31,18 +31,16 @@ from pathlib import Path
 # Allow running without `pip install -e .`
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
-from precisionai.agrieval.emb.services.evaluate import (
-    run_image2image_eval,
-    run_plant2image_eval,
-    run_plant2plant_eval,
-)
-from precisionai.agrieval.emb.services.reporting import (
+from precisionai.agrieval.emb import (
+    MetadataGroup,
     plot_cosine_similarity,
     plot_knn_confusion,
     plot_lle,
     plot_tsne,
     print_result,
+    run_image2image_eval,
+    run_plant2image_eval,
+    run_plant2plant_eval,
 )
 
 _SCENARIO_FILES: dict[str, str] = {

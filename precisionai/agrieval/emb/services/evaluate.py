@@ -270,7 +270,7 @@ def build_image_items(
 # ---------------------------------------------------------------------------
 
 
-def _jsonify(obj: Any) -> Any:  # noqa: PLR0911
+def _jsonify(obj: Any) -> Any:
     """Recursively convert a metrics result to JSON-serialisable types.
 
     numpy arrays are dropped because they are per-item visualisation artefacts
@@ -292,22 +292,14 @@ def _jsonify(obj: Any) -> Any:  # noqa: PLR0911
     if isinstance(obj, np.ndarray):
         return None  # sentinel — callers filter this key out
     if isinstance(obj, dict):
-        out: dict = {}
-        for k, v in obj.items():
-            if isinstance(v, np.ndarray):
-                continue  # drop per_item / hub_counts etc.
-            serialised = _jsonify(v)
-            out[str(k)] = serialised
-        return out
+        return {str(k): _jsonify(v) for k, v in obj.items() if not isinstance(v, np.ndarray)}
     if isinstance(obj, list):
         return [_jsonify(x) for x in obj]
-    if isinstance(obj, np.bool_):
-        return bool(obj)
-    if isinstance(obj, np.integer):
-        return int(obj)
     if isinstance(obj, np.floating | float):
         f = float(obj)
         return None if (math.isnan(f) or math.isinf(f)) else f
+    if isinstance(obj, np.generic):
+        return obj.item()  # np.bool_, np.integer, and any other numpy scalar
     return obj
 
 

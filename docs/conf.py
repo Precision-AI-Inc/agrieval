@@ -45,7 +45,7 @@ print("Version: ", version)
 print("Release: ", release)
 
 # -- General configuration ----------------------------------------------------
-project = "Precision AI Agricultural Embedding API"
+project = "Precision AI AgriEval"
 copyright = "2026, Precision AI"
 author = "Precision AI"
 
@@ -83,7 +83,7 @@ latex_documents = [
     (
         "index",
         "documentation.tex",
-        "Precision AI Agricultural Embedding API",
+        "Precision AI AgriEval",
         author,
         "manual",
         True,
@@ -96,10 +96,10 @@ latex_additional_files = ["assets/logo.png"] if os.path.isfile(_logo_path) else 
 _logo_latex = "logo" if latex_additional_files else ""
 
 _header_right = (
-    r"\raisebox{-0.2\height}{\includegraphics[height=0.45cm]{%s.png}}\quad Precision AI Ag Emb --- %s"
+    r"\raisebox{-0.2\height}{\includegraphics[height=0.45cm]{%s.png}}\quad Precision AI AgriEval --- %s"
     % (_logo_latex, version)
     if _logo_latex
-    else "Precision AI Ag Emb --- %s" % version
+    else "Precision AI AgriEval --- %s" % version
 )
 
 _latex_preamble = r"""
