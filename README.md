@@ -10,7 +10,6 @@ Give it your model's outputs and the dataset's ground-truth annotations, and it 
 
 [![PyPI](https://img.shields.io/pypi/v/precisionai-agrieval.svg?include_prereleases)](https://pypi.org/project/precisionai-agrieval/)
 [![Python](https://img.shields.io/pypi/pyversions/precisionai-agrieval.svg?include_prereleases)](https://pypi.org/project/precisionai-agrieval/)
-[![CI](https://github.com/Precision-AI-Inc/agrieval/actions/workflows/workflow.yml/badge.svg)](https://github.com/Precision-AI-Inc/agrieval/actions/workflows/workflow.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Precision-AI-Inc/agrieval/blob/main/LICENSE.md)
 
 ---
