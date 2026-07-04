@@ -15,10 +15,12 @@ from fastapi.testclient import TestClient
 from precisionai.agrieval.emb.api.app import app
 from precisionai.agrieval.emb.schemas.evaluate import Plant2ImageRequest, Plant2PlantRequest
 from precisionai.agrieval.emb.services.evaluate import (
-    plant2image_to_metadata,
-    plant2plant_to_metadata,
     run_plant2image_eval,
     run_plant2plant_eval,
+)
+from precisionai.agrieval.emb.services.labels import (
+    plant2image_to_metadata,
+    plant2plant_to_metadata,
 )
 
 client = TestClient(app)

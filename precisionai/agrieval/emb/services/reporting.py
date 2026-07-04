@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-from precisionai.agrieval.emb.services.evaluate import extract_labels
+from precisionai.agrieval.emb.services.labels import extract_labels
 
 try:
     import plotly.graph_objects as go  # type: ignore[import]

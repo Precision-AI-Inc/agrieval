@@ -117,6 +117,36 @@ Service layer: orchestrates metrics into the fixed evaluation JSON schema, suppo
    :undoc-members:
    :show-inheritance:
 
+precisionai.agrieval.emb.services.labels
+-----------------------------------------
+
+Label extraction from paths, metadata wiring (``build_image_items``, plant wiring adapters), and the ``image2image.json`` metadata loader.
+
+.. automodule:: precisionai.agrieval.emb.services.labels
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.emb.services.knn_metrics
+-----------------------------------------------
+
+KNN metric bundles, per-class breakdowns, global-metric assembly, and HDBSCAN group analysis.
+
+.. automodule:: precisionai.agrieval.emb.services.knn_metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.emb.services.serialization
+-------------------------------------------------
+
+JSON serialisation helpers shared by the evaluation services.
+
+.. automodule:: precisionai.agrieval.emb.services.serialization
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 precisionai.agrieval.emb.services.reporting
 -------------------------------------------
 

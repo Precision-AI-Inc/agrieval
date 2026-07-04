@@ -15,15 +15,15 @@ from pydantic import ValidationError
 
 from precisionai.agrieval.emb.api.app import app
 from precisionai.agrieval.emb.schemas.evaluate import EmbeddingEvaluateRequest, MetadataGroup
-from precisionai.agrieval.emb.services.evaluate import (
-    _jsonify,
+from precisionai.agrieval.emb.services.evaluate import run_image2image_eval
+from precisionai.agrieval.emb.services.labels import (
     _labels_from_metadata,
     _parse_crop,
     build_image_items,
     extract_labels,
     load_image2image_metadata,
-    run_image2image_eval,
 )
+from precisionai.agrieval.emb.services.serialization import _jsonify
 from tests.emb.test_plant_wirings import _P2I_EMBEDDINGS, _P2I_MAP
 
 client = TestClient(app)
