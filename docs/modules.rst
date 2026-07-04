@@ -1,8 +1,8 @@
 Module Reference
 ================
 
-API documentation for the ``precisionai.agrieval.emb`` and ``precisionai.agrieval.seg``
-packages — metrics, services, schemas, and routes.
+API documentation for the ``precisionai.agrieval.emb``, ``precisionai.agrieval.seg``, and
+``precisionai.agrieval.dpt`` packages — metrics, services, schemas, and routes.
 
 precisionai.agrieval.emb
 ------------------------
@@ -239,6 +239,59 @@ precisionai.agrieval.seg.cli
 Command-line interface for semantic segmentation evaluation (``precisionai-agrieval-seg``).
 
 .. automodule:: precisionai.agrieval.seg.cli
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt
+------------------------
+
+Top-level package re-exports — ``run_dpt_eval`` and ``load_tiles``.
+
+.. automodule:: precisionai.agrieval.dpt
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.metrics.tokens
+----------------------------------------
+
+Dense patch token diagnostics: per-patch norm statistics, spatial smoothness, and outlier fraction.
+
+.. automodule:: precisionai.agrieval.dpt.metrics.tokens
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.services.evaluate
+-------------------------------------------
+
+Service layer: loads tiles from disk (``load_tiles``, supporting ``.npy`` directories and ``.npz``
+archives), flattens tiles into a patch-token matrix, reuses ``emb.metrics.geometry`` for
+unsupervised diagnostics, and optionally aligns ground-truth masks to the patch grid for
+label-aware separation metrics.
+
+.. automodule:: precisionai.agrieval.dpt.services.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.schemas.evaluate
+-------------------------------------------
+
+Pydantic request and response schemas for ``POST /v1/dense-patch-tokens/evaluate``.
+
+.. automodule:: precisionai.agrieval.dpt.schemas.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.api.routes.evaluate
+-----------------------------------------------
+
+The dense patch token evaluation endpoint: ``POST /v1/dense-patch-tokens/evaluate``.
+
+.. automodule:: precisionai.agrieval.dpt.api.routes.evaluate
    :members:
    :undoc-members:
    :show-inheritance:

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "precisionai-agrieval"
 dynamic = ["version"]
-description = "Precision AI's evaluation toolkit for agricultural computer vision models — embedding retrieval and semantic segmentation"
+description = "Precision AI's evaluation toolkit for agricultural computer vision models — embedding retrieval, semantic segmentation, and dense patch token diagnostics"
 readme = "README.md"
 license = { file = "LICENSE.md" }
 authors = [{ name = "Precision AI", email = "michael@precision.ai" }]
@@ -14,6 +14,7 @@ requires-python = ">=3.10"
 keywords = [
     "agriculture",
     "computer-vision",
+    "dense-patch-tokens",
     "embeddings",
     "evaluation",
     "machine-learning",
@@ -89,7 +90,7 @@ local_scheme = "no-local-version"
 fallback_version = "0.0.0"
 
 [tool.pytest.ini_options]
-testpaths = ["tests/emb", "tests/seg"]
+testpaths = ["tests/emb", "tests/seg", "tests/dpt"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "--cov=precisionai --cov-report=term-missing --cov-fail-under=90"
@@ -99,7 +100,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["precisionai"]
-omit = ["*/tests/emb/*", "*/tests/seg/*", "*/__init__.py"]
+omit = ["*/tests/emb/*", "*/tests/seg/*", "*/tests/dpt/*", "*/__init__.py"]
 relative_files = true
 
 [tool.coverage.report]
@@ -160,6 +161,7 @@ ignore = [
 "**/__init__.py" = ["F401"]
 "tests/emb/**" = ["D", "PLR", "ANN", "S"]
 "tests/seg/**" = ["D", "PLR", "ANN", "S"]
+"tests/dpt/**" = ["D", "PLR", "ANN", "S"]
 "docs/conf.py" = ["E402", "UP031", "ANN", "S"]
 
 [tool.ruff.lint.pydocstyle]

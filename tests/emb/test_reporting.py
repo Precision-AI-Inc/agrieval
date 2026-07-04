@@ -21,6 +21,7 @@ from precisionai.agrieval.emb.services.reporting import (
     plot_tsne,
     print_result,
 )
+from tests.emb.test_evaluate_endpoint import GOOD_EMBEDDINGS, _make_metadata
 
 # ---------------------------------------------------------------------------
 # Shared fixture
@@ -176,6 +177,13 @@ class TestPlotCosineSimilarity:
         plot_cosine_similarity(image_embeddings, result, output_path=str(out))
         assert "Saved:" in capsys.readouterr().out
 
+    def test_missing_item_labels_falls_back_to_extract_labels(self, tmp_path, image_embeddings, result):
+        """When the result dict has no item_labels key, labels are derived from paths."""
+        result_without_labels = {k: v for k, v in result.items() if k != "item_labels"}
+        out = tmp_path / "cosine.html"
+        plot_cosine_similarity(image_embeddings, result_without_labels, output_path=str(out))
+        assert out.exists()
+
 
 # ---------------------------------------------------------------------------
 # _build_scatter3d
@@ -261,3 +269,28 @@ class TestPlotLle:
         out = tmp_path / "lle.html"
         plot_lle(image_embeddings, result, output_path=str(out))
         assert "Saved:" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# print_result — metadata mode (alignment, attribute nDCG, group_analysis)
+# ---------------------------------------------------------------------------
+
+
+class TestPrintResultMetadataMode:
+    @pytest.fixture(scope="class")
+    def metadata_result(self):
+        return run_image2image_eval(
+            GOOD_EMBEDDINGS, k_values=[3], dataset_root=None, sample_pairs=50, metadata=_make_metadata()
+        )
+
+    def test_prints_alignment(self, capsys, metadata_result):
+        print_result(metadata_result)
+        assert "alignment" in capsys.readouterr().out
+
+    def test_prints_attribute_ndcg(self, capsys, metadata_result):
+        print_result(metadata_result)
+        assert "attr_nDCG" in capsys.readouterr().out
+
+    def test_prints_group_analysis(self, capsys, metadata_result):
+        print_result(metadata_result)
+        assert "group_analysis" in capsys.readouterr().out

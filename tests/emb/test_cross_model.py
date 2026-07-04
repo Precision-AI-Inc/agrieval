@@ -16,6 +16,7 @@ from precisionai.agrieval.emb.metrics.cross_model import (
     per_item_neighbor_disagreement,
 )
 from precisionai.agrieval.emb.metrics.duplicates import (
+    _UnionFind,
     duplicate_groups_at_threshold,
     duplicate_pairs_at_threshold,
 )
@@ -53,6 +54,16 @@ class TestPairwiseSimCorrelation:
         result = pairwise_similarity_correlation(VECS_A, VECS_B, sample_pairs=200)
         assert "sample_pairs" in result
         assert result["sample_pairs"] <= 200
+
+    def test_numpy_fallback_matches_scipy_when_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When scipy isn't importable, the numpy corrcoef/rankdata fallback must agree with scipy."""
+        with_scipy = pairwise_similarity_correlation(VECS_A, VECS_B, sample_pairs=500, random_seed=0)
+        monkeypatch.setattr("precisionai.agrieval.emb.metrics.cross_model.pearsonr", None)
+        monkeypatch.setattr("precisionai.agrieval.emb.metrics.cross_model.spearmanr", None)
+        without_scipy = pairwise_similarity_correlation(VECS_A, VECS_B, sample_pairs=500, random_seed=0)
+
+        assert without_scipy["pearson"] == pytest.approx(with_scipy["pearson"], abs=1e-6)
+        assert without_scipy["spearman"] == pytest.approx(with_scipy["spearman"], abs=1e-6)
 
 
 class TestKnnOverlapAndJaccard:
@@ -92,6 +103,22 @@ class TestPerItemNeighborDisagreement:
     def test_overlap_metric_accepted(self) -> None:
         result = per_item_neighbor_disagreement(_NEIGHBORS_A, _NEIGHBORS_A, metric="overlap")
         assert result[3]["mean"] == pytest.approx(0.0, abs=1e-5)
+
+
+class TestUnionFind:
+    def test_union_swaps_when_second_root_has_higher_rank(self) -> None:
+        """Force rank[px] < rank[py] at the union call so the swap branch runs."""
+        uf = _UnionFind(5)
+        uf.union(0, 1)  # equal ranks (0, 0) -> root 0 now has rank 1
+        uf.union(4, 0)  # find(4) has rank 0 < find(0)'s rank 1 -> swap branch
+        assert uf.find(4) == uf.find(0) == uf.find(1)
+
+    def test_union_of_same_component_is_noop(self) -> None:
+        uf = _UnionFind(3)
+        uf.union(0, 1)
+        root_before = uf.find(0)
+        uf.union(0, 1)
+        assert uf.find(0) == root_before
 
 
 class TestDuplicatePairs:

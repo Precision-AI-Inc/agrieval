@@ -288,3 +288,70 @@ def test_empty_pred_dir_returns_400(tmp_path, classes_path):
     )
     assert resp.status_code == 400
     assert "no supported image files" in resp.json()["detail"].lower()
+
+
+def test_nonexistent_pred_dir_returns_400(tmp_path, classes_path):
+    gt_dir = tmp_path / "gt"
+    gt_dir.mkdir()
+    resp = client.post(
+        "/v1/segmentation/evaluate",
+        json={
+            "pred_dir": str(tmp_path / "does_not_exist"),
+            "masks_dir": str(gt_dir),
+            "classes_path": str(classes_path),
+        },
+    )
+    assert resp.status_code == 400
+    assert "pred_dir" in resp.json()["detail"]
+
+
+def test_nonexistent_masks_dir_returns_400(tmp_path, classes_path):
+    pred_dir = tmp_path / "pred"
+    pred_dir.mkdir()
+    resp = client.post(
+        "/v1/segmentation/evaluate",
+        json={
+            "pred_dir": str(pred_dir),
+            "masks_dir": str(tmp_path / "does_not_exist"),
+            "classes_path": str(classes_path),
+        },
+    )
+    assert resp.status_code == 400
+    assert "masks_dir" in resp.json()["detail"]
+
+
+def test_nonexistent_classes_path_returns_400(tmp_path):
+    pred_dir = tmp_path / "pred"
+    gt_dir = tmp_path / "gt"
+    pred_dir.mkdir()
+    gt_dir.mkdir()
+    resp = client.post(
+        "/v1/segmentation/evaluate",
+        json={
+            "pred_dir": str(pred_dir),
+            "masks_dir": str(gt_dir),
+            "classes_path": str(tmp_path / "does_not_exist.json"),
+        },
+    )
+    assert resp.status_code == 400
+    assert "classes_path" in resp.json()["detail"]
+
+
+def test_os_error_returns_400(tmp_path, classes_path, monkeypatch):
+    pred_dir = tmp_path / "pred"
+    gt_dir = tmp_path / "gt"
+    pred_dir.mkdir()
+    gt_dir.mkdir()
+    _make_mask(pred_dir / "t.png", _black())
+    _make_mask(gt_dir / "t.png", _black())
+
+    def _raise_os_error(**kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("precisionai.agrieval.seg.api.routes.evaluate.run_seg_eval", _raise_os_error)
+    resp = client.post(
+        "/v1/segmentation/evaluate",
+        json={"pred_dir": str(pred_dir), "masks_dir": str(gt_dir), "classes_path": str(classes_path)},
+    )
+    assert resp.status_code == 400
+    assert "i/o error" in resp.json()["detail"].lower()
