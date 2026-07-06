@@ -162,6 +162,21 @@ precisionai-agrieval-seg \
   --verbose
 ```
 
+### Dense patch token evaluation
+
+See **[docs/DENSE_PATCH_TOKENS.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/DENSE_PATCH_TOKENS.md)** for the full reference — tile format, binary ingestion, metrics, and API details.
+
+```python
+from precisionai.agrieval.dpt import run_dpt_eval
+
+# Each tile is a channels-first feature map: [C, H, W]
+result = run_dpt_eval(tiles={"tile_0001": tile_array, "tile_0002": tile_array_2})
+
+print(result["global_metrics"]["effective_rank"])
+```
+
+Pass `masks_dir`/`classes_path` for label-aware metrics, or load tiles from disk with `load_tiles()` instead of passing them inline — both are covered in the docs.
+
 ---
 
 ## Development
