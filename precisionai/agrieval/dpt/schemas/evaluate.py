@@ -96,8 +96,8 @@ class DptEvalRequest(BaseModel):
         ``meta.tile``) before scoring. When tiles are inline, one mask per
         tile (filename stem must match the tile ID). Same format as
         ``precisionai.agrieval.seg``. Enables label-aware metrics
-        (``classes``, ``per_class``, ``knn_confusion``). Requires
-        ``classes_path`` to also be set.
+        (``classes``, ``per_class``, ``knn_confusion``, ``separation``).
+        Requires ``classes_path`` to also be set.
     ``classes_path``
         Path to an AgriBench ``class_map.json`` (same format as ``seg``).
         Requires ``masks_dir`` to also be set.
@@ -208,6 +208,7 @@ class DptEvalResponse(BaseModel):
     classes: list[str] | None = None
     per_class: dict[str, dict[str, Any]] | None = None
     knn_confusion: dict[str, Any] | None = None
+    separation: dict[str, Any] | None = None
     warnings: list[str] | None = None
 
 
@@ -244,8 +245,8 @@ class DptImageEvalRequest(BaseModel):
         Directory of ground-truth colour-coded masks, one per image — the
         filename stem must match the image ID. Same format as
         ``precisionai.agrieval.seg``. Enables label-aware metrics
-        (``classes``, ``per_class``, ``knn_confusion``). Requires
-        ``classes_path`` to also be set.
+        (``classes``, ``per_class``, ``knn_confusion``, ``separation``).
+        Requires ``classes_path`` to also be set.
     ``classes_path``
         Path to an AgriBench ``class_map.json`` (same format as ``seg``).
         Requires ``masks_dir`` to also be set.
@@ -355,4 +356,5 @@ class DptImageEvalResponse(BaseModel):
     classes: list[str] | None = None
     per_class: dict[str, dict[str, Any]] | None = None
     knn_confusion: dict[str, Any] | None = None
+    separation: dict[str, Any] | None = None
     warnings: list[str] | None = None

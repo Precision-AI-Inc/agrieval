@@ -77,6 +77,16 @@ Label-aware metrics: intra/inter gap, KNN purity, nDCG, MAP, MRR, R-Precision, m
    :undoc-members:
    :show-inheritance:
 
+precisionai.agrieval.emb.metrics.separation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Split-free label separation metrics: silhouette (cosine), Calinski-Harabasz, k-means cluster agreement (ARI/NMI), and PC1-AUROC linear separability — no train/eval split required.
+
+.. automodule:: precisionai.agrieval.emb.metrics.separation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 precisionai.agrieval.emb.metrics.cross_model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -18,7 +18,7 @@ def print_result(result: dict[str, Any]) -> None:
     Handles both wirings — tile-keyed (``n_tiles``/``tile_ids``/``per_tile``)
     and whole-image-keyed (``n_images``/``image_ids``/``per_image``) result
     dicts — printing every global metric and, when present, per-class patch
-    counts, kNN purity, and warnings.
+    counts, kNN purity, label separation metrics, and warnings.
 
     Parameters
     ----------
@@ -44,6 +44,10 @@ def print_result(result: dict[str, Any]) -> None:
     if result["knn_confusion"] is not None:
         print()
         _print_knn_confusion(result["knn_confusion"], result["k_values"])
+
+    if result["separation"] is not None:
+        print()
+        _print_separation(result["separation"])
 
     if result["warnings"]:
         print()
@@ -102,3 +106,16 @@ def _print_knn_confusion(knn_confusion: dict[str, Any], k_values: list[int]) -> 
         p = purity.get(str(k))
         if p is not None:
             print(f"  purity@{k:<3}: mean={_fmt(p['mean'])}  std={_fmt(p['std'])}")
+
+
+def _print_separation(separation: dict[str, Any]) -> None:
+    """Print the split-free label separation section of a dpt evaluation result.
+
+    Any individual metric may be ``None`` (precondition not met — see the
+    result's ``warnings``) and is shown as ``N/A``.
+    """
+    print("── separation ──────────────────────────────────────────────────────────")
+    print(f"  silhouette (cosine)   : {_fmt(separation['silhouette'])}")
+    print(f"  calinski_harabasz     : {_fmt(separation['calinski_harabasz'])}")
+    print(f"  ari / nmi (k-means)   : {_fmt(separation['ari'])} / {_fmt(separation['nmi'])}")
+    print(f"  pc1_auroc             : {_fmt(separation['pc1_auroc'])}")

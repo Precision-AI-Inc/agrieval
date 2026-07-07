@@ -5,9 +5,11 @@
 Generates small synthetic tiles (random feature maps; this example does not
 depend on a real vision backbone) and evaluates them. By default one tile is
 generated per ground-truth mask shipped in ``tests/data/masks/`` so the
-label-aware metrics (``classes``, ``per_class``, ``knn_confusion``) are
-exercised out of the box — since the tiles are random noise, expect
-near-chance kNN purity; this only demonstrates the wiring, not a real model.
+label-aware metrics (``classes``, ``per_class``, ``knn_confusion``,
+``separation``) are exercised out of the box — since the tiles are random
+noise, expect near-chance values (kNN purity at chance, silhouette/ARI/NMI
+near 0, PC1-AUROC near 0.5); this only demonstrates the wiring, not a real
+model.
 
 Usage (from repo root)::
 

@@ -4,8 +4,8 @@ Evaluates dense per-patch feature-map "tiles" produced by tiling an image throug
 
 | Wiring | Endpoint | Input | Output |
 |---|---|---|---|
-| **Tile evaluation** | `POST /evaluate/tiles` | `tile_id → [P, H, W]` feature maps (+ optional ground-truth masks + class map) | Geometry, per-tile diagnostics, optional per-class/kNN metrics |
-| **Image evaluation** | `POST /evaluate/image` | `image_id → [P, H, W]` feature maps (+ optional ground-truth masks + class map) | Geometry, per-image diagnostics, optional per-class/kNN metrics |
+| **Tile evaluation** | `POST /evaluate/tiles` | `tile_id → [P, H, W]` feature maps (+ optional ground-truth masks + class map) | Geometry, per-tile diagnostics, optional per-class/kNN/separation metrics |
+| **Image evaluation** | `POST /evaluate/image` | `image_id → [P, H, W]` feature maps (+ optional ground-truth masks + class map) | Geometry, per-image diagnostics, optional per-class/kNN/separation metrics |
 
 The two wirings apply the exact same rules and compute the exact same metrics — the only difference is field naming (`tiles`/`per_tile` vs. `images`/`per_image`) so that requests and responses read naturally for whichever unit each entry represents. Use `/evaluate/tiles` when each entry is a crop of a larger image; use `/evaluate/image` when each entry is one whole (untiled) image. Both require every entry in a request to share the same `(P, H, W)` shape — a single evaluation run is always against one backbone/tiling configuration, so a "whole image" and a "tile" are the same kind of array.
 
@@ -88,7 +88,7 @@ In both cases, the final per-entry downsample step is the same: `dpt` **majority
 | `sample_pairs` | `int \| None` | Max random pairs for global pairwise similarity stats. `None` computes exactly. |
 | `max_patches` | `int` | Max patches used for O(N²) label-aware kNN computation; larger corpora are randomly subsampled (seeded) and the drop reported in `warnings`. Default `20 000`. |
 
-Always present in the response: `n_tiles`, `embed_dim`, `grid_height`, `grid_width`, `n_patches`, `tile_ids`, `k_values`, `global_metrics`, `per_tile`. Present only when `masks_dir`/`classes_path` are supplied: `classes`, `per_class`, `knn_confusion`.
+Always present in the response: `n_tiles`, `embed_dim`, `grid_height`, `grid_width`, `n_patches`, `tile_ids`, `k_values`, `global_metrics`, `per_tile`. Present only when `masks_dir`/`classes_path` are supplied: `classes`, `per_class`, `knn_confusion`, `separation`.
 
 ### Inputs — image evaluation (`POST /evaluate/image`)
 
@@ -100,7 +100,7 @@ Identical parameters and response shape to the tile wiring, with `tiles`/`tiles_
 | `images_path` | path \| `None` | A batched `.npz` archive, resolved against `dataset_root` — see [Tiles / images](#tiles--images). Exactly one of `images` / `images_path`. |
 | `masks_dir`, `classes_path`, `dataset_root`, `k_values`, `sample_pairs`, `max_patches` | — | Same as the tile wiring, applied per image instead of per tile. |
 
-Always present in the response: `n_images`, `embed_dim`, `grid_height`, `grid_width`, `n_patches`, `image_ids`, `k_values`, `global_metrics`, `per_image`. Present only when `masks_dir`/`classes_path` are supplied: `classes`, `per_class`, `knn_confusion`.
+Always present in the response: `n_images`, `embed_dim`, `grid_height`, `grid_width`, `n_patches`, `image_ids`, `k_values`, `global_metrics`, `per_image`. Present only when `masks_dir`/`classes_path` are supplied: `classes`, `per_class`, `knn_confusion`, `separation`.
 
 ---
 
@@ -142,6 +142,13 @@ Tile-evaluation response (`POST /evaluate/tiles`); the image-evaluation response
     "confusion": { "5": { "background": { "background": 0.97, "Crop | Soybean": 0.03 }, "...": "..." } },
     "purity": { "5": { "mean": 0.94, "std": 0.11 } }
   },
+  "separation": {
+    "silhouette": 0.38,
+    "calinski_harabasz": 2141.7,
+    "ari": 0.71,
+    "nmi": 0.63,
+    "pc1_auroc": 0.92
+  },
   "warnings": null
 }
 ```
@@ -181,6 +188,19 @@ Reuses `precisionai.agrieval.emb.metrics.similarity.top_k_neighbors` and `label_
 | `knn_confusion.confusion` | Per-K confusion matrix: fraction of each class's patches whose k-NN neighbors belong to each class. |
 | `knn_confusion.purity` | Per-K mean/std fraction of a patch's k nearest neighbors sharing its class. |
 | `per_class[...].effective_rank` / `pca_explained_variance` | Spectrum metrics (raw, centered) computed on the subset of patch tokens belonging to that class. |
+
+### Separation (only with ground truth)
+
+Split-free label separation metrics from `precisionai.agrieval.emb.metrics.separation` — all non-parametric or closed-form, with no train/eval split anywhere. Calinski-Harabasz and PC1-AUROC are O(N·D) and run on the **full patch corpus**; silhouette and ARI/NMI are O(N²) and iterative respectively, so they run on the same seeded `max_patches` subsample as the kNN metrics.
+
+| Metric | Input normalisation | Description |
+|---|---|---|
+| `separation.silhouette` | L2-normalised | Mean silhouette coefficient of the class partition under cosine distance, in `[-1, 1]`. |
+| `separation.calinski_harabasz` | raw | Between-class over within-class dispersion ratio (Euclidean); higher is better separated. |
+| `separation.ari` / `separation.nmi` | L2-normalised | Adjusted Rand index / normalized mutual information between the true classes and a deterministic k-means clustering (k = number of present classes) — are the classes recoverable as unsupervised clusters? Requires scikit-learn. |
+| `separation.pc1_auroc` | raw, centered | Threshold-free AUROC of foreground (every class except `background`) vs. the `background` class along the corpus's first principal component. Sign-free — reported as `max(auc, 1 − auc)`, so `0.5` = no signal, `1.0` = perfect linear separation. |
+
+Each metric degrades gracefully: when its preconditions fail — only one class present, no class named `background` in the class map (PC1-AUROC), or scikit-learn not installed (ARI/NMI) — it is reported as `null` with an explanatory entry in `warnings` instead of failing the run.
 
 ---
 
@@ -248,6 +268,7 @@ result = run_dpt_eval(
 
 print_result(result)  # human-readable summary of every metric
 print(result["knn_confusion"]["purity"]["5"]["mean"])  # or index the raw dict directly
+print(result["separation"]["silhouette"])  # split-free separation metrics (None when a precondition fails)
 ```
 
 `run_dpt_eval` accepts any array-like tile values — nested lists, numpy arrays, or CPU torch tensors (converted via `np.asarray`; no torch dependency needed). `tile_placement` is optional — omit it (or pass inline `tiles` built by hand) to fall back to matching each tile directly to its own mask by tile ID, exactly like the image wiring:

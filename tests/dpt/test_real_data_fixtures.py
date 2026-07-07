@@ -56,7 +56,14 @@ def test_labeled_eval_runs_on_each_fixture(real_dpt_tile_archives: list[Path], r
         )
         assert result["n_patches"] == _EXPECTED_TILES_PER_IMAGE * _EXPECTED_GRID[0] * _EXPECTED_GRID[1]
         assert "background" in result["classes"]
-        assert result["warnings"] is None
+        if len(result["classes"]) >= 2:
+            assert result["warnings"] is None
+            assert result["separation"]["calinski_harabasz"] is not None
+        else:
+            # An all-background image can't support any separation metric:
+            # each is skipped with an explanatory warning instead of failing.
+            assert all(v is None for v in result["separation"].values())
+            assert all("skipped" in w for w in result["warnings"])
 
 
 def test_combined_multi_image_real_corpus(real_dpt_tile_archives: list[Path], real_masks_dir: Path, classes_path):
@@ -74,6 +81,9 @@ def test_combined_multi_image_real_corpus(real_dpt_tile_archives: list[Path], re
     assert "background" in result["classes"]
     # Every real image contributes patches with a real, positive effective rank.
     assert result["global_metrics"]["effective_rank"]["effective_rank"] > 0
+    # The combined corpus spans background + foreground classes, so every
+    # separation metric is computable on real features.
+    assert all(v is not None for v in result["separation"].values())
 
 
 def test_missing_fixture_reported_clearly(tmp_path: Path):

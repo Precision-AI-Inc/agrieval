@@ -15,12 +15,16 @@ from PIL import Image
 
 from precisionai.agrieval.dpt.metrics import outlier_fraction, patch_norm_stats, patch_smoothness
 from precisionai.agrieval.emb.metrics import (
+    calinski_harabasz,
     centroid_similarity_stats,
     effective_rank,
+    kmeans_label_agreement,
     knn_confusion_matrix,
     knn_label_purity_at_k,
     pairwise_similarity_stats,
+    pc1_auroc,
     pca_explained_variance,
+    silhouette_cosine,
     top_k_neighbors,
     uniformity,
 )
@@ -35,6 +39,7 @@ from precisionai.agrieval.seg.services.evaluate import (
 )
 
 _SUBSAMPLE_SEED = 42
+_BACKGROUND_CLASS_NAME = "background"
 
 
 _TILE_BATCH_KEYS = ("feature_maps", "tile_image_id", "tile_index", "tile_y0", "tile_x0", "filenames")
@@ -466,7 +471,7 @@ def _compute_label_metrics(
     k_values: list[int],
     max_patches: int,
     warnings_out: list[str],
-) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, Any]]:
+) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, Any], dict[str, Any]]:
     """Decode ground-truth masks, align them to the patch grid, and score label-aware metrics.
 
     ``masks_dir`` and ``classes_path`` must already be resolved to real
@@ -475,8 +480,8 @@ def _compute_label_metrics(
 
     Returns
     -------
-    tuple[list[str], dict[str, dict[str, Any]], dict[str, Any]]
-        ``(classes, per_class, knn_confusion)``.
+    tuple[list[str], dict[str, dict[str, Any]], dict[str, Any], dict[str, Any]]
+        ``(classes, per_class, knn_confusion, separation)``.
     """
     _, _, h, w = tiles_arr.shape
 
@@ -522,7 +527,7 @@ def _compute_label_metrics_placed(
     k_values: list[int],
     max_patches: int,
     warnings_out: list[str],
-) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, Any]]:
+) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, Any], dict[str, Any]]:
     """Decode one whole-image mask per source image, crop it per tile, and score label-aware metrics.
 
     Same rules and outputs as :func:`_compute_label_metrics`, but ground
@@ -543,8 +548,8 @@ def _compute_label_metrics_placed(
 
     Returns
     -------
-    tuple[list[str], dict[str, dict[str, Any]], dict[str, Any]]
-        ``(classes, per_class, knn_confusion)``.
+    tuple[list[str], dict[str, dict[str, Any]], dict[str, Any], dict[str, Any]]
+        ``(classes, per_class, knn_confusion, separation)``.
     """
     _, _, h, w = tiles_arr.shape
 
@@ -602,6 +607,61 @@ def _compute_label_metrics_placed(
     )
 
 
+def _compute_separation_metrics(
+    *,
+    patch_tokens: np.ndarray,
+    patch_labels: np.ndarray,
+    sub_tokens: np.ndarray,
+    sub_labels: np.ndarray,
+    id_to_name: dict[int, str],
+    warnings_out: list[str],
+) -> dict[str, Any]:
+    """Score the split-free label separation metrics, degrading gracefully per metric.
+
+    Calinski-Harabasz and PC1-AUROC are closed-form and O(N·D), so they run
+    on the full patch corpus; silhouette and k-means ARI/NMI are O(N²) and
+    iterative respectively, so they run on the same seeded subsample as the
+    kNN metrics. A metric whose preconditions fail — a single class present,
+    no class named ``background``, scikit-learn absent — is reported as
+    ``None`` with an explanatory warning instead of failing the run.
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys: ``silhouette``, ``calinski_harabasz``, ``ari``, ``nmi``,
+        ``pc1_auroc`` — each a float or ``None``.
+    """
+    separation: dict[str, Any] = dict.fromkeys(("silhouette", "calinski_harabasz", "ari", "nmi", "pc1_auroc"))
+
+    if 2 <= len(np.unique(patch_labels)) < patch_labels.shape[0]:
+        separation["calinski_harabasz"] = calinski_harabasz(patch_tokens, patch_labels)
+    else:
+        warnings_out.append("calinski_harabasz skipped: needs 2 to n-1 distinct classes among the patches.")
+
+    if 2 <= len(np.unique(sub_labels)) <= sub_labels.shape[0] - 1:
+        separation["silhouette"] = silhouette_cosine(sub_tokens, sub_labels)
+        try:
+            agreement = kmeans_label_agreement(sub_tokens, sub_labels)
+            separation["ari"] = agreement["ari"]
+            separation["nmi"] = agreement["nmi"]
+        except ImportError:
+            warnings_out.append("ari/nmi skipped: scikit-learn is not installed (pip install scikit-learn).")
+    else:
+        warnings_out.append("silhouette/ari/nmi skipped: needs 2 to n-1 distinct classes among the subsampled patches.")
+
+    background_ids = sorted(cid for cid, name in id_to_name.items() if name == _BACKGROUND_CLASS_NAME)
+    if not background_ids:
+        warnings_out.append(f"pc1_auroc skipped: no class named '{_BACKGROUND_CLASS_NAME}' in the class map.")
+    else:
+        is_fg = ~np.isin(patch_labels, background_ids)
+        if is_fg.any() and not is_fg.all():
+            separation["pc1_auroc"] = pc1_auroc(patch_tokens, is_fg)
+        else:
+            warnings_out.append("pc1_auroc skipped: patches must include both background and foreground classes.")
+
+    return separation
+
+
 def _assemble_label_metrics(
     *,
     patch_tokens: np.ndarray,
@@ -611,8 +671,8 @@ def _assemble_label_metrics(
     k_values: list[int],
     max_patches: int,
     warnings_out: list[str],
-) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, Any]]:
-    """Subsample if needed, then score kNN confusion/purity and per-class spectrum metrics.
+) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, Any], dict[str, Any]]:
+    """Subsample if needed, then score kNN confusion/purity, per-class spectrum, and separation metrics.
 
     Shared tail for :func:`_compute_label_metrics` and
     :func:`_compute_label_metrics_placed` — both hand off an already
@@ -620,8 +680,8 @@ def _assemble_label_metrics(
 
     Returns
     -------
-    tuple[list[str], dict[str, dict[str, Any]], dict[str, Any]]
-        ``(classes, per_class, knn_confusion)``.
+    tuple[list[str], dict[str, dict[str, Any]], dict[str, Any], dict[str, Any]]
+        ``(classes, per_class, knn_confusion, separation)``.
     """
     n_patches_total = patch_tokens.shape[0]
     if n_patches_total > max_patches:
@@ -651,7 +711,16 @@ def _assemble_label_metrics(
             class_metrics["pca_explained_variance"] = pca_explained_variance(class_tokens, normalize=False)
         per_class[class_names[cid]] = class_metrics
 
-    return classes, per_class, knn_confusion
+    separation = _compute_separation_metrics(
+        patch_tokens=patch_tokens,
+        patch_labels=patch_labels,
+        sub_tokens=sub_tokens,
+        sub_labels=sub_labels,
+        id_to_name=id_to_name,
+        warnings_out=warnings_out,
+    )
+
+    return classes, per_class, knn_confusion, separation
 
 
 def run_dpt_eval(
@@ -754,10 +823,11 @@ def run_dpt_eval(
     classes: list[str] | None = None
     per_class: dict[str, dict[str, Any]] | None = None
     knn_confusion: dict[str, Any] | None = None
+    separation: dict[str, Any] | None = None
 
     if masks_dir is not None and classes_path is not None:
         if tile_placement is not None:
-            classes, per_class, knn_confusion = _compute_label_metrics_placed(
+            classes, per_class, knn_confusion, separation = _compute_label_metrics_placed(
                 tile_ids=tile_ids,
                 tiles_arr=tiles_arr,
                 patch_tokens=patch_tokens,
@@ -769,7 +839,7 @@ def run_dpt_eval(
                 warnings_out=warnings_list,
             )
         else:
-            classes, per_class, knn_confusion = _compute_label_metrics(
+            classes, per_class, knn_confusion, separation = _compute_label_metrics(
                 tile_ids=tile_ids,
                 tiles_arr=tiles_arr,
                 patch_tokens=patch_tokens,
@@ -793,6 +863,7 @@ def run_dpt_eval(
         "classes": classes,
         "per_class": _jsonify(per_class) if per_class is not None else None,
         "knn_confusion": _jsonify(knn_confusion) if knn_confusion is not None else None,
+        "separation": _jsonify(separation) if separation is not None else None,
         "warnings": warnings_list or None,
     }
 
@@ -870,5 +941,6 @@ def run_dpt_image_eval(
         "classes": result["classes"],
         "per_class": result["per_class"],
         "knn_confusion": result["knn_confusion"],
+        "separation": result["separation"],
         "warnings": result["warnings"],
     }
