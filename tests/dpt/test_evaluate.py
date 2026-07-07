@@ -132,7 +132,7 @@ def test_single_tile_evaluation():
 def test_single_total_patch_does_not_crash():
     # 1 tile, 1x1 grid → exactly one patch token in the whole request. Exercises
     # every geometry function's n<2 guard path without raising.
-    tiles = {"only": [[[1.0]], [[2.0]], [[3.0]]]}  # shape (C=3, H=1, W=1)
+    tiles = {"only": [[[1.0]], [[2.0]], [[3.0]]]}  # shape (P=3, H=1, W=1)
     result = run_dpt_eval(tiles=tiles)
     assert result["n_patches"] == 1
     assert result["global_metrics"]["effective_rank"]["effective_rank"] is None

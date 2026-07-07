@@ -37,7 +37,8 @@ class TestApp:
 
     def test_dpt_router_mounted(self) -> None:
         paths = set(app.openapi().get("paths", {}).keys())
-        assert "/v1/dense-patch-tokens/evaluate" in paths
+        assert "/v1/dense-patch-tokens/evaluate/tiles" in paths
+        assert "/v1/dense-patch-tokens/evaluate/image" in paths
 
 
 class TestMain:

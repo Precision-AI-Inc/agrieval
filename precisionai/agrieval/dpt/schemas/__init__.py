@@ -3,9 +3,16 @@
 
 """Pydantic request/response schemas for dense patch token evaluation."""
 
-from precisionai.agrieval.dpt.schemas.evaluate import DptEvalRequest, DptEvalResponse
+from precisionai.agrieval.dpt.schemas.evaluate import (
+    DptEvalRequest,
+    DptEvalResponse,
+    DptImageEvalRequest,
+    DptImageEvalResponse,
+)
 
 __all__ = [
     "DptEvalRequest",
     "DptEvalResponse",
+    "DptImageEvalRequest",
+    "DptImageEvalResponse",
 ]

@@ -16,7 +16,7 @@ def test_labeled_pipeline_end_to_end(labeled_dataset, classes_path):
     tiles, masks_dir, crop_name = labeled_dataset
 
     resp = client.post(
-        "/v1/dense-patch-tokens/evaluate",
+        "/v1/dense-patch-tokens/evaluate/tiles",
         json={
             "tiles": tiles,
             "masks_dir": str(masks_dir),
@@ -39,3 +39,20 @@ def test_labeled_pipeline_end_to_end(labeled_dataset, classes_path):
     # Well-separated prototypes → each patch's neighbors should mostly share its class.
     purity = data["knn_confusion"]["purity"]["3"]
     assert purity["mean"] > 0.9
+
+
+def test_image_wiring_matches_tiles_wiring_end_to_end(labeled_dataset, classes_path):
+    """The image wiring is a same-data, different-vocabulary view of the tiles wiring."""
+    images, masks_dir, crop_name = labeled_dataset
+    payload = {"masks_dir": str(masks_dir), "classes_path": str(classes_path), "k_values": [3]}
+
+    tiles_resp = client.post("/v1/dense-patch-tokens/evaluate/tiles", json={**payload, "tiles": images})
+    image_resp = client.post("/v1/dense-patch-tokens/evaluate/image", json={**payload, "images": images})
+    assert tiles_resp.status_code == image_resp.status_code == 200
+
+    tiles_data, image_data = tiles_resp.json(), image_resp.json()
+    assert image_data["n_images"] == tiles_data["n_tiles"]
+    assert image_data["image_ids"] == tiles_data["tile_ids"]
+    assert image_data["per_image"] == tiles_data["per_tile"]
+    assert image_data["global_metrics"] == tiles_data["global_metrics"]
+    assert set(image_data["classes"]) == {"background", crop_name}

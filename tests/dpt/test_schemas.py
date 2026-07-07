@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from precisionai.agrieval.dpt.schemas.evaluate import DptEvalRequest, DptEvalResponse
 
-_VALID_TILE = [[[1.0, 2.0], [3.0, 4.0]]]  # (C=1, H=2, W=2)
+_VALID_TILE = [[[1.0, 2.0], [3.0, 4.0]]]  # (P=1, H=2, W=2)
 
 # ---------------------------------------------------------------------------
 # tiles validator
@@ -83,7 +83,7 @@ def test_empty_axis_tile_rejected():
 
 
 def test_mismatched_shapes_rejected():
-    with pytest.raises(ValidationError, match="same \\(C, H, W\\) shape"):
+    with pytest.raises(ValidationError, match="same \\(P, H, W\\) shape"):
         DptEvalRequest(tiles={"a": _VALID_TILE, "b": [[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]]})
 
 

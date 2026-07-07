@@ -246,7 +246,8 @@ Command-line interface for semantic segmentation evaluation (``precisionai-agrie
 precisionai.agrieval.dpt
 ------------------------
 
-Top-level package re-exports — ``run_dpt_eval`` and ``load_tiles``.
+Top-level package re-exports — ``run_dpt_eval``, ``load_tiles``, ``load_tile_placement``,
+:class:`TilePlacement`, ``run_dpt_image_eval``, ``load_images``, and ``print_result``.
 
 .. automodule:: precisionai.agrieval.dpt
    :members:
@@ -266,12 +267,26 @@ Dense patch token diagnostics: per-patch norm statistics, spatial smoothness, an
 precisionai.agrieval.dpt.services.evaluate
 -------------------------------------------
 
-Service layer: loads tiles from disk (``load_tiles``, supporting ``.npy`` directories and ``.npz``
-archives), flattens tiles into a patch-token matrix, reuses ``emb.metrics.geometry`` for
-unsupervised diagnostics, and optionally aligns ground-truth masks to the patch grid for
-label-aware separation metrics.
+Service layer: loads tiles or whole-image feature maps from batched ``.npz`` archives
+(``load_tiles``/``load_images``), flattens them into a patch-token matrix, reuses
+``emb.metrics.geometry`` for unsupervised diagnostics, and optionally aligns ground-truth
+masks to the patch grid for label-aware separation metrics — ``load_tile_placement`` and
+``run_dpt_eval``'s ``tile_placement`` argument enable crop-aware alignment against one
+whole-image mask per source image. ``run_dpt_image_eval`` delegates to ``run_dpt_eval``
+and relabels the response for the whole-image wiring.
 
 .. automodule:: precisionai.agrieval.dpt.services.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.services.reporting
+--------------------------------------------
+
+Human-readable printing of dense patch token evaluation results (``print_result``),
+covering both the tile-keyed and whole-image-keyed result shapes.
+
+.. automodule:: precisionai.agrieval.dpt.services.reporting
    :members:
    :undoc-members:
    :show-inheritance:
@@ -279,7 +294,9 @@ label-aware separation metrics.
 precisionai.agrieval.dpt.schemas.evaluate
 -------------------------------------------
 
-Pydantic request and response schemas for ``POST /v1/dense-patch-tokens/evaluate``.
+Pydantic request and response schemas for ``POST /v1/dense-patch-tokens/evaluate/tiles``
+(``DptEvalRequest``/``DptEvalResponse``) and ``POST /v1/dense-patch-tokens/evaluate/image``
+(``DptImageEvalRequest``/``DptImageEvalResponse``).
 
 .. automodule:: precisionai.agrieval.dpt.schemas.evaluate
    :members:
@@ -289,7 +306,8 @@ Pydantic request and response schemas for ``POST /v1/dense-patch-tokens/evaluate
 precisionai.agrieval.dpt.api.routes.evaluate
 -----------------------------------------------
 
-The dense patch token evaluation endpoint: ``POST /v1/dense-patch-tokens/evaluate``.
+The dense patch token evaluation endpoints: ``POST /v1/dense-patch-tokens/evaluate/tiles`` and
+``POST /v1/dense-patch-tokens/evaluate/image``.
 
 .. automodule:: precisionai.agrieval.dpt.api.routes.evaluate
    :members:

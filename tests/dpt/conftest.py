@@ -24,8 +24,25 @@ def classes(classes_path: Path) -> list:
     return load_classes(classes_path)
 
 
+@pytest.fixture(scope="module")
+def real_masks_dir() -> Path:
+    """Ground-truth masks for the real dpt tile fixtures, keyed by image filename stem."""
+    return DATA_DIR / "masks"
+
+
+@pytest.fixture(scope="module")
+def real_dpt_tile_archives() -> list[Path]:
+    """Real (non-synthetic) tile-batch archives, one per source image.
+
+    Each archive's ``feature_maps`` are genuine backbone output, average-pooled
+    down to an 8x12 grid to keep fixtures small (~580 KB each) — embedding dim
+    and tile pixel geometry are untouched.
+    """
+    return sorted((DATA_DIR / "dpt_tiles").rglob("*.npz"))
+
+
 def _make_tile(rng: np.random.Generator) -> list:
-    """Random (C, H, W) tile as nested lists."""
+    """Random (P, H, W) tile as nested lists."""
     return rng.normal(size=(_EMBED_DIM, _GRID_H, _GRID_W)).astype(np.float32).tolist()
 
 

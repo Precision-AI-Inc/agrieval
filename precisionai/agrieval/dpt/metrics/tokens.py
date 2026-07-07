@@ -18,7 +18,7 @@ def patch_norm_stats(patch_tokens: object) -> dict:
     Parameters
     ----------
     patch_tokens : array-like
-        Shape ``[N, C]``.
+        Shape ``[N, P]``.
 
     Returns
     -------
@@ -42,9 +42,8 @@ def patch_smoothness(tile: object) -> float:
 
     Computes the mean cosine similarity of horizontally adjacent (right)
     patch pairs and of vertically adjacent (down) patch pairs, then averages
-    the two directional means — matching the smoothness definition of the
-    upstream dense-feature benchmark (``pai-vision-feature-map-eval``), where
-    the two directions are weighted equally regardless of grid aspect ratio.
+    the two directional means, weighting both directions equally regardless
+    of grid aspect ratio.
 
     High spatial smoothness is expected for natural imagery — a tile whose
     neighboring patches are nearly uncorrelated suggests noisy or
@@ -53,7 +52,7 @@ def patch_smoothness(tile: object) -> float:
     Parameters
     ----------
     tile : array-like
-        Single tile, shape ``[C, H, W]`` (channels-first).
+        Single tile, shape ``[P, H, W]`` (patch-first).
 
     Returns
     -------
@@ -88,9 +87,8 @@ def outlier_fraction(norms: object, *, threshold: float) -> float:
     Used to flag tiles with a disproportionate share of high-norm "artifact"
     patches relative to the full patch-token corpus. The threshold is
     computed once across *all* tiles — mean + 3 standard deviations of every
-    patch norm in the request, matching the artifact-patch definition of the
-    upstream dense-feature benchmark — and passed in here per tile, so
-    fractions are comparable across tiles instead of being tautological.
+    patch norm in the request — and passed in here per tile, so fractions
+    are comparable across tiles instead of being tautological.
 
     Parameters
     ----------

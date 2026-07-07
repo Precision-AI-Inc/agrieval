@@ -39,7 +39,7 @@ def test_stack_tiles_dtype_is_float32():
 
 
 def test_flatten_patches_known_values():
-    # One tile, C=2, H=2, W=2. Channel 0 is 1..4, channel 1 is 5..8 (row-major).
+    # One tile, P=2, H=2, W=2. Patch-channel 0 is 1..4, patch-channel 1 is 5..8 (row-major).
     tiles_arr = np.array([[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]], dtype=np.float32)
     flat = _flatten_patches(tiles_arr)
     expected = np.array([[1, 5], [2, 6], [3, 7], [4, 8]], dtype=np.float32)

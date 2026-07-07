@@ -39,14 +39,16 @@ POST /v1/segmentation/evaluate
 
 ## Dense patch token evaluation
 
-Evaluate dense per-patch feature-map tiles from a vision backbone — geometry
-diagnostics (effective rank, uniformity, anisotropy) and per-tile spatial
+Evaluate dense per-patch feature maps from a vision backbone — geometry
+diagnostics (effective rank, uniformity, anisotropy) and per-entry spatial
 health (patch smoothness, outlier fraction), with optional label-aware
 metrics (kNN confusion, per-class separation) when ground-truth masks are
-supplied.
+supplied. Two wirings share identical rules and metrics, differing only in
+whether each entry is a tile crop or one whole (untiled) image.
 
 ```
-POST /v1/dense-patch-tokens/evaluate
+POST /v1/dense-patch-tokens/evaluate/tiles
+POST /v1/dense-patch-tokens/evaluate/image
 ```
 
 ## Path resolution

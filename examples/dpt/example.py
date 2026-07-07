@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import numpy as np
 
-from precisionai.agrieval.dpt import run_dpt_eval
+from precisionai.agrieval.dpt import print_result, run_dpt_eval
 
 _REPO_ROOT = Path(__file__).parent.parent.parent
 _DEFAULT_MASKS = _REPO_ROOT / "tests" / "data" / "masks"
@@ -37,8 +37,12 @@ _N_UNLABELED_TILES = 10
 _SEED = 0
 
 
-def _fmt(v: float | None) -> str:
-    return f"{v:.4f}" if v is not None else "N/A"
+def _display_path(path: Path) -> Path:
+    """Show a path relative to the repo root when possible, never an absolute local path."""
+    try:
+        return path.relative_to(_REPO_ROOT)
+    except ValueError:
+        return path
 
 
 def _synthetic_tiles(tile_ids: list[str], *, embed_dim: int, grid_h: int, grid_w: int) -> dict[str, list]:
@@ -74,7 +78,7 @@ def main() -> None:
     parser.add_argument("--no-labels", action="store_true", help="Skip ground truth; generate unlabeled tiles.")
     parser.add_argument("--grid-height", type=int, default=8, metavar="H")
     parser.add_argument("--grid-width", type=int, default=12, metavar="W")
-    parser.add_argument("--embed-dim", type=int, default=32, metavar="C")
+    parser.add_argument("--embed-dim", type=int, default=32, metavar="P")
     args = parser.parse_args()
 
     if args.no_labels:
@@ -87,36 +91,15 @@ def main() -> None:
     tiles = _synthetic_tiles(tile_ids, embed_dim=args.embed_dim, grid_h=args.grid_height, grid_w=args.grid_width)
 
     print(
-        f"Tiles       : {len(tiles)} synthetic tile(s), grid {args.grid_height}x{args.grid_width}, C={args.embed_dim}"
+        f"Tiles       : {len(tiles)} synthetic tile(s), grid {args.grid_height}x{args.grid_width}, P={args.embed_dim}"
     )
-    if masks_dir is not None:
-        print(f"Ground truth: {masks_dir}")
-        print(f"Classes     : {classes_path}")
+    if masks_dir is not None and classes_path is not None:
+        print(f"Ground truth: {_display_path(masks_dir)}")
+        print(f"Classes     : {_display_path(classes_path)}")
     print()
 
     result = run_dpt_eval(tiles=tiles, masks_dir=masks_dir, classes_path=classes_path)
-
-    print(f"n_tiles={result['n_tiles']}  embed_dim={result['embed_dim']}  n_patches={result['n_patches']}")
-    print()
-
-    gm = result["global_metrics"]
-    print("Global metrics:")
-    print(f"  effective_rank        : {_fmt(gm['effective_rank']['effective_rank'])}")
-    print(f"  uniformity            : {_fmt(gm['uniformity'])}")
-    print(f"  mean_patch_smoothness : {_fmt(gm['mean_patch_smoothness'])}")
-    print(f"  mean_outlier_fraction : {_fmt(gm['mean_outlier_fraction'])}")
-
-    if result["classes"] is not None:
-        print()
-        print("Per-class patch counts:")
-        for cls_name, metrics in result["per_class"].items():
-            print(f"  {cls_name:<20} n_patches={metrics['n_patches']}")
-
-    if result["warnings"]:
-        print()
-        print("Warnings:")
-        for w in result["warnings"]:
-            print(f"  - {w}")
+    print_result(result)
 
 
 if __name__ == "__main__":

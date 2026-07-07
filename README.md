@@ -167,15 +167,15 @@ precisionai-agrieval-seg \
 See **[docs/DENSE_PATCH_TOKENS.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/DENSE_PATCH_TOKENS.md)** for the full reference — tile format, binary ingestion, metrics, and API details.
 
 ```python
-from precisionai.agrieval.dpt import run_dpt_eval
+from precisionai.agrieval.dpt import print_result, run_dpt_eval
 
-# Each tile is a channels-first feature map: [C, H, W]
+# Each tile is a patch-first feature map: [P, H, W]
 result = run_dpt_eval(tiles={"tile_0001": tile_array, "tile_0002": tile_array_2})
 
-print(result["global_metrics"]["effective_rank"])
+print_result(result)
 ```
 
-Pass `masks_dir`/`classes_path` for label-aware metrics, or load tiles from disk with `load_tiles()` instead of passing them inline — both are covered in the docs.
+`run_dpt_eval`/`load_tiles` (tile crops) has a sibling `run_dpt_image_eval`/`load_images` wiring for whole (untiled) images — same rules, same metrics, just keyed by `image_id` instead of `tile_id`. Pass `masks_dir`/`classes_path` to either wiring for label-aware metrics, or load feature maps from disk instead of passing them inline — all covered in the docs.
 
 ---
 
