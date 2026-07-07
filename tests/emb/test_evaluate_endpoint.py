@@ -10,20 +10,27 @@ import math
 
 import numpy as np
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from precisionai.agrieval.emb.api.app import app
+from precisionai.agrieval.emb.api.routes.evaluate import _run_or_400
 from precisionai.agrieval.emb.schemas.evaluate import EmbeddingEvaluateRequest, MetadataGroup
 from precisionai.agrieval.emb.services.evaluate import (
-    _jsonify,
+    _DEFAULT_WARN_ITEMS,
+    _build_evaluation_warnings,
+    _warn_threshold,
+    run_image2image_eval,
+)
+from precisionai.agrieval.emb.services.labels import (
     _labels_from_metadata,
     _parse_crop,
     build_image_items,
     extract_labels,
     load_image2image_metadata,
-    run_image2image_eval,
 )
+from precisionai.agrieval.emb.services.serialization import _jsonify
 from tests.emb.test_plant_wirings import _P2I_EMBEDDINGS, _P2I_MAP
 
 client = TestClient(app)
@@ -982,6 +989,10 @@ class TestParseCrop:
         """Hyphens are not separators; the full name is returned when no underscore present."""
         assert _parse_crop("HB-25000SBC") == "HB-25000SBC"
 
+    def test_underscore_splits_on_first_occurrence(self) -> None:
+        assert _parse_crop("A1_extra") == "A1"
+        assert _parse_crop("A1_extra_more") == "A1"
+
 
 class TestExtractLabelsBoundaries:
     def test_single_path_with_explicit_root(self) -> None:
@@ -1214,6 +1225,22 @@ class TestBuildImageItemsStructure:
             expected = frozenset(paths) - {item.image_id}
             assert item.explicit_positive_ids == expected
 
+    def test_list_valued_attribute_sorted_and_joined(self) -> None:
+        paths = ["ds/A1/img0.png"]
+        metadata = {
+            "g": MetadataGroup(images=paths, class_name="A1", attributes={"plants": ["Weed | Weed", "Crop | Corn"]})
+        }
+        items = build_image_items(paths, metadata)
+        assert items[0].attributes["plants"] == "Crop | Corn,Weed | Weed"
+
+    def test_none_valued_attribute_excluded(self) -> None:
+        paths = ["ds/A1/img0.png"]
+        metadata = {
+            "g": MetadataGroup(images=paths, class_name="A1", attributes={"camera": "anafi", "time_period": None})
+        }
+        items = build_image_items(paths, metadata)
+        assert items[0].attributes == {"camera": "anafi"}
+
     def test_unmatched_path_gets_none_class_and_empty_positives(self) -> None:
         unmatched = "ds/unknown/mystery.png"
         items = build_image_items([unmatched], {})
@@ -1431,3 +1458,77 @@ class TestLoadImage2ImageMetadata:
         bad.write_text(json.dumps({"not_metadata": {}}))
         with pytest.raises(ValueError, match="Expected a top-level 'metadata' key"):
             load_image2image_metadata(str(bad))
+
+
+# ---------------------------------------------------------------------------
+# MetadataGroup.l1_cluster / l2_cluster
+# ---------------------------------------------------------------------------
+
+
+class TestMetadataGroupClusterProperties:
+    def test_l1_and_l2_cluster_from_letter_digit_name(self) -> None:
+        group = MetadataGroup(images=["a.png"], class_name="BC14")
+        assert group.l1_cluster == "BC"
+        assert group.l2_cluster == "BC14"
+
+    def test_l1_and_l2_cluster_from_plain_name(self) -> None:
+        group = MetadataGroup(images=["a.png"], class_name="corn")
+        assert group.l1_cluster == "corn"
+        assert group.l2_cluster == "corn"
+
+
+# ---------------------------------------------------------------------------
+# _run_or_400 — ValueError -> HTTP 400 translation
+# ---------------------------------------------------------------------------
+
+
+class TestRunOr400:
+    def test_value_error_becomes_http_400(self) -> None:
+        def _raise(**kwargs: object) -> dict:
+            raise ValueError("boom")
+
+        with pytest.raises(HTTPException) as exc_info:
+            _run_or_400(_raise)
+        assert exc_info.value.status_code == 400
+        assert "boom" in exc_info.value.detail
+
+
+# ---------------------------------------------------------------------------
+# Advisory warning thresholds
+# ---------------------------------------------------------------------------
+
+
+class TestWarningThresholds:
+    def test_invalid_env_value_falls_back_to_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_ITEMS", "not-a-number")
+        assert _warn_threshold("PAI_EMB_WARN_ITEMS", _DEFAULT_WARN_ITEMS) == _DEFAULT_WARN_ITEMS
+
+    def test_large_embedding_matrix_warns(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_COMPONENTS", "10")
+        messages = _build_evaluation_warnings(n_items=5, embedding_dim=4, metadata=None, sample_pairs=None)
+        assert any("Large embedding matrix" in m for m in messages)
+
+    def test_large_metadata_matrix_warns(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_METADATA_CELLS", "10")
+        messages = _build_evaluation_warnings(
+            n_items=5,
+            embedding_dim=4,
+            metadata={"g": MetadataGroup(images=["a.png"], class_name="A1")},
+            sample_pairs=None,
+        )
+        assert any("relevance matrices" in m for m in messages)
+
+    def test_no_metadata_matrix_warning_without_metadata(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_METADATA_CELLS", "1")
+        messages = _build_evaluation_warnings(n_items=5, embedding_dim=4, metadata=None, sample_pairs=None)
+        assert not any("relevance matrices" in m for m in messages)
+
+    def test_exact_pairwise_stats_warns_when_sample_pairs_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_EXACT_PAIRS", "1")
+        messages = _build_evaluation_warnings(n_items=5, embedding_dim=4, metadata=None, sample_pairs=None)
+        assert any("Exact pairwise statistics" in m for m in messages)
+
+    def test_no_exact_pairwise_warning_when_sample_pairs_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAI_EMB_WARN_EXACT_PAIRS", "1")
+        messages = _build_evaluation_warnings(n_items=5, embedding_dim=4, metadata=None, sample_pairs=1000)
+        assert not any("Exact pairwise statistics" in m for m in messages)

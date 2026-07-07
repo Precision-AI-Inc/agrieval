@@ -56,6 +56,12 @@ from precisionai.agrieval.emb.metrics.ranking import (
     reciprocal_rank,
     safe_mean,
 )
+from precisionai.agrieval.emb.metrics.separation import (
+    calinski_harabasz,
+    kmeans_label_agreement,
+    pc1_auroc,
+    silhouette_cosine,
+)
 from precisionai.agrieval.emb.metrics.similarity import (
     cosine_similarity_matrix,
     pairwise_similarity_stats,
@@ -69,6 +75,7 @@ __all__ = [
     "analyze_embedding_space",
     "anisotropy_summary",
     "average_precision_at_k",
+    "calinski_harabasz",
     "centroid_similarity_stats",
     "compare_embedding_spaces",
     "cosine_similarity_matrix",
@@ -79,6 +86,7 @@ __all__ = [
     "gini_coefficient",
     "hubness_at_k",
     "intra_inter_similarity_gap",
+    "kmeans_label_agreement",
     "knn_confusion_matrix",
     "knn_jaccard_at_k",
     "knn_label_mrr_at_k",
@@ -101,6 +109,7 @@ __all__ = [
     "outlier_score_at_k",
     "pairwise_similarity_correlation",
     "pairwise_similarity_stats",
+    "pc1_auroc",
     "pca_explained_variance",
     "per_item_neighbor_disagreement",
     "precision_at_k",
@@ -109,6 +118,7 @@ __all__ = [
     "reciprocal_rank",
     "relevance_grade",
     "safe_mean",
+    "silhouette_cosine",
     "similarity_threshold_counts",
     "top_k_neighbors",
     "uniformity",

@@ -73,6 +73,27 @@ class TestPcaExplainedVariance:
         result = pca_explained_variance(vectors, n_components=100)
         assert result["n_components"] <= 4
 
+    def test_svd_fallback_matches_sklearn_when_pca_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When sklearn's PCA isn't importable, the SVD fallback must produce an equivalent spectrum."""
+        rng = np.random.default_rng(3)
+        vectors = rng.random((20, 8)).astype(np.float32)
+
+        with_sklearn = pca_explained_variance(vectors)
+        monkeypatch.setattr("precisionai.agrieval.emb.metrics.geometry.PCA", None)
+        without_sklearn = pca_explained_variance(vectors)
+
+        np.testing.assert_allclose(
+            with_sklearn["explained_variance_ratio"], without_sklearn["explained_variance_ratio"], atol=1e-4
+        )
+
+    def test_svd_fallback_zero_variance_returns_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Constant rows have zero total variance; the fallback must not divide by zero."""
+        monkeypatch.setattr("precisionai.agrieval.emb.metrics.geometry.PCA", None)
+        vectors = np.ones((5, 4), dtype=np.float32)
+        result = pca_explained_variance(vectors, normalize=False)
+        assert result["explained_variance_ratio"] == []
+        assert result["pc1"] is None
+
 
 class TestEffectiveRank:
     def test_identical_vectors_low_effective_rank(self) -> None:

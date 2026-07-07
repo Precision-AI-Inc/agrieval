@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from precisionai.agrieval.emb.services.evaluate import _parse_crop
+from precisionai.agrieval.emb.services.labels import _parse_crop
 
 # ---------------------------------------------------------------------------
 # Constants

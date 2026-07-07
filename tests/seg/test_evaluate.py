@@ -12,6 +12,7 @@ from precisionai.agrieval.seg.services.evaluate import (
     _build_lut,
     _discover_pairs,
     _nan_to_none,
+    _resolve_worker_count,
     _rgb_to_class_ids,
     _validate_colors,
     load_classes,
@@ -185,6 +186,20 @@ def test_discover_pairs_empty_pred(tmp_path):
         _discover_pairs(pred_dir, gt_dir)
 
 
+def test_discover_pairs_nonexistent_pred_dir(tmp_path):
+    gt_dir = tmp_path / "gt"
+    gt_dir.mkdir()
+    with pytest.raises(FileNotFoundError, match="pred_dir does not exist"):
+        _discover_pairs(tmp_path / "does_not_exist", gt_dir)
+
+
+def test_discover_pairs_nonexistent_masks_dir(tmp_path):
+    pred_dir = tmp_path / "pred"
+    pred_dir.mkdir()
+    with pytest.raises(FileNotFoundError, match="masks_dir does not exist"):
+        _discover_pairs(pred_dir, tmp_path / "does_not_exist")
+
+
 # ---------------------------------------------------------------------------
 # run_seg_eval — error paths
 # ---------------------------------------------------------------------------
@@ -322,6 +337,42 @@ def test_run_seg_eval_verbose(tmp_path, classes_path, capsys):
     assert "mIoU" in captured.out
     assert "mAcc" in captured.out
     assert "FWIoU" in captured.out
+
+
+def test_run_seg_eval_verbose_without_progress_uses_print(tmp_path, classes_path, capsys):
+    """With show_progress=False, verbose logging must go through plain print(), not tqdm.write()."""
+    pred_dir = tmp_path / "pred"
+    gt_dir = tmp_path / "gt"
+    pred_dir.mkdir()
+    gt_dir.mkdir()
+    _make_mask(pred_dir / "t.png", np.zeros((4, 4, 3), dtype=np.uint8))
+    _make_mask(gt_dir / "t.png", np.zeros((4, 4, 3), dtype=np.uint8))
+
+    run_seg_eval(pred_dir, gt_dir, classes_path, verbose=True, show_progress=False)
+    captured = capsys.readouterr()
+    assert "mIoU" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# _resolve_worker_count
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_worker_count_default_bounded_by_pairs():
+    assert _resolve_worker_count(None, pair_count=2) <= 2
+
+
+def test_resolve_worker_count_explicit_value():
+    assert _resolve_worker_count(3, pair_count=10) == 3
+
+
+def test_resolve_worker_count_bounded_by_pair_count():
+    assert _resolve_worker_count(10, pair_count=2) == 2
+
+
+def test_resolve_worker_count_rejects_non_positive():
+    with pytest.raises(ValueError, match="at least 1"):
+        _resolve_worker_count(0, pair_count=5)
 
 
 def test_run_seg_eval_multiple_classes(tmp_path, classes_path):

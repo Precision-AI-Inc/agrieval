@@ -41,6 +41,6 @@ repos:
         name: pytest (coverage ≥ 90%)
         entry: python -m pytest
         language: system
-        args: ["tests/emb/", "tests/seg/", "-q", "--tb=short", "--no-header"]
+        args: ["tests/emb/", "tests/seg/", "tests/dpt/", "-q", "--tb=short", "--no-header"]
         pass_filenames: false
         always_run: true

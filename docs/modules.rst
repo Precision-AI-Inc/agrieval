@@ -1,8 +1,8 @@
 Module Reference
 ================
 
-API documentation for the ``precisionai.agrieval.emb`` and ``precisionai.agrieval.seg``
-packages — metrics, services, schemas, and routes.
+API documentation for the ``precisionai.agrieval.emb``, ``precisionai.agrieval.seg``, and
+``precisionai.agrieval.dpt`` packages — metrics, services, schemas, and routes.
 
 precisionai.agrieval.emb
 ------------------------
@@ -77,6 +77,16 @@ Label-aware metrics: intra/inter gap, KNN purity, nDCG, MAP, MRR, R-Precision, m
    :undoc-members:
    :show-inheritance:
 
+precisionai.agrieval.emb.metrics.separation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Split-free label separation metrics: silhouette (cosine), Calinski-Harabasz, k-means cluster agreement (ARI/NMI), and PC1-AUROC linear separability — no train/eval split required.
+
+.. automodule:: precisionai.agrieval.emb.metrics.separation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 precisionai.agrieval.emb.metrics.cross_model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -113,6 +123,36 @@ precisionai.agrieval.emb.services.evaluate
 Service layer: orchestrates metrics into the fixed evaluation JSON schema, supporting both embeddings-only and embeddings+metadata evaluation modes.
 
 .. automodule:: precisionai.agrieval.emb.services.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.emb.services.labels
+-----------------------------------------
+
+Label extraction from paths, metadata wiring (``build_image_items``, plant wiring adapters), and the ``image2image.json`` metadata loader.
+
+.. automodule:: precisionai.agrieval.emb.services.labels
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.emb.services.knn_metrics
+-----------------------------------------------
+
+KNN metric bundles, per-class breakdowns, global-metric assembly, and HDBSCAN group analysis.
+
+.. automodule:: precisionai.agrieval.emb.services.knn_metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.emb.services.serialization
+-------------------------------------------------
+
+JSON serialisation helpers shared by the evaluation services.
+
+.. automodule:: precisionai.agrieval.emb.services.serialization
    :members:
    :undoc-members:
    :show-inheritance:
@@ -209,6 +249,77 @@ precisionai.agrieval.seg.cli
 Command-line interface for semantic segmentation evaluation (``precisionai-agrieval-seg``).
 
 .. automodule:: precisionai.agrieval.seg.cli
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt
+------------------------
+
+Top-level package re-exports — ``run_dpt_eval``, ``load_tiles``, ``load_tile_placement``,
+:class:`TilePlacement`, ``run_dpt_image_eval``, ``load_images``, and ``print_result``.
+
+.. automodule:: precisionai.agrieval.dpt
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.metrics.tokens
+----------------------------------------
+
+Dense patch token diagnostics: per-patch norm statistics, spatial smoothness, and outlier fraction.
+
+.. automodule:: precisionai.agrieval.dpt.metrics.tokens
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.services.evaluate
+-------------------------------------------
+
+Service layer: loads tiles or whole-image feature maps from batched ``.npz`` archives
+(``load_tiles``/``load_images``), flattens them into a patch-token matrix, reuses
+``emb.metrics.geometry`` for unsupervised diagnostics, and optionally aligns ground-truth
+masks to the patch grid for label-aware separation metrics — ``load_tile_placement`` and
+``run_dpt_eval``'s ``tile_placement`` argument enable crop-aware alignment against one
+whole-image mask per source image. ``run_dpt_image_eval`` delegates to ``run_dpt_eval``
+and relabels the response for the whole-image wiring.
+
+.. automodule:: precisionai.agrieval.dpt.services.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.services.reporting
+--------------------------------------------
+
+Human-readable printing of dense patch token evaluation results (``print_result``),
+covering both the tile-keyed and whole-image-keyed result shapes.
+
+.. automodule:: precisionai.agrieval.dpt.services.reporting
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.schemas.evaluate
+-------------------------------------------
+
+Pydantic request and response schemas for ``POST /v1/dense-patch-tokens/evaluate/tiles``
+(``DptEvalRequest``/``DptEvalResponse``) and ``POST /v1/dense-patch-tokens/evaluate/image``
+(``DptImageEvalRequest``/``DptImageEvalResponse``).
+
+.. automodule:: precisionai.agrieval.dpt.schemas.evaluate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+precisionai.agrieval.dpt.api.routes.evaluate
+-----------------------------------------------
+
+The dense patch token evaluation endpoints: ``POST /v1/dense-patch-tokens/evaluate/tiles`` and
+``POST /v1/dense-patch-tokens/evaluate/image``.
+
+.. automodule:: precisionai.agrieval.dpt.api.routes.evaluate
    :members:
    :undoc-members:
    :show-inheritance:

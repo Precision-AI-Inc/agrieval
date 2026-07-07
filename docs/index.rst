@@ -5,12 +5,16 @@ Welcome to the **Precision AI AgriEval** documentation. This package evaluates a
 computer vision models: ``precisionai.agrieval.emb`` measures how well an embedding space
 supports image and plant retrieval using KNN-based metrics, geometry diagnostics, and
 interactive visualizations; ``precisionai.agrieval.seg`` scores semantic segmentation masks
-against ground truth using per-class IoU, Dice/F1, accuracy, mIoU, mAcc, and FWIoU.
+against ground truth using per-class IoU, Dice/F1, accuracy, mIoU, mAcc, and FWIoU;
+``precisionai.agrieval.dpt`` evaluates dense per-patch feature-map tiles from a vision
+backbone using geometry diagnostics, per-tile spatial health, and optional label-aware
+separation metrics.
 
 - The **Getting started** chapter is the project README: installation, dataset structure,
   API usage, metrics reference, and visualization guide.
-- The **Module Reference** chapter documents the ``precisionai.agrieval.emb`` and
-  ``precisionai.agrieval.seg`` APIs — metrics, services, schemas, and routes.
+- The **Module Reference** chapter documents the ``precisionai.agrieval.emb``,
+  ``precisionai.agrieval.seg``, and ``precisionai.agrieval.dpt`` APIs — metrics, services,
+  schemas, and routes.
 
 Contents
 --------

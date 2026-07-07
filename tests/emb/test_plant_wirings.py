@@ -15,10 +15,12 @@ from fastapi.testclient import TestClient
 from precisionai.agrieval.emb.api.app import app
 from precisionai.agrieval.emb.schemas.evaluate import Plant2ImageRequest, Plant2PlantRequest
 from precisionai.agrieval.emb.services.evaluate import (
-    plant2image_to_metadata,
-    plant2plant_to_metadata,
     run_plant2image_eval,
     run_plant2plant_eval,
+)
+from precisionai.agrieval.emb.services.labels import (
+    plant2image_to_metadata,
+    plant2plant_to_metadata,
 )
 
 client = TestClient(app)
@@ -440,6 +442,39 @@ class TestPlant2ImageRequestValidation:
                 k_values=[1],
             )
 
+    def test_dimension_mismatch_raises(self) -> None:
+        bad_embeddings = {
+            "images/A1/field001.png": _norm_vec(0),
+            "images/B1/field002.png": [0.0, 1.0],
+        }
+        with pytest.raises(Exception, match="same dimension"):
+            Plant2ImageRequest(embeddings=bad_embeddings, instance_to_image={"images/A1/field001.png": []})
+
+    def test_empty_vector_raises(self) -> None:
+        bad_embeddings = {"images/A1/field001.png": [], "images/B1/field002.png": []}
+        with pytest.raises(Exception, match="must not be empty"):
+            Plant2ImageRequest(embeddings=bad_embeddings, instance_to_image={"images/A1/field001.png": []})
+
+    def test_non_finite_value_raises(self) -> None:
+        bad_embeddings = {
+            "images/A1/field001.png": [math.nan] * _DIM,
+            "images/B1/field002.png": _norm_vec(1),
+        }
+        with pytest.raises(Exception, match="non-finite"):
+            Plant2ImageRequest(embeddings=bad_embeddings, instance_to_image={"images/A1/field001.png": []})
+
+    def test_not_normalized_raises(self) -> None:
+        bad_embeddings = {
+            "images/A1/field001.png": [1.0] * _DIM,
+            "images/B1/field002.png": _norm_vec(1),
+        }
+        with pytest.raises(Exception, match="not L2-normalised"):
+            Plant2ImageRequest(embeddings=bad_embeddings, instance_to_image={"images/A1/field001.png": []})
+
+    def test_empty_k_values_raises(self) -> None:
+        with pytest.raises(Exception, match="at least one value"):
+            Plant2ImageRequest(embeddings=_P2I_EMBEDDINGS, instance_to_image=_P2I_MAP, k_values=[])
+
 
 # ---------------------------------------------------------------------------
 # Schema validation — Plant2PlantRequest
@@ -480,6 +515,42 @@ class TestPlant2PlantRequestValidation:
                 instance_labels={"images/A1/inst-0.tiff": "A1", "images/B1/inst-1.png": "B1"},
                 k_values=[1],
             )
+
+    def test_dimension_mismatch_raises(self) -> None:
+        bad_embeddings = {"images/A1/inst-0.png": _norm_vec(0), "images/B1/inst-1.png": [0.0, 1.0]}
+        with pytest.raises(Exception, match="same dimension"):
+            Plant2PlantRequest(
+                embeddings=bad_embeddings,
+                instance_labels={"images/A1/inst-0.png": "A1", "images/B1/inst-1.png": "B1"},
+            )
+
+    def test_empty_vector_raises(self) -> None:
+        bad_embeddings = {"images/A1/inst-0.png": [], "images/B1/inst-1.png": []}
+        with pytest.raises(Exception, match="must not be empty"):
+            Plant2PlantRequest(
+                embeddings=bad_embeddings,
+                instance_labels={"images/A1/inst-0.png": "A1", "images/B1/inst-1.png": "B1"},
+            )
+
+    def test_non_finite_value_raises(self) -> None:
+        bad_embeddings = {"images/A1/inst-0.png": [math.nan] * _DIM, "images/B1/inst-1.png": _norm_vec(1)}
+        with pytest.raises(Exception, match="non-finite"):
+            Plant2PlantRequest(
+                embeddings=bad_embeddings,
+                instance_labels={"images/A1/inst-0.png": "A1", "images/B1/inst-1.png": "B1"},
+            )
+
+    def test_not_normalized_raises(self) -> None:
+        bad_embeddings = {"images/A1/inst-0.png": [1.0] * _DIM, "images/B1/inst-1.png": _norm_vec(1)}
+        with pytest.raises(Exception, match="not L2-normalised"):
+            Plant2PlantRequest(
+                embeddings=bad_embeddings,
+                instance_labels={"images/A1/inst-0.png": "A1", "images/B1/inst-1.png": "B1"},
+            )
+
+    def test_empty_k_values_raises(self) -> None:
+        with pytest.raises(Exception, match="at least one value"):
+            Plant2PlantRequest(embeddings=_P2P_EMBEDDINGS, instance_labels=_P2P_LABELS, k_values=[])
 
 
 # ---------------------------------------------------------------------------

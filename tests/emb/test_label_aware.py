@@ -40,7 +40,8 @@ from precisionai.agrieval.emb.metrics.label_aware import (
     _build_grade_matrix,
     _encode_class_names,
 )
-from precisionai.agrieval.emb.services.evaluate import _jsonify, _parse_crop, extract_labels
+from precisionai.agrieval.emb.services.labels import _parse_crop, extract_labels
+from precisionai.agrieval.emb.services.serialization import _jsonify
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

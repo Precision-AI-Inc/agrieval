@@ -4,7 +4,7 @@
 
 # Precision AI AgriEval
 
-AgriEval evaluates agricultural computer vision models. It has two subpackages: `emb` benchmarks how well an embedding space supports image and plant retrieval (nDCG, MAP, MRR, purity, geometry diagnostics), and `seg` scores semantic segmentation masks against ground truth (per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU).
+AgriEval evaluates agricultural computer vision models. It has three subpackages: `emb` benchmarks how well an embedding space supports image and plant retrieval (nDCG, MAP, MRR, purity, geometry diagnostics), `seg` scores semantic segmentation masks against ground truth (per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU), and `dpt` evaluates dense per-patch feature-map tiles from a vision backbone (geometry diagnostics, per-tile spatial health, optional label-aware separation metrics).
 
 Give it your model's outputs and the dataset's ground-truth annotations, and it returns the metrics as JSON — through a FastAPI server or directly from Python.
 
@@ -20,6 +20,7 @@ Give it your model's outputs and the dataset's ground-truth annotations, and it 
 |---|---|---|
 | `precisionai.agrieval.emb` | Embedding evaluation — KNN retrieval benchmarking, geometry diagnostics, interactive visualizations | [EMBEDDING.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/EMBEDDING.md) |
 | `precisionai.agrieval.seg` | Semantic segmentation evaluation — per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU from colour-coded masks | [SEGMENTATION.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/SEGMENTATION.md) |
+| `precisionai.agrieval.dpt` | Dense patch token evaluation — geometry diagnostics and per-tile spatial health for vision-backbone feature-map tiles, with optional label-aware separation metrics | [DENSE_PATCH_TOKENS.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/DENSE_PATCH_TOKENS.md) |
 
 ---
 
@@ -50,7 +51,7 @@ Repository image fixtures and other committed data files must stay at or below *
 
 ```
 precisionai/agrieval/
-  api/          # Unified FastAPI app (emb + seg on one server)
+  api/          # Unified FastAPI app (emb + seg + dpt on one server)
   emb/          # Embedding evaluation
     api/        # FastAPI app and route handlers (emb-only server)
     metrics/    # Pure computation — ranking, similarity, geometry, …
@@ -62,14 +63,21 @@ precisionai/agrieval/
     schemas/    # Pydantic request/response models
     services/   # Evaluation orchestration and JSON output
     cli.py      # CLI entry point (precisionai-agrieval-seg)
+  dpt/          # Dense patch token evaluation
+    api/        # FastAPI route handlers
+    metrics/    # Pure computation — patch norm stats, smoothness, outlier fraction
+    schemas/    # Pydantic request/response models
+    services/   # Evaluation orchestration — reuses emb.metrics geometry and seg mask loading
 
 tests/
   emb/          # Tests for precisionai.agrieval.emb
   seg/          # Tests for precisionai.agrieval.seg
+  dpt/          # Tests for precisionai.agrieval.dpt
   data/         # Shared fixtures — images, masks, class_map.json
 
 examples/
   emb/          # Runnable scripts and notebooks for emb
+  dpt/          # Runnable script for dpt
 ```
 
 ---
@@ -154,6 +162,21 @@ precisionai-agrieval-seg \
   --verbose
 ```
 
+### Dense patch token evaluation
+
+See **[docs/DENSE_PATCH_TOKENS.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/DENSE_PATCH_TOKENS.md)** for the full reference — tile format, binary ingestion, metrics, and API details.
+
+```python
+from precisionai.agrieval.dpt import print_result, run_dpt_eval
+
+# Each tile is a patch-first feature map: [P, H, W]
+result = run_dpt_eval(tiles={"tile_0001": tile_array, "tile_0002": tile_array_2})
+
+print_result(result)
+```
+
+`run_dpt_eval`/`load_tiles` (tile crops) has a sibling `run_dpt_image_eval`/`load_images` wiring for whole (untiled) images — same rules, same metrics, just keyed by `image_id` instead of `tile_id`. Pass `masks_dir`/`classes_path` to either wiring for label-aware metrics, or load feature maps from disk instead of passing them inline — all covered in the docs.
+
 ---
 
 ## Development
@@ -162,11 +185,12 @@ See [CONTRIBUTING.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/CON
 
 ```bash
 # Run all tests
-python -m pytest tests/emb/ tests/seg/
+python -m pytest tests/emb/ tests/seg/ tests/dpt/
 
 # Run a single subpackage
 python -m pytest tests/emb/
 python -m pytest tests/seg/
+python -m pytest tests/dpt/
 
 # Run pre-commit hooks manually
 pre-commit run --all-files

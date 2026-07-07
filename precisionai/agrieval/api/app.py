@@ -11,6 +11,7 @@ import os
 import uvicorn
 from fastapi import FastAPI
 
+from precisionai.agrieval.dpt.api.routes.evaluate import router as dpt_router
 from precisionai.agrieval.emb.api.routes.evaluate import router as emb_router
 from precisionai.agrieval.seg.api.routes.evaluate import router as seg_router
 
@@ -36,6 +37,20 @@ per-class IoU, Dice/F1, accuracy, mIoU, mAcc, and FWIoU.
 POST /v1/segmentation/evaluate
 ```
 
+## Dense patch token evaluation
+
+Evaluate dense per-patch feature maps from a vision backbone — geometry
+diagnostics (effective rank, uniformity, anisotropy) and per-entry spatial
+health (patch smoothness, outlier fraction), with optional label-aware
+metrics (kNN confusion, per-class separation) when ground-truth masks are
+supplied. Two wirings share identical rules and metrics, differing only in
+whether each entry is a tile crop or one whole (untiled) image.
+
+```
+POST /v1/dense-patch-tokens/evaluate/tiles
+POST /v1/dense-patch-tokens/evaluate/image
+```
+
 ## Path resolution
 
 All path arguments (``pred_dir``, ``masks_dir``, ``classes_path``, etc.) are
@@ -52,6 +67,7 @@ app = FastAPI(
 
 app.include_router(emb_router, prefix="/v1")
 app.include_router(seg_router, prefix="/v1")
+app.include_router(dpt_router, prefix="/v1")
 
 
 def main() -> None:
