@@ -139,7 +139,7 @@ def _labels_from_metadata(
     return [path_to_class.get(p, fallback) for p, fallback in zip(paths, fallback_labels, strict=True)]
 
 
-def _normalise_attributes(raw: dict[str, Any]) -> dict[str, str]:
+def _normalize_attributes(raw: dict[str, Any]) -> dict[str, str]:
     """Convert a MetadataGroup attributes dict to a flat ``dict[str, str]``.
 
     List values are sorted and joined with ``","`` for stable canonical form.
@@ -153,7 +153,7 @@ def _normalise_attributes(raw: dict[str, Any]) -> dict[str, str]:
     Returns
     -------
     dict[str, str]
-        Normalised attributes suitable for :class:`~precisionai.agrieval.emb.metrics.ImageItem`.
+        Normalized attributes suitable for :class:`~precisionai.agrieval.emb.metrics.ImageItem`.
     """
     result: dict[str, str] = {}
     for k, v in raw.items():
@@ -190,11 +190,11 @@ def build_image_items(
     list[ImageItem]
         One :class:`~precisionai.agrieval.emb.metrics.ImageItem` per path, in the same order.
     """
-    # exact path → (l1_cluster, normalised str attributes, frozenset of all member paths)
+    # exact path → (l1_cluster, normalized str attributes, frozenset of all member paths)
     path_to_group: dict[str, tuple[str, dict[str, str], frozenset[str]]] = {}
     for group in metadata.values():
         member_ids = frozenset(group.images)
-        norm_attrs = _normalise_attributes(group.attributes)
+        norm_attrs = _normalize_attributes(group.attributes)
         for img in group.images:
             path_to_group[img] = (group.l1_cluster, norm_attrs, member_ids)
 

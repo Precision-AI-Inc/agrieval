@@ -244,7 +244,7 @@ def test_pickled_object_feature_maps_rejected(tmp_path):
     arrays["feature_maps"] = obj
     archive = tmp_path / "tiles.npz"
     _savez(archive, arrays)
-    # allow_pickle=False refuses to deserialise object arrays.
+    # allow_pickle=False refuses to deserialize object arrays.
     with pytest.raises(ValueError, match=r"allow_pickle|pickle"):
         load_tiles(archive)
 

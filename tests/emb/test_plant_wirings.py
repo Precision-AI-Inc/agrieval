@@ -259,7 +259,7 @@ class TestRunPlant2ImageEvaluation:
         )
         assert "group_analysis" in result
 
-    def test_output_is_json_serialisable(self) -> None:
+    def test_output_is_json_serializable(self) -> None:
         result = run_plant2image_eval(
             embeddings=_P2I_EMBEDDINGS,
             instance_to_image=_P2I_MAP,
@@ -346,7 +346,7 @@ class TestRunPlant2PlantEvaluation:
         for key in ("knn_label_purity", "knn_label_ndcg", "knn_map"):
             assert key not in gm
 
-    def test_output_is_json_serialisable(self) -> None:
+    def test_output_is_json_serializable(self) -> None:
         result = run_plant2plant_eval(
             embeddings=_P2P_EMBEDDINGS,
             instance_labels=_P2P_LABELS,
@@ -468,7 +468,7 @@ class TestPlant2ImageRequestValidation:
             "images/A1/field001.png": [1.0] * _DIM,
             "images/B1/field002.png": _norm_vec(1),
         }
-        with pytest.raises(Exception, match="not L2-normalised"):
+        with pytest.raises(Exception, match="not L2-normalized"):
             Plant2ImageRequest(embeddings=bad_embeddings, instance_to_image={"images/A1/field001.png": []})
 
     def test_empty_k_values_raises(self) -> None:
@@ -542,7 +542,7 @@ class TestPlant2PlantRequestValidation:
 
     def test_not_normalized_raises(self) -> None:
         bad_embeddings = {"images/A1/inst-0.png": [1.0] * _DIM, "images/B1/inst-1.png": _norm_vec(1)}
-        with pytest.raises(Exception, match="not L2-normalised"):
+        with pytest.raises(Exception, match="not L2-normalized"):
             Plant2PlantRequest(
                 embeddings=bad_embeddings,
                 instance_labels={"images/A1/inst-0.png": "A1", "images/B1/inst-1.png": "B1"},
@@ -626,14 +626,14 @@ class TestPlant2PlantEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# Norm helper (sanity guard so test embeddings are actually L2-normalised)
+# Norm helper (sanity guard so test embeddings are actually L2-normalized)
 # ---------------------------------------------------------------------------
 
 
-def test_fixture_embeddings_are_normalised() -> None:
+def test_fixture_embeddings_are_normalized() -> None:
     for path, vec in {**_P2I_EMBEDDINGS, **_P2P_EMBEDDINGS}.items():
         norm = math.sqrt(sum(x * x for x in vec))
-        assert abs(norm - 1.0) < 1e-3, f"Embedding for {path!r} is not normalised (‖v‖₂={norm:.6f})"
+        assert abs(norm - 1.0) < 1e-3, f"Embedding for {path!r} is not normalized (‖v‖₂={norm:.6f})"
 
 
 # ---------------------------------------------------------------------------

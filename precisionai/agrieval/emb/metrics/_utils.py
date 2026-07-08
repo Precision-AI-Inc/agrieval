@@ -216,7 +216,7 @@ def _rankdata(arr: np.ndarray) -> np.ndarray:
     """Assign average ranks to a 1-D array, handling ties correctly.
 
     Tied values receive the mean of the ranks they would occupy, matching the
-    behaviour of ``scipy.stats.rankdata`` with ``method='average'``.  Used as
+    behavior of ``scipy.stats.rankdata`` with ``method='average'``.  Used as
     a fallback for Spearman correlation when scipy is not installed.
 
     Parameters

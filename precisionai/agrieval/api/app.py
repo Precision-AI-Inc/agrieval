@@ -30,7 +30,7 @@ POST /v1/embeddings/evaluate/plant2plant
 
 ## Segmentation evaluation
 
-Evaluate predicted colour-coded masks against ground-truth masks.  Returns
+Evaluate predicted color-coded masks against ground-truth masks.  Returns
 per-class IoU, Dice/F1, accuracy, mIoU, mAcc, and FWIoU.
 
 ```
@@ -73,7 +73,7 @@ app.include_router(dpt_router, prefix="/v1")
 def main() -> None:
     """Parse CLI arguments and start the uvicorn ASGI server.
 
-    Recognised arguments
+    Recognized arguments
     --------------------
     --dataset-root : str
         Default dataset root used when a request does not supply one.  Also

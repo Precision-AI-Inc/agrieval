@@ -31,10 +31,10 @@ def test_quadrant_crop_isolates_label_to_its_own_tile(tmp_path: Path, classes: l
     crop_name, crop_color, _ = next((n, c, i) for n, c, i in classes if i == 1)
 
     # Whole 32x32 mask: three quadrants background, bottom-right quadrant
-    # (y0=16, x0=16) is entirely the crop colour. Background dominates the
+    # (y0=16, x0=16) is entirely the crop color. Background dominates the
     # mask overall (75%), so a bug that downsamples the whole mask once per
     # tile (skipping the per-tile crop) would assign every tile the same
-    # "background" majority and never surface the crop colour at all.
+    # "background" majority and never surface the crop color at all.
     mask = np.zeros((32, 32, 3), dtype=np.uint8)
     mask[:16, :] = bg_color
     mask[16:, :16] = bg_color

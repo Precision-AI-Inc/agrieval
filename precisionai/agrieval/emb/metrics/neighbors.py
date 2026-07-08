@@ -161,7 +161,7 @@ def hubness_at_k(
     neighbors_by_k : dict
         Output of :func:`~precisionai.agrieval.emb.metrics.similarity.top_k_neighbors`.
     n_items : int
-        Total number of items (needed to initialise the hub-count array).
+        Total number of items (needed to initialize the hub-count array).
     top_n : int
         Number of top hubs to return per K.
 

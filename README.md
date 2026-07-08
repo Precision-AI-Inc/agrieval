@@ -19,7 +19,7 @@ Give it your model's outputs and the dataset's ground-truth annotations, and it 
 | Subpackage | Domain | Docs |
 |---|---|---|
 | `precisionai.agrieval.emb` | Embedding evaluation — KNN retrieval benchmarking, geometry diagnostics, interactive visualizations | [EMBEDDING.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/EMBEDDING.md) |
-| `precisionai.agrieval.seg` | Semantic segmentation evaluation — per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU from colour-coded masks | [SEGMENTATION.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/SEGMENTATION.md) |
+| `precisionai.agrieval.seg` | Semantic segmentation evaluation — per-class IoU, Dice/F1, accuracy, mIoU, mAcc, FWIoU from color-coded masks | [SEGMENTATION.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/SEGMENTATION.md) |
 | `precisionai.agrieval.dpt` | Dense patch token evaluation — geometry diagnostics and per-tile spatial health for vision-backbone feature-map tiles, with optional label-aware separation metrics | [DENSE_PATCH_TOKENS.md](https://github.com/Precision-AI-Inc/agrieval/blob/main/docs/DENSE_PATCH_TOKENS.md) |
 
 ---
@@ -28,7 +28,7 @@ Give it your model's outputs and the dataset's ground-truth annotations, and it 
 
 All AgriEval subpackages share a common **L1/L2 cluster convention** for structuring dataset annotations.
 
-Images are organised into **L2 folders** — letter-number identifiers such as `A1`, `A2`, `D1` — where the leading letters define the coarse **L1 class** (`A1` and `A2` both belong to class `A`). This two-level hierarchy encodes both fine-grained subgroup identity and coarse crop-class membership, and is the ground truth against which all retrieval and classification metrics are computed.
+Images are organized into **L2 folders** — letter-number identifiers such as `A1`, `A2`, `D1` — where the leading letters define the coarse **L1 class** (`A1` and `A2` both belong to class `A`). This two-level hierarchy encodes both fine-grained subgroup identity and coarse crop-class membership, and is the ground truth against which all retrieval and classification metrics are computed.
 
 ```
 images/
@@ -77,7 +77,8 @@ tests/
 
 examples/
   emb/          # Runnable scripts and notebooks for emb
-  dpt/          # Runnable script for dpt
+  seg/          # Runnable script for seg
+  dpt/          # Runnable script and notebook for dpt
 ```
 
 ---
@@ -108,7 +109,7 @@ See **[docs/EMBEDDING.md](https://github.com/Precision-AI-Inc/agrieval/blob/main
 from precisionai.agrieval.emb import print_result, run_image2image_eval
 
 embeddings = {
-    "images/A1/img1.png": [...],  # L2-normalised float32 vectors
+    "images/A1/img1.png": [...],  # L2-normalized float32 vectors
     "images/D2/img2.JPG": [...],
 }
 

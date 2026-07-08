@@ -53,14 +53,14 @@ def _print_image_entry(img_key: str, img_result: dict) -> None:  # type: ignore[
 def main() -> None:
     """Run segmentation evaluation and print a summary of the results.
 
-    Recognised arguments
+    Recognized arguments
     --------------------
     --pred : str
-        Directory containing predicted colour-coded masks.  Defaults to
+        Directory containing predicted color-coded masks.  Defaults to
         ``tests/data/masks`` (ground-truth masks used as a stand-in so the
         example produces perfect scores out of the box).
     --masks : str
-        Directory containing ground-truth colour-coded masks.
+        Directory containing ground-truth color-coded masks.
     --classes : str
         Path to the AgriBench class-definition JSON (``class_map.json``).
     --output-dir : str
@@ -82,14 +82,14 @@ def main() -> None:
         type=Path,
         default=_DEFAULT_PRED,
         metavar="DIR",
-        help="Directory of predicted colour-coded masks.",
+        help="Directory of predicted color-coded masks.",
     )
     parser.add_argument(
         "--masks",
         type=Path,
         default=_DEFAULT_MASKS,
         metavar="DIR",
-        help="Directory of ground-truth colour-coded masks.",
+        help="Directory of ground-truth color-coded masks.",
     )
     parser.add_argument(
         "--classes",

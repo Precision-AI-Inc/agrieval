@@ -101,7 +101,7 @@ images/
 **Embedding vector requirements:**
 
 - Flat 1-D array of length `embedding_dim`
-- **L2-normalised float32** — `‖v‖₂ = 1.0 ± 0.001`
+- **L2-normalized float32** — `‖v‖₂ = 1.0 ± 0.001`
 - All vectors must share the same length
 - Minimum 2 embeddings per request
 
@@ -156,7 +156,7 @@ Add a `metadata` field alongside `embeddings`. Each entry in `metadata` is a clu
 
 **Multiple groups per L1 class** — all groups whose `class_name` shares the same leading letters belong to the same coarse class. Images within the same group are explicit positives of each other (grade 3); images in different groups of the same L1 class score grade 2; images from a different L1 class score grade 1 if their `plants` lists overlap, or grade 0 otherwise.
 
-**Exact path matching** — each string in `images` must be the exact key used in the `embeddings` dictionary. No normalisation is performed server-side.
+**Exact path matching** — each string in `images` must be the exact key used in the `embeddings` dictionary. No normalization is performed server-side.
 
 **`dataset_root`** — used only for Wiring 1 label extraction from paths. When `metadata` is provided, class labels come from `class_name` in each group; `dataset_root` has no effect on metadata matching.
 
@@ -225,7 +225,7 @@ Pass **instance crop embeddings only** with an `instance_labels` mapping that as
 }
 ```
 
-Every embedding key must have a label and every label key must exist in `embeddings` (complete labelling is enforced).
+Every embedding key must have a label and every label key must exist in `embeddings` (complete labeling is enforced).
 
 ---
 
@@ -329,7 +329,7 @@ from precisionai.agrieval.emb import (
 )
 
 embeddings = {
-    "images/A1/img1.png":  [...],  # L2-normalised float32
+    "images/A1/img1.png":  [...],  # L2-normalized float32
     "images/D2/img2.JPG":  [...],
 }
 
@@ -405,22 +405,22 @@ print_result(result)
 
 ## Metrics
 
-When metadata is provided, retrieval KPIs use explicit-positive ground truth from your declared similarity groups. Without metadata, class labels inferred from the path structure are used — useful for a quick sanity check but less precise. Geometry and neighbour diagnostics are always computed regardless of whether metadata is supplied.
+When metadata is provided, retrieval KPIs use explicit-positive ground truth from your declared similarity groups. Without metadata, class labels inferred from the path structure are used — useful for a quick sanity check but less precise. Geometry and neighbor diagnostics are always computed regardless of whether metadata is supplied.
 
 ### Quick reference
 
 | Metric | Description | Better when |
 |---|---|---|
 | `pairwise_similarity_stats` | Mean / std / percentiles of all pairwise cosine similarities. | Context-dependent |
-| `centroid_similarity_stats` | How close each embedding sits to the dataset's centre of mass. | Lower (more spread) |
+| `centroid_similarity_stats` | How close each embedding sits to the dataset's center of mass. | Lower (more spread) |
 | `intra_inter_similarity_gap` | Same-class similarity minus different-class similarity. | **Higher** |
 | `effective_rank` | How many embedding dimensions are meaningfully used. | **Higher** |
 | `uniformity` | How evenly embeddings are spread across the space (Wang & Isola 2020). | **More negative** |
-| `hubness` | Whether a small number of images are disproportionately the nearest neighbour of everyone else. | **Lower** |
-| `knn_radius@k` | How far you need to reach to find k neighbours. | Context-dependent |
-| `mean_top_k_sim@k` | Average cosine similarity to the k nearest neighbours. | **Higher** |
-| `outlier_score@k` | How isolated each image is from its neighbours. | **Lower** |
-| `knn_label_purity@k` | Fraction of k nearest neighbours sharing the same crop class. | **Higher** |
+| `hubness` | Whether a small number of images are disproportionately the nearest neighbor of everyone else. | **Lower** |
+| `knn_radius@k` | How far you need to reach to find k neighbors. | Context-dependent |
+| `mean_top_k_sim@k` | Average cosine similarity to the k nearest neighbors. | **Higher** |
+| `outlier_score@k` | How isolated each image is from its neighbors. | **Lower** |
+| `knn_label_purity@k` | Fraction of k nearest neighbors sharing the same crop class. | **Higher** |
 | `knn_label_ndcg@k` | Are same-class images ranked near the top? | **Higher** |
 | `knn_map@k` | Can the model consistently find all images of the same class? | **Higher** |
 | `knn_label_mrr@k` | How far down before the first correct match? | **Higher** |
@@ -443,18 +443,18 @@ When metadata is provided, retrieval KPIs use explicit-positive ground truth fro
 | `effective_rank` | Participation-ratio effective dimensionality of the embedding space |
 | `uniformity` | Wang & Isola (2020) uniformity — `log E[exp(-t‖u−v‖²)]`; more negative = better spread |
 | `hubness` | K-occurrence statistics: mean, std, Gini coefficient, top hubs |
-| `knn_radius@k` | Mean distance to the k-th nearest neighbour (search radius) |
-| `mean_top_k_sim@k` | Mean cosine similarity to the k nearest neighbours |
-| `outlier_score@k` | Per-item outlier signal based on neighbour distances |
+| `knn_radius@k` | Mean distance to the k-th nearest neighbor (search radius) |
+| `mean_top_k_sim@k` | Mean cosine similarity to the k nearest neighbors |
+| `outlier_score@k` | Per-item outlier signal based on neighbor distances |
 
 ### Without metadata
 
 | Metric | Description |
 |---|---|
-| `knn_label_purity@k` | Fraction of each item's k nearest neighbours sharing its path-inferred class label |
-| `knn_label_ndcg@k` | nDCG with binary relevance — rewards same-class neighbours ranked at the top |
-| `knn_map@k` | MAP — rewards finding all same-class neighbours early |
-| `knn_label_mrr@k` | MRR — reciprocal rank of the first same-class neighbour |
+| `knn_label_purity@k` | Fraction of each item's k nearest neighbors sharing its path-inferred class label |
+| `knn_label_ndcg@k` | nDCG with binary relevance — rewards same-class neighbors ranked at the top |
+| `knn_map@k` | MAP — rewards finding all same-class neighbors early |
+| `knn_label_mrr@k` | MRR — reciprocal rank of the first same-class neighbor |
 | `knn_label_r_precision` | R-Precision — precision at R where R = class size − 1 |
 
 ### With metadata
@@ -499,8 +499,8 @@ Generated by `examples/emb/example.py --output-dir output` (or called directly f
 |---|---|---|
 | `class_confusion_matrix.html` | `plot_knn_confusion` | KNN confusion matrix — which classes get misidentified as which |
 | `cosine_similarity.html` | `plot_cosine_similarity` | Full N×N pairwise cosine similarity heatmap, sorted by class |
-| `tsne.html` | `plot_tsne` | Rotatable 3D t-SNE scatter coloured by class |
-| `lle.html` | `plot_lle` | Rotatable 3D LLE scatter — preserves local neighbourhood structure |
+| `tsne.html` | `plot_tsne` | Rotatable 3D t-SNE scatter colored by class |
+| `lle.html` | `plot_lle` | Rotatable 3D LLE scatter — preserves local neighborhood structure |
 
 All outputs are interactive Plotly HTML. Static PNG export requires `pip install kaleido`.
 

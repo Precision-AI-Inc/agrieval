@@ -9,9 +9,9 @@ import numpy as np
 
 
 def patch_norm_stats(patch_tokens: object) -> dict:
-    """Summarise the L2 norm distribution of a set of patch tokens.
+    """Summarize the L2 norm distribution of a set of patch tokens.
 
-    Raw dense patch features are not pre-normalised the way whole-image
+    Raw dense patch features are not pre-normalized the way whole-image
     embeddings are, so their norm distribution is itself a useful health
     check (collapse, dead patches, exploding activations).
 

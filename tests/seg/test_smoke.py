@@ -4,10 +4,10 @@ Two test strategies are used:
 
 1. **Real-data tests**: load the ground-truth masks from ``tests/data/masks/``
    and evaluate against a perturbed copy (predictions).  Uses ``class_map.json``
-   whose colour palette matches the actual mask files.
+   whose color palette matches the actual mask files.
 
 2. **Synthetic tests**: generate small in-memory masks from ``class_map.json``
-   colours.  These are self-contained and act as a fast correctness check.
+   colors.  These are self-contained and act as a fast correctness check.
 """
 
 import json
@@ -38,7 +38,7 @@ def _perturb_mask(
     rng: np.random.Generator,
     flip_fraction: float = 0.15,
 ) -> np.ndarray:
-    """Randomly reassign a fraction of pixels to different class colours."""
+    """Randomly reassign a fraction of pixels to different class colors."""
     h, w = mask_rgb.shape[:2]
     flat = mask_rgb.reshape(-1, 3).copy()
     n_flip = max(1, int(flat.shape[0] * flip_fraction))
@@ -49,7 +49,7 @@ def _perturb_mask(
 
 
 def _build_synth_mask(classes: list, rng: np.random.Generator) -> np.ndarray:
-    """Build a random colour-coded mask using known class colours."""
+    """Build a random color-coded mask using known class colors."""
     h, w = _SYNTH_SIZE
     color_pool = np.array([[c[0], c[1], c[2]] for _, c, _ in classes], dtype=np.uint8)
     return color_pool[rng.integers(0, len(color_pool), size=(h, w))]

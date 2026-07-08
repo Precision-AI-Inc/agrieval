@@ -210,7 +210,7 @@ def kmeans_label_agreement(
     labels : array-like
         Shape ``[N]``. Ground-truth class per row.
     random_state : int
-        Seed for the k-means initialisation.
+        Seed for the k-means initialization.
     n_init : int
         Number of k-means++ restarts.
 

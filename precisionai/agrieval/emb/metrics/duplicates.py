@@ -17,7 +17,7 @@ class _UnionFind:
     """Union-Find with path compression and union by rank."""
 
     def __init__(self, n: int) -> None:
-        """Initialise a disjoint-set forest for ``n`` elements.
+        """Initialize a disjoint-set forest for ``n`` elements.
 
         Parameters
         ----------

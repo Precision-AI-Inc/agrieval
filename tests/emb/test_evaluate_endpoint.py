@@ -70,7 +70,7 @@ _DIM = 8
 
 
 def _unit(seed: int, dim: int = _DIM) -> list[float]:
-    """Return a deterministic L2-normalised vector."""
+    """Return a deterministic L2-normalized vector."""
     rng = np.random.default_rng(seed)
     v = rng.standard_normal(dim).astype(np.float32)
     return (v / np.linalg.norm(v)).tolist()
@@ -721,7 +721,7 @@ class TestNanEmbeddingVulnerability:
             "ds/A1/large_img.png": inf_vec,
             "ds/B1/good_img.png": _unit(1),
         }
-        with pytest.raises(ValidationError, match="normalised"):
+        with pytest.raises(ValidationError, match="normalized"):
             EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
 
     def test_clearly_unnormalized_embedding_raises(self) -> None:
@@ -730,7 +730,7 @@ class TestNanEmbeddingVulnerability:
             "ds/A1/img.png": half_norm_vec,
             "ds/B1/img.png": _unit(2),
         }
-        with pytest.raises(ValidationError, match="normalised"):
+        with pytest.raises(ValidationError, match="normalized"):
             EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
 
 
@@ -743,7 +743,7 @@ class TestEmptyKValues:
     """
 
     def test_any_of_empty_list_is_false(self) -> None:
-        """Demonstrate the Python behaviour: any(k <= 0 for k in []) is False."""
+        """Demonstrate the Python behavior: any(k <= 0 for k in []) is False."""
         assert not any(k <= 0 for k in [])
 
     def test_schema_rejects_empty_k_values(self) -> None:
@@ -857,7 +857,7 @@ class TestSingleClassDataset:
         purity = result["global_metrics"]["knn_label_purity"]["3"]["mean"]
         assert purity == pytest.approx(1.0, abs=1e-6)
 
-    def test_output_is_json_serialisable(self, single_class_embs: dict) -> None:
+    def test_output_is_json_serializable(self, single_class_embs: dict) -> None:
         result = run_image2image_eval(single_class_embs, k_values=[3], dataset_root="ds", sample_pairs=20)
         json.dumps(result)
 
@@ -883,7 +883,7 @@ class TestMinimumViableDataset:
         result = run_image2image_eval(two_embs, k_values=[1], dataset_root="ds", sample_pairs=None)
         assert result["n_items"] == 2
 
-    def test_json_serialisable(self, two_embs: dict) -> None:
+    def test_json_serializable(self, two_embs: dict) -> None:
         result = run_image2image_eval(two_embs, k_values=[1], dataset_root="ds", sample_pairs=None)
         json.dumps(result)
 
@@ -954,7 +954,7 @@ class TestAllIdenticalEmbeddings:
         mean = result["global_metrics"]["pairwise_similarity_stats"]["mean"]
         assert mean == pytest.approx(1.0, abs=1e-4)
 
-    def test_output_is_json_serialisable(self, identical_embs: dict) -> None:
+    def test_output_is_json_serializable(self, identical_embs: dict) -> None:
         result = run_image2image_eval(identical_embs, k_values=[2], dataset_root="ds", sample_pairs=None)
         json.dumps(result)
 
@@ -1020,7 +1020,7 @@ class TestExtractLabelsBoundaries:
         ]
         assert extract_labels(paths, dataset_root="data/train") == ["A", "B", "A"]
 
-    def test_windows_style_backslash_paths_normalised(self) -> None:
+    def test_windows_style_backslash_paths_normalized(self) -> None:
         paths = [
             "images\\A1\\img.png",
             "images\\B1\\img.png",
@@ -1104,7 +1104,7 @@ class TestJsonify:
         result = _jsonify(d)
         assert "5" in result
 
-    def test_entire_result_is_json_serialisable(self) -> None:
+    def test_entire_result_is_json_serializable(self) -> None:
         obj = {
             "a": np.float32(1.0),
             "b": float("nan"),
@@ -1175,7 +1175,7 @@ class TestConfusionMatrixInvariants:
             assert "B" in matrix
 
 
-class TestNeighbourDiagnosticRanges:
+class TestNeighborDiagnosticRanges:
     @pytest.fixture
     def diag_result(self) -> dict:
         return run_image2image_eval(_make_two_class(), k_values=[3], dataset_root="ds", sample_pairs=20)
@@ -1308,7 +1308,7 @@ class TestAPIBoundaryConditions:
             json={"embeddings": embeddings, "k_values": [1]},
         )
         body = response.text.lower()
-        assert "norm" in body or "normalised" in body or "normalized" in body
+        assert "norm" in body or "normalized" in body or "normalized" in body
 
     def test_zero_k_rejected_422(self) -> None:
         response = client.post(

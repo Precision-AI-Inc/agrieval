@@ -14,10 +14,10 @@ class SegEvalRequest(BaseModel):
     Parameters
     ----------
     pred_dir : str
-        Path to the directory of predicted colour-coded masks.  Relative paths
+        Path to the directory of predicted color-coded masks.  Relative paths
         are resolved against ``dataset_root``; absolute paths are used as-is.
     masks_dir : str
-        Path to the directory of ground-truth colour-coded masks.
+        Path to the directory of ground-truth color-coded masks.
     classes_path : str
         Path to the AgriBench class-definition JSON file.
     output_dir : str | None
@@ -36,8 +36,8 @@ class SegEvalRequest(BaseModel):
         ``PAI_DATASET_ROOT`` environment variable, then ``"dataset"``.
     """
 
-    pred_dir: str = Field(description="Directory of predicted colour-coded masks.")
-    masks_dir: str = Field(description="Directory of ground-truth colour-coded masks.")
+    pred_dir: str = Field(description="Directory of predicted color-coded masks.")
+    masks_dir: str = Field(description="Directory of ground-truth color-coded masks.")
     classes_path: str = Field(description="Path to the AgriBench class-definition JSON.")
     output_dir: str | None = Field(
         default=None, description="Output directory for JSON results. None skips file output."

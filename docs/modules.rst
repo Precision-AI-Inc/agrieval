@@ -40,7 +40,7 @@ Retrieval and ranking primitives (nDCG, MAP, MRR, R-Precision, precision, recall
 precisionai.agrieval.emb.metrics.similarity
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pairwise cosine similarity, top-K neighbours, and threshold counts.
+Pairwise cosine similarity, top-K neighbors, and threshold counts.
 
 .. automodule:: precisionai.agrieval.emb.metrics.similarity
    :members:
@@ -90,7 +90,7 @@ Split-free label separation metrics: silhouette (cosine), Calinski-Harabasz, k-m
 precisionai.agrieval.emb.metrics.cross_model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Cross-model comparison: KNN Jaccard/overlap, similarity correlation, neighbour disagreement.
+Cross-model comparison: KNN Jaccard/overlap, similarity correlation, neighbor disagreement.
 
 .. automodule:: precisionai.agrieval.emb.metrics.cross_model
    :members:
@@ -150,7 +150,7 @@ KNN metric bundles, per-class breakdowns, global-metric assembly, and HDBSCAN gr
 precisionai.agrieval.emb.services.serialization
 -------------------------------------------------
 
-JSON serialisation helpers shared by the evaluation services.
+JSON serialization helpers shared by the evaluation services.
 
 .. automodule:: precisionai.agrieval.emb.services.serialization
    :members:
@@ -214,7 +214,7 @@ Dice/F1, accuracy, and the dataset-level mIoU, mAcc, and FWIoU aggregates.
 precisionai.agrieval.seg.services.evaluate
 ------------------------------------------
 
-Service layer: loads colour-coded prediction and ground-truth masks, validates them
+Service layer: loads color-coded prediction and ground-truth masks, validates them
 against a class definition file, computes per-image and dataset-level KPIs, and writes
 the results to JSON.
 

@@ -1,6 +1,6 @@
 # Segmentation Evaluation — `precisionai.agrieval.seg`
 
-Pixel-level evaluation of semantic segmentation models against colour-coded ground-truth masks. Produces per-class and dataset-level KPIs — IoU, Dice/F1, per-class accuracy, mIoU, mAcc, and FWIoU — from a pair of mask directories and a class-definition file.
+Pixel-level evaluation of semantic segmentation models against color-coded ground-truth masks. Produces per-class and dataset-level KPIs — IoU, Dice/F1, per-class accuracy, mIoU, mAcc, and FWIoU — from a pair of mask directories and a class-definition file.
 
 | Wiring | Input | Output |
 |---|---|---|
@@ -13,7 +13,7 @@ Pixel-level evaluation of semantic segmentation models against colour-coded grou
 ### Canonical directory layout
 
 ```
-masks/                      ← ground-truth colour-coded masks
+masks/                      ← ground-truth color-coded masks
   A1/
     pai-abc123.png
     pai-def456.png
@@ -22,7 +22,7 @@ masks/                      ← ground-truth colour-coded masks
   D1/
     pai-jkl012.png
 
-predictions/                ← predicted colour-coded masks (mirrors masks/)
+predictions/                ← predicted color-coded masks (mirrors masks/)
   A1/
     pai-abc123.png
     pai-def456.png
@@ -31,7 +31,7 @@ predictions/                ← predicted colour-coded masks (mirrors masks/)
   D1/
     pai-jkl012.png
 
-class_map.json              ← class definitions: name, RGB colour, integer ID
+class_map.json              ← class definitions: name, RGB color, integer ID
 ```
 
 Subdirectory structure is supported and traversed recursively. Files are paired between `pred` and `masks` by their relative path and stem — cross-extension matching is supported (e.g. a `.png` prediction paired with a `.jpg` ground-truth mask of the same name).
@@ -40,9 +40,9 @@ Subdirectory structure is supported and traversed recursively. Files are paired 
 
 ---
 
-### Colour-coded masks
+### Color-coded masks
 
-Each mask is an RGB PNG (or JPEG) where every pixel's colour identifies its class. Background is conventionally black `(0, 0, 0)`. All colours present in any mask must be defined in the class-definition file — unknown colours raise a `ValueError` listing the offending colours and the file path.
+Each mask is an RGB PNG (or JPEG) where every pixel's color identifies its class. Background is conventionally black `(0, 0, 0)`. All colors present in any mask must be defined in the class-definition file — unknown colors raise a `ValueError` listing the offending colors and the file path.
 
 ```
 pixel (R, G, B) → look up in class_map.json → class name + integer ID
@@ -72,7 +72,18 @@ The predicted mask and its corresponding ground-truth mask must have identical s
 }
 ```
 
-Entries are sorted by class ID internally before use, so the order in the file does not matter. Class IDs must form a contiguous range `0 .. n_classes − 1`.
+**`load_classes()` reads three fields per entry; everything else is informational and ignored:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `classes[].id` | int | — | *(required)* Integer class ID. IDs across all entries must form a contiguous range `0 .. n_classes − 1`. |
+| `classes[].name` | str | — | *(required)* Class name, used as the key in output JSON (e.g. `"Crop \| Soybean"`). |
+| `classes[].color` | `[int, int, int]` | — | *(required)* RGB triplet identifying the class in a mask, `0`–`255` per channel. |
+| `classes[].hex` | str | none | Hex form of `color`, for human readability. Not read by `load_classes()`. |
+| `description` | str | none | Free-text description of the class map. Not read by `load_classes()`. |
+| `by_color` | `dict[str, str]` | none | Hex-color → name lookup. Not read by `load_classes()` — purely for external tooling. |
+
+Entries are sorted by class ID internally before use, so the order in the file does not matter.
 
 ---
 
@@ -84,8 +95,8 @@ One wiring is defined for segmentation evaluation. It accepts a directory of pre
 
 | Parameter | Type | Description |
 |---|---|---|
-| `pred_dir` | directory | Predicted colour-coded masks. |
-| `masks_dir` | directory | Ground-truth colour-coded masks. |
+| `pred_dir` | directory | Predicted color-coded masks. |
+| `masks_dir` | directory | Ground-truth color-coded masks. |
 | `classes_path` | file | Class-definition JSON (AgriBench or legacy format). |
 | `output_dir` | directory | Where to write JSON output. `None` skips file output. |
 | `output_summary_name` | str | Dataset-level output filename. Default: `output_summary.json`. |
@@ -285,7 +296,7 @@ curl -X POST http://localhost:8000/v1/segmentation/evaluate \
 }
 ```
 
-HTTP 400 is returned for any input validation error (unknown colours, size mismatch, missing ground-truth mask, non-contiguous class IDs).
+HTTP 400 is returned for any input validation error (unknown colors, size mismatch, missing ground-truth mask, non-contiguous class IDs).
 
 ---
 
@@ -352,9 +363,9 @@ print(f"FWIoU: {frequency_weighted_iou(cm, iou):.4f}")
 
 | Condition | Exception |
 |---|---|
-| Colour in a mask not defined in the class-definition file | `ValueError: Mask '...' contains N unknown color(s) not in classes.json: (R, G, B), …` |
+| Color in a mask not defined in the class-definition file | `ValueError: Mask '...' contains N unknown color(s) not in classes.json: (R, G, B), …` |
 | Predicted mask spatial dimensions differ from ground-truth | `ValueError: Size mismatch for '...': prediction (H, W) vs ground truth (H, W)` |
 | A predicted mask has no corresponding ground-truth mask | `FileNotFoundError: Prediction '...' has no corresponding ground-truth mask in '...'` |
 | No supported image files found in `pred_dir` | `ValueError: No supported image files found in '...'` |
 | Class IDs in class-definition file are not contiguous from 0 | `ValueError: Class IDs must be contiguous 0..N-1; got: [...]` |
-| Unrecognised class-definition JSON schema | `ValueError: Unrecognised class-definition format in '...'. Expected a 'classes' key` |
+| Unrecognized class-definition JSON schema | `ValueError: Unrecognized class-definition format in '...'. Expected a 'classes' key` |

@@ -36,7 +36,7 @@ def evaluate(request: SegEvalRequest) -> SegEvalResponse:
     omitted).  Absolute paths are used as-is regardless of ``dataset_root``.
 
     Returns the full dataset-level and per-image confusion-matrix-derived KPIs.
-    Raises HTTP 400 for any input validation error (unknown colours, size
+    Raises HTTP 400 for any input validation error (unknown colors, size
     mismatch, missing ground-truth mask, non-contiguous class IDs, missing or
     unreadable paths, or invalid image files).
     """

@@ -89,7 +89,7 @@ class DptEvalRequest(BaseModel):
     **Optional (server defaults apply when omitted)**
 
     ``masks_dir``
-        Directory of ground-truth colour-coded masks. When tiles come from
+        Directory of ground-truth color-coded masks. When tiles come from
         ``tiles_path``, one mask per *source image* (filename stem must
         match each tile's source-image stem), cropped to each tile's exact
         pixel rectangle (``tile_y0``/``tile_x0`` + pixel size from
@@ -105,7 +105,7 @@ class DptEvalRequest(BaseModel):
         Root prefix used to resolve relative ``masks_dir``/``classes_path``.
         Defaults to ``dataset/`` (override at startup with ``--dataset-root``).
     ``k_values``
-        K cutoffs for nearest-neighbour label metrics. Default: ``[5, 10, 20]``.
+        K cutoffs for nearest-neighbor label metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise similarity stats. Default: ``1 000 000``.
     ``max_patches``
@@ -131,7 +131,7 @@ class DptEvalRequest(BaseModel):
     )
     masks_dir: str | None = Field(
         default=None,
-        description="Directory of ground-truth colour-coded masks, one per tile (filename stem == tile_id).",
+        description="Directory of ground-truth color-coded masks, one per tile (filename stem == tile_id).",
     )
     classes_path: str | None = Field(
         default=None,
@@ -143,7 +143,7 @@ class DptEvalRequest(BaseModel):
     )
     k_values: list[int] = Field(
         default=[5, 10, 20],
-        description="K cutoffs for nearest-neighbour label metrics.",
+        description="K cutoffs for nearest-neighbor label metrics.",
     )
     sample_pairs: int | None = Field(
         default=1_000_000,
@@ -242,7 +242,7 @@ class DptImageEvalRequest(BaseModel):
     **Optional (server defaults apply when omitted)**
 
     ``masks_dir``
-        Directory of ground-truth colour-coded masks, one per image — the
+        Directory of ground-truth color-coded masks, one per image — the
         filename stem must match the image ID. Same format as
         ``precisionai.agrieval.seg``. Enables label-aware metrics
         (``classes``, ``per_class``, ``knn_confusion``, ``separation``).
@@ -254,7 +254,7 @@ class DptImageEvalRequest(BaseModel):
         Root prefix used to resolve relative ``masks_dir``/``classes_path``.
         Defaults to ``dataset/`` (override at startup with ``--dataset-root``).
     ``k_values``
-        K cutoffs for nearest-neighbour label metrics. Default: ``[5, 10, 20]``.
+        K cutoffs for nearest-neighbor label metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise similarity stats. Default: ``1 000 000``.
     ``max_patches``
@@ -279,7 +279,7 @@ class DptImageEvalRequest(BaseModel):
     )
     masks_dir: str | None = Field(
         default=None,
-        description="Directory of ground-truth colour-coded masks, one per image (filename stem == image_id).",
+        description="Directory of ground-truth color-coded masks, one per image (filename stem == image_id).",
     )
     classes_path: str | None = Field(
         default=None,
@@ -291,7 +291,7 @@ class DptImageEvalRequest(BaseModel):
     )
     k_values: list[int] = Field(
         default=[5, 10, 20],
-        description="K cutoffs for nearest-neighbour label metrics.",
+        description="K cutoffs for nearest-neighbor label metrics.",
     )
     sample_pairs: int | None = Field(
         default=1_000_000,

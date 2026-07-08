@@ -189,12 +189,12 @@ def uniformity(embeddings: object, *, t: float = 2.0) -> float:
     Measures how evenly embeddings are spread on the unit hypersphere.
     Lower (more negative) values indicate better uniformity.
 
-    For L2-normalised vectors ``||u - v||² = 2(1 - cosine_sim(u, v))``.
+    For L2-normalized vectors ``||u - v||² = 2(1 - cosine_sim(u, v))``.
 
     Parameters
     ----------
     embeddings : array-like
-        Shape ``[N, D]``. Rows are L2-normalised before computation.
+        Shape ``[N, D]``. Rows are L2-normalized before computation.
     t : float
         Temperature parameter (default ``2.0`` as in the original paper).
 
@@ -222,13 +222,13 @@ def alignment(
     Measures how close embeddings of declared-similar items are.
     Lower values indicate better alignment.
 
-    For L2-normalised vectors ``||u - v||^alpha`` with ``alpha=2`` simplifies
+    For L2-normalized vectors ``||u - v||^alpha`` with ``alpha=2`` simplifies
     to ``2(1 - cosine_sim(u, v))``.
 
     Parameters
     ----------
     embeddings : array-like
-        Shape ``[N, D]``. Rows are L2-normalised before computation.
+        Shape ``[N, D]``. Rows are L2-normalized before computation.
     positive_pairs : list[tuple[int, int]]
         Index pairs ``(i, j)`` where both items are explicit positives.
     alpha : float

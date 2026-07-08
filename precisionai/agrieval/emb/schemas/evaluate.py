@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# Acceptable deviation from unit norm for L2-normalised inputs.
+# Acceptable deviation from unit norm for L2-normalized inputs.
 # float32 round-trip through JSON can introduce ~1e-5 error; 1e-3 is generous.
 _NORM_TOLERANCE = 1e-3
 _SUPPORTED_EMBEDDING_EXTENSIONS = frozenset({".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"})
@@ -91,7 +91,7 @@ class EmbeddingEvaluateRequest(BaseModel):
         ``metadata`` is omitted the L1 cluster label is extracted automatically
         from the folder name (leading letters of the L2 folder, e.g. ``A1`` → ``A``).
 
-        Each vector must be a **flat, L2-normalised float32 array** of length
+        Each vector must be a **flat, L2-normalized float32 array** of length
         ``embedding_dim``.  All vectors must share the same length.
 
     **Optional (server defaults apply when omitted)**
@@ -111,14 +111,14 @@ class EmbeddingEvaluateRequest(BaseModel):
         when ``metadata`` is supplied).
         Defaults to ``dataset/`` (override at startup with ``--dataset-root``).
     ``k_values``
-        K cutoffs for nearest-neighbour metrics. Default: ``[5, 10, 20]``.
+        K cutoffs for nearest-neighbor metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise stats. Default: ``1 000 000``.
     """
 
     embeddings: dict[str, list[float]] = Field(
         description=(
-            "Required. Map of image_path → flat L2-normalised float32 embedding. "
+            "Required. Map of image_path → flat L2-normalized float32 embedding. "
             "Paths follow images/{L2}/{image} (e.g. images/A1/220622-img.png). "
             "All vectors must share the same length."
         )
@@ -138,7 +138,7 @@ class EmbeddingEvaluateRequest(BaseModel):
     )
     k_values: list[int] = Field(
         default=[5, 10, 20],
-        description="K cutoffs for nearest-neighbour metrics.",
+        description="K cutoffs for nearest-neighbor metrics.",
     )
     sample_pairs: int | None = Field(
         default=1_000_000,
@@ -149,7 +149,7 @@ class EmbeddingEvaluateRequest(BaseModel):
     @field_validator("embeddings")
     @classmethod
     def validate_embeddings(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
-        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalised."""
+        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalized."""
         if len(v) < 2:
             raise ValueError("At least 2 embeddings are required.")
         dims = {len(vec) for vec in v.values()}
@@ -158,7 +158,7 @@ class EmbeddingEvaluateRequest(BaseModel):
         dim = next(iter(dims))
         if dim == 0:
             raise ValueError("Embedding vectors must not be empty.")
-        # Verify every component is finite, then check L2 normalisation.
+        # Verify every component is finite, then check L2 normalization.
         for path, vec in v.items():
             norm = math.sqrt(sum(x * x for x in vec))
             if math.isnan(norm) or math.isinf(norm):
@@ -168,7 +168,7 @@ class EmbeddingEvaluateRequest(BaseModel):
                 )
             if abs(norm - 1.0) > _NORM_TOLERANCE:
                 raise ValueError(
-                    f"Embedding for '{path}' is not L2-normalised "
+                    f"Embedding for '{path}' is not L2-normalized "
                     f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
                 )
         return v
@@ -234,7 +234,7 @@ class Plant2ImageRequest(BaseModel):
     **Required**
 
     ``embeddings``
-        Mapping of path → L2-normalised float32 embedding.  Must include both
+        Mapping of path → L2-normalized float32 embedding.  Must include both
         parent full-image paths **and** all instance crop paths listed in
         ``instance_to_image``.
 
@@ -250,14 +250,14 @@ class Plant2ImageRequest(BaseModel):
         Root prefix for extracting the crop class label from parent image
         paths.  Defaults to the longest common directory prefix.
     ``k_values``
-        K cutoffs for nearest-neighbour metrics. Default: ``[5, 10, 20]``.
+        K cutoffs for nearest-neighbor metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise stats. Default: ``1 000 000``.
     """
 
     embeddings: dict[str, list[float]] = Field(
         description=(
-            "Required. Map of image_path → flat L2-normalised float32 embedding. "
+            "Required. Map of image_path → flat L2-normalized float32 embedding. "
             "Must include both parent full-image paths and instance crop paths. "
             "All vectors must share the same length."
         )
@@ -275,7 +275,7 @@ class Plant2ImageRequest(BaseModel):
     )
     k_values: list[int] = Field(
         default=[5, 10, 20],
-        description="K cutoffs for nearest-neighbour metrics.",
+        description="K cutoffs for nearest-neighbor metrics.",
     )
     sample_pairs: int | None = Field(
         default=1_000_000,
@@ -286,7 +286,7 @@ class Plant2ImageRequest(BaseModel):
     @field_validator("embeddings")
     @classmethod
     def validate_embeddings(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
-        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalised."""
+        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalized."""
         if len(v) < 2:
             raise ValueError("At least 2 embeddings are required.")
         dims = {len(vec) for vec in v.values()}
@@ -304,7 +304,7 @@ class Plant2ImageRequest(BaseModel):
                 )
             if abs(norm - 1.0) > _NORM_TOLERANCE:
                 raise ValueError(
-                    f"Embedding for '{path}' is not L2-normalised "
+                    f"Embedding for '{path}' is not L2-normalized "
                     f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
                 )
         return v
@@ -348,7 +348,7 @@ class Plant2ImageRequest(BaseModel):
 class Plant2PlantRequest(BaseModel):
     """Evaluate embedding quality for the Plant→Plant retrieval scenario.
 
-    Accepts per-plant instance crop embeddings labelled by crop or weed class.
+    Accepts per-plant instance crop embeddings labeled by crop or weed class.
     Every instance must have a class label in ``instance_labels``.  All
     instances sharing the same class label are treated as mutual explicit
     positives (grade 3).
@@ -360,7 +360,7 @@ class Plant2PlantRequest(BaseModel):
     **Required**
 
     ``embeddings``
-        Mapping of instance_path → L2-normalised float32 embedding.
+        Mapping of instance_path → L2-normalized float32 embedding.
 
     ``instance_labels``
         Mapping from each instance path to its crop/weed class label
@@ -370,14 +370,14 @@ class Plant2PlantRequest(BaseModel):
     **Optional**
 
     ``k_values``
-        K cutoffs for nearest-neighbour metrics. Default: ``[5, 10, 20]``.
+        K cutoffs for nearest-neighbor metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise stats. Default: ``1 000 000``.
     """
 
     embeddings: dict[str, list[float]] = Field(
         description=(
-            "Required. Map of instance_path → flat L2-normalised float32 embedding. "
+            "Required. Map of instance_path → flat L2-normalized float32 embedding. "
             "Every key must appear in instance_labels. All vectors must share the same length."
         )
     )
@@ -389,7 +389,7 @@ class Plant2PlantRequest(BaseModel):
     )
     k_values: list[int] = Field(
         default=[5, 10, 20],
-        description="K cutoffs for nearest-neighbour metrics.",
+        description="K cutoffs for nearest-neighbor metrics.",
     )
     sample_pairs: int | None = Field(
         default=1_000_000,
@@ -400,7 +400,7 @@ class Plant2PlantRequest(BaseModel):
     @field_validator("embeddings")
     @classmethod
     def validate_embeddings(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
-        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalised."""
+        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalized."""
         if len(v) < 2:
             raise ValueError("At least 2 embeddings are required.")
         dims = {len(vec) for vec in v.values()}
@@ -418,7 +418,7 @@ class Plant2PlantRequest(BaseModel):
                 )
             if abs(norm - 1.0) > _NORM_TOLERANCE:
                 raise ValueError(
-                    f"Embedding for '{path}' is not L2-normalised "
+                    f"Embedding for '{path}' is not L2-normalized "
                     f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
                 )
         return v

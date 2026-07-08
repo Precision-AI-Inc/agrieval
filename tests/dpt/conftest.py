@@ -57,7 +57,7 @@ def labeled_dataset(tmp_path: Path, classes: list) -> tuple[dict[str, list], Pat
     """Class-correlated tiles plus matching ground-truth masks on disk.
 
     Each tile is split left/right between two well-separated class
-    prototypes, and each corresponding mask is coloured the same way at a
+    prototypes, and each corresponding mask is colored the same way at a
     different (larger) resolution — forcing the mask-to-patch-grid
     downsampling path to be exercised.
     """
