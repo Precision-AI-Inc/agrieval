@@ -30,7 +30,7 @@ _SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({".png", ".PNG", ".jpg", ".JPG
 
 
 def load_classes(classes_path: Path | str) -> list[Any]:
-    """Load an AgriBench class-definition JSON and return entries as ``[name, [R,G,B], id]`` lists.
+    """Load an AgriStress class-definition JSON and return entries as ``[name, [R,G,B], id]`` lists.
 
     Expected format (``"classes"`` key)::
 

@@ -54,11 +54,11 @@ The predicted mask and its corresponding ground-truth mask must have identical s
 
 ### Class definition file
 
-`load_classes()` expects the AgriBench format (the `"classes"` key):
+`load_classes()` expects the AgriStress format (the `"classes"` key):
 
 ```json
 {
-  "description": "AgriBench v1.0.0 segmentation mask class map.",
+  "description": "AgriStress v1.0.0 segmentation mask class map.",
   "classes": [
     { "id": 0, "name": "background",     "color": [0,   0,   0  ], "hex": "#000000" },
     { "id": 9, "name": "Crop | Soybean", "color": [49,  140, 101], "hex": "#318c65" },
@@ -97,7 +97,7 @@ One wiring is defined for segmentation evaluation. It accepts a directory of pre
 |---|---|---|
 | `pred_dir` | directory | Predicted color-coded masks. |
 | `masks_dir` | directory | Ground-truth color-coded masks. |
-| `classes_path` | file | Class-definition JSON (AgriBench or legacy format). |
+| `classes_path` | file | Class-definition JSON (AgriStress or legacy format). |
 | `output_dir` | directory | Where to write JSON output. `None` skips file output. |
 | `output_summary_name` | str | Dataset-level output filename. Default: `output_summary.json`. |
 | `image_summary_name` | str | Per-image output filename. Default: `image_summary.json`. |
@@ -269,7 +269,7 @@ curl -X POST http://localhost:8000/v1/segmentation/evaluate \
 |---|---|---|---|
 | `pred_dir` | string | — | *(required)* Path to predicted masks directory. |
 | `masks_dir` | string | — | *(required)* Path to ground-truth masks directory. |
-| `classes_path` | string | — | *(required)* Path to AgriBench class-definition JSON. |
+| `classes_path` | string | — | *(required)* Path to AgriStress class-definition JSON. |
 | `output_dir` | string \| null | `null` | Output directory for JSON files. `null` skips file output. |
 | `output_summary_name` | string | `"output_summary.json"` | Filename for dataset-level summary. |
 | `image_summary_name` | string | `"image_summary.json"` | Filename for per-image summary. |

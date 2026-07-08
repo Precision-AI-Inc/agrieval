@@ -39,13 +39,13 @@ def test_load_classes_missing_key(tmp_path):
         load_classes(bad)
 
 
-def test_load_classes_agribench_format(tmp_path):
-    agribench = tmp_path / "class_map.json"
-    agribench.write_text(
+def test_load_classes_agristress_format(tmp_path):
+    agristress = tmp_path / "class_map.json"
+    agristress.write_text(
         '{"classes": [{"id": 1, "name": "Crop", "color": [0, 128, 0], "hex": "#008000"},'
         '{"id": 0, "name": "background", "color": [0, 0, 0], "hex": "#000000"}]}'
     )
-    classes = load_classes(agribench)
+    classes = load_classes(agristress)
     # Returned sorted by ID
     assert classes[0][0] == "background"
     assert classes[0][2] == 0

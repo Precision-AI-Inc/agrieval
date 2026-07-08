@@ -99,7 +99,7 @@ class DptEvalRequest(BaseModel):
         (``classes``, ``per_class``, ``knn_confusion``, ``separation``).
         Requires ``classes_path`` to also be set.
     ``classes_path``
-        Path to an AgriBench ``class_map.json`` (same format as ``seg``).
+        Path to an AgriStress ``class_map.json`` (same format as ``seg``).
         Requires ``masks_dir`` to also be set.
     ``dataset_root``
         Root prefix used to resolve relative ``masks_dir``/``classes_path``.
@@ -135,7 +135,7 @@ class DptEvalRequest(BaseModel):
     )
     classes_path: str | None = Field(
         default=None,
-        description="Path to an AgriBench class_map.json, same format as seg.",
+        description="Path to an AgriStress class_map.json, same format as seg.",
     )
     dataset_root: str | None = Field(
         default=None,
@@ -248,7 +248,7 @@ class DptImageEvalRequest(BaseModel):
         (``classes``, ``per_class``, ``knn_confusion``, ``separation``).
         Requires ``classes_path`` to also be set.
     ``classes_path``
-        Path to an AgriBench ``class_map.json`` (same format as ``seg``).
+        Path to an AgriStress ``class_map.json`` (same format as ``seg``).
         Requires ``masks_dir`` to also be set.
     ``dataset_root``
         Root prefix used to resolve relative ``masks_dir``/``classes_path``.
@@ -283,7 +283,7 @@ class DptImageEvalRequest(BaseModel):
     )
     classes_path: str | None = Field(
         default=None,
-        description="Path to an AgriBench class_map.json, same format as seg.",
+        description="Path to an AgriStress class_map.json, same format as seg.",
     )
     dataset_root: str | None = Field(
         default=None,
