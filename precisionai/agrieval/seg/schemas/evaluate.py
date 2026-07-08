@@ -19,7 +19,7 @@ class SegEvalRequest(BaseModel):
     masks_dir : str
         Path to the directory of ground-truth color-coded masks.
     classes_path : str
-        Path to the AgriBench class-definition JSON file.
+        Path to the AgriStress class-definition JSON file.
     output_dir : str | None
         Directory to write ``output_summary.json`` and ``image_summary.json``.
         ``None`` (the default) skips file output.
@@ -38,7 +38,7 @@ class SegEvalRequest(BaseModel):
 
     pred_dir: str = Field(description="Directory of predicted color-coded masks.")
     masks_dir: str = Field(description="Directory of ground-truth color-coded masks.")
-    classes_path: str = Field(description="Path to the AgriBench class-definition JSON.")
+    classes_path: str = Field(description="Path to the AgriStress class-definition JSON.")
     output_dir: str | None = Field(
         default=None, description="Output directory for JSON results. None skips file output."
     )

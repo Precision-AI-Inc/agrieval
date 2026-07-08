@@ -1,5 +1,5 @@
 {
-  "description": "AgriBench v1.0.0 segmentation mask class map. Each foreground class is painted with `color` (RGB) in the PNG masks; background is black. Look up a mask pixel's RGB here to get its class name.",
+  "description": "AgriStress v1.0.0 segmentation mask class map. Each foreground class is painted with `color` (RGB) in the PNG masks; background is black. Look up a mask pixel's RGB here to get its class name.",
   "classes": [
     {
       "id": 0,

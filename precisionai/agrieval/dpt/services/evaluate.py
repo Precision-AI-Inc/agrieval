@@ -759,7 +759,7 @@ def run_dpt_eval(
         real location — dataset_root resolution is an API-layer concern,
         matching ``run_seg_eval``. Requires ``classes_path``.
     classes_path : str | Path | None
-        Path to an AgriBench ``class_map.json``, same format as ``seg``.
+        Path to an AgriStress ``class_map.json``, same format as ``seg``.
         Must already be resolved. Requires ``masks_dir``.
     tile_placement : dict[str, TilePlacement] | None
         Map of tile ID to :class:`TilePlacement`, as returned by
@@ -905,7 +905,7 @@ def run_dpt_image_eval(
         location — dataset_root resolution is an API-layer concern. Requires
         ``classes_path``.
     classes_path : str | Path | None
-        Path to an AgriBench ``class_map.json``, same format as ``seg``.
+        Path to an AgriStress ``class_map.json``, same format as ``seg``.
         Must already be resolved. Requires ``masks_dir``.
 
     Returns

@@ -62,7 +62,7 @@ def main() -> None:
     --masks : str
         Directory containing ground-truth color-coded masks.
     --classes : str
-        Path to the AgriBench class-definition JSON (``class_map.json``).
+        Path to the AgriStress class-definition JSON (``class_map.json``).
     --output-dir : str
         Directory to write ``output_summary.json`` and ``image_summary.json``.
         Omit to skip file output.
@@ -96,7 +96,7 @@ def main() -> None:
         type=Path,
         default=_DEFAULT_CLASSES,
         metavar="FILE",
-        help="Path to the AgriBench class-definition JSON.",
+        help="Path to the AgriStress class-definition JSON.",
     )
     parser.add_argument(
         "--output-dir",

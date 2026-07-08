@@ -65,7 +65,7 @@ def main() -> None:
         Directory of ground-truth color-coded masks, one per tile (filename
         stem becomes the tile ID). Defaults to ``tests/data/masks``.
     --classes : str
-        Path to the AgriBench class-definition JSON. Defaults to ``tests/data/class_map.json``.
+        Path to the AgriStress class-definition JSON. Defaults to ``tests/data/class_map.json``.
     --no-labels
         Skip ground truth entirely and generate a handful of unlabeled tiles instead.
     --grid-height / --grid-width / --embed-dim
