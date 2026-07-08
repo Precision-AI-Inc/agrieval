@@ -107,7 +107,7 @@ def test_subsampling_reports_warning(labeled_dataset, classes_path):
 
 
 def _save_exact_mask(path: Path, class_ids: np.ndarray, classes: list) -> None:
-    """Save a colour-coded mask at exactly the given class-ID grid resolution.
+    """Save a color-coded mask at exactly the given class-ID grid resolution.
 
     Using a mask sized identically to the target patch grid makes the
     nearest-neighbor downsample an identity mapping, so callers can place

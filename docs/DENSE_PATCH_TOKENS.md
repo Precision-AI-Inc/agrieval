@@ -56,13 +56,13 @@ Both wirings accept their entries **two ways — exactly one per request**. The 
 }
 ```
 
-Each entry is shaped `[P, H, W]` — embedding dimension, patch-grid height, patch-grid width (e.g. `[384, 38, 57]` for a backbone tiling a 798×532px image into 14px patches). **All entries in one request must share the same `P`, `H`, and `W`** — a single evaluation run is always against one backbone/tiling configuration, whether entries are tiles or whole images. Values must be finite (no `NaN`/`inf`, including values that overflow at float32 precision); unlike `emb`, entries are **not** required to be L2-normalised — raw patch features aren't pre-normalised the way whole-image embeddings are. **Submit raw backbone features**, not normalised or PCA-projected ones: the metrics apply L2 normalisation internally where noted (cosine/kNN metrics) and use raw centered features everywhere else (spectrum metrics, norm statistics).
+Each entry is shaped `[P, H, W]` — embedding dimension, patch-grid height, patch-grid width (e.g. `[384, 38, 57]` for a backbone tiling a 798×532px image into 14px patches). **All entries in one request must share the same `P`, `H`, and `W`** — a single evaluation run is always against one backbone/tiling configuration, whether entries are tiles or whole images. Values must be finite (no `NaN`/`inf`, including values that overflow at float32 precision); unlike `emb`, entries are **not** required to be L2-normalized — raw patch features aren't pre-normalized the way whole-image embeddings are. **Submit raw backbone features**, not normalized or PCA-projected ones: the metrics apply L2 normalization internally where noted (cosine/kNN metrics) and use raw centered features everywhere else (spectrum metrics, norm statistics).
 
 Entry IDs (tile IDs or image IDs) must be non-empty and must not contain path separators (`/`, `\`) — an entry ID names a mask file *stem*, never a path. IDs containing glob characters (`*`, `?`, `[`) are matched literally.
 
 ### Ground-truth masks (optional)
 
-When supplied, `masks_dir` and `classes_path` follow **exactly the same format as `precisionai.agrieval.seg`** — see [SEGMENTATION.md](SEGMENTATION.md) for the full colour-mask and `class_map.json` spec. Mask alignment works differently depending on where entries came from:
+When supplied, `masks_dir` and `classes_path` follow **exactly the same format as `precisionai.agrieval.seg`** — see [SEGMENTATION.md](SEGMENTATION.md) for the full color-mask and `class_map.json` spec. Mask alignment works differently depending on where entries came from:
 
 - **Inline `tiles`/`images`, or images loaded from `images_path`** — one mask per entry, filename stem must equal the entry ID (e.g. `masks_dir/tile_0001.png` for tile `"tile_0001"`, or `masks_dir/field_001.png` for image ID `"field_001"`; subdirectories are searched recursively). The whole mask is majority-vote downsampled directly to that entry's `(H, W)` grid.
 - **Tiles loaded from `tiles_path`** — one mask per *source image* instead, filename stem must equal the tile's `image_stem` (from `load_tile_placement()`), not the synthesized tile ID. Each tile's exact pixel rectangle — `[tile_y0 : tile_y0+height, tile_x0 : tile_x0+width]`, using the pixel size from `meta.tile` — is cropped out of the mask before that crop is majority-vote downsampled to the tile's own `(H, W)` grid. This is exact, not an inferred/proportional grid split, so it works correctly even when tiles overlap. A crop rectangle partially extending past the mask's edge is clipped to what's available; a rectangle lying *entirely* outside the mask raises a clear `ValueError` (it would otherwise have no pixels to vote on).
@@ -81,7 +81,7 @@ In both cases, the final per-entry downsample step is the same: `dpt` **majority
 |---|---|---|
 | `tiles` | `dict[str, array]` \| `None` | Inline map of tile ID → `[P, H, W]` feature map. Exactly one of `tiles` / `tiles_path`. |
 | `tiles_path` | path \| `None` | A batched `.npz` archive, resolved against `dataset_root` — see [Tiles / images](#tiles--images). Exactly one of `tiles` / `tiles_path`. |
-| `masks_dir` | directory \| `None` | Ground-truth colour-coded masks — one per tile for inline `tiles`, one per source image (cropped per tile) for `tiles_path`. Requires `classes_path`. |
+| `masks_dir` | directory \| `None` | Ground-truth color-coded masks — one per tile for inline `tiles`, one per source image (cropped per tile) for `tiles_path`. Requires `classes_path`. |
 | `classes_path` | file \| `None` | Class-definition JSON, same format as `seg`. Requires `masks_dir`. |
 | `dataset_root` | str \| `None` | Base path for relative `masks_dir`/`classes_path` (API layer only — the `run_dpt_eval()` function itself expects already-resolved paths, like `run_seg_eval`). |
 | `k_values` | `list[int]` | K cutoffs for kNN label metrics. Default `[5, 10, 20]`. |
@@ -161,27 +161,27 @@ The metrics below are described in terms of "tiles" for brevity — the image wi
 
 ### Unsupervised (always computed)
 
-Computed by flattening all tiles into a single `[N·H·W, P]` patch-token matrix and reusing `precisionai.agrieval.emb.metrics` — the same math already used for whole-image embedding evaluation, since it operates generically on any `[N, D]` matrix. Spectrum metrics run on **raw centered** features (no L2 normalisation); cosine metrics are inherently computed on L2-normalised tokens.
+Computed by flattening all tiles into a single `[N·H·W, P]` patch-token matrix and reusing `precisionai.agrieval.emb.metrics` — the same math already used for whole-image embedding evaluation, since it operates generically on any `[N, D]` matrix. Spectrum metrics run on **raw centered** features (no L2 normalization); cosine metrics are inherently computed on L2-normalized tokens.
 
-| Metric | Input normalisation | Description |
+| Metric | Input normalization | Description |
 |---|---|---|
 | `effective_rank` | raw, centered | Participation-ratio estimate of the patch-token space's effective dimensionality. |
 | `pca_explained_variance` | raw, centered | Cumulative variance explained by the leading principal components. |
-| `pairwise_similarity_stats` | L2-normalised | Distribution of pairwise cosine similarities (sampled via `sample_pairs`). |
-| `centroid_similarity_stats` | L2-normalised | Cosine similarity of each patch to the corpus centroid (anisotropy/collapse indicator). |
-| `uniformity` | L2-normalised | Wang & Isola (2020) uniformity of the patch-token distribution on the unit hypersphere. |
+| `pairwise_similarity_stats` | L2-normalized | Distribution of pairwise cosine similarities (sampled via `sample_pairs`). |
+| `centroid_similarity_stats` | L2-normalized | Cosine similarity of each patch to the corpus centroid (anisotropy/collapse indicator). |
+| `uniformity` | L2-normalized | Wang & Isola (2020) uniformity of the patch-token distribution on the unit hypersphere. |
 
 ### Per-tile diagnostics (always computed)
 
 | Metric | Description |
 |---|---|
 | `patch_norm_stats` | Mean/std/percentiles of per-patch L2 norm on raw features — doubles as a collapse/dead-patch health check. |
-| `patch_smoothness` | Average of the horizontal-neighbor mean and vertical-neighbor mean cosine similarity (L2-normalised patches), weighting both directions equally regardless of grid aspect ratio. |
+| `patch_smoothness` | Average of the horizontal-neighbor mean and vertical-neighbor mean cosine similarity (L2-normalized patches), weighting both directions equally regardless of grid aspect ratio. |
 | `outlier_fraction` | Fraction of a tile's patches whose norm is strictly above **mean + 3σ of all patch norms in the request**. The threshold is corpus-wide, so per-tile fractions are directly comparable. |
 
 ### Label-aware (only with ground truth)
 
-Reuses `precisionai.agrieval.emb.metrics.similarity.top_k_neighbors` and `label_aware.knn_confusion_matrix` / `knn_label_purity_at_k` directly against the per-patch class labels — no separate kNN implementation. Patch tokens are L2-normalised before cosine kNN:
+Reuses `precisionai.agrieval.emb.metrics.similarity.top_k_neighbors` and `label_aware.knn_confusion_matrix` / `knn_label_purity_at_k` directly against the per-patch class labels — no separate kNN implementation. Patch tokens are L2-normalized before cosine kNN:
 
 | Metric | Description |
 |---|---|
@@ -193,11 +193,11 @@ Reuses `precisionai.agrieval.emb.metrics.similarity.top_k_neighbors` and `label_
 
 Split-free label separation metrics from `precisionai.agrieval.emb.metrics.separation` — all non-parametric or closed-form, with no train/eval split anywhere. Calinski-Harabasz and PC1-AUROC are O(N·D) and run on the **full patch corpus**; silhouette and ARI/NMI are O(N²) and iterative respectively, so they run on the same seeded `max_patches` subsample as the kNN metrics.
 
-| Metric | Input normalisation | Description |
+| Metric | Input normalization | Description |
 |---|---|---|
-| `separation.silhouette` | L2-normalised | Mean silhouette coefficient of the class partition under cosine distance, in `[-1, 1]`. |
+| `separation.silhouette` | L2-normalized | Mean silhouette coefficient of the class partition under cosine distance, in `[-1, 1]`. |
 | `separation.calinski_harabasz` | raw | Between-class over within-class dispersion ratio (Euclidean); higher is better separated. |
-| `separation.ari` / `separation.nmi` | L2-normalised | Adjusted Rand index / normalized mutual information between the true classes and a deterministic k-means clustering (k = number of present classes) — are the classes recoverable as unsupervised clusters? Requires scikit-learn. |
+| `separation.ari` / `separation.nmi` | L2-normalized | Adjusted Rand index / normalized mutual information between the true classes and a deterministic k-means clustering (k = number of present classes) — are the classes recoverable as unsupervised clusters? Requires scikit-learn. |
 | `separation.pc1_auroc` | raw, centered | Threshold-free AUROC of foreground (every class except `background`) vs. the `background` class along the corpus's first principal component. Sign-free — reported as `max(auc, 1 − auc)`, so `0.5` = no signal, `1.0` = perfect linear separation. |
 
 Each metric degrades gracefully: when its preconditions fail — only one class present, no class named `background` in the class map (PC1-AUROC), or scikit-learn not installed (ARI/NMI) — it is reported as `null` with an explanatory entry in `warnings` instead of failing the run.
@@ -245,7 +245,7 @@ curl -X POST http://localhost:8000/v1/dense-patch-tokens/evaluate/image \
   }'
 ```
 
-HTTP 422 is returned for request-schema validation errors (mismatched shapes, non-finite values, both or neither of the source fields set, `masks_dir` set without `classes_path` or vice versa). HTTP 400 is returned for service-level errors (missing path, an entry with no matching ground-truth mask, unknown mask colours, invalid feature-map files).
+HTTP 422 is returned for request-schema validation errors (mismatched shapes, non-finite values, both or neither of the source fields set, `masks_dir` set without `classes_path` or vice versa). HTTP 400 is returned for service-level errors (missing path, an entry with no matching ground-truth mask, unknown mask colors, invalid feature-map files).
 
 ---
 
@@ -350,4 +350,4 @@ python examples/dpt/example.py
 | An entry (or its source image, for `tiles_path`-loaded tiles) has no matching ground-truth mask file | `FileNotFoundError: No ground-truth mask found for tile '...' under '...'` (wording says "tile" regardless of whether the match is by tile ID or image stem) |
 | A tile ID in the evaluation has no entry in `tile_placement` | `ValueError: tile_placement is missing entries for tile ID(s): ...` |
 | A tile's pixel rectangle lies entirely outside its ground-truth mask | `ValueError: Tile '...' pixel rectangle ... lies entirely outside its ...` |
-| Colour in a mask not defined in the class-definition file | `ValueError: Mask '...' contains N unknown color(s) not in classes.json: ...` |
+| Color in a mask not defined in the class-definition file | `ValueError: Mask '...' contains N unknown color(s) not in classes.json: ...` |

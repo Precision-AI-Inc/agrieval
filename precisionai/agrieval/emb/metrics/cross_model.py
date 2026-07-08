@@ -197,7 +197,7 @@ def per_item_neighbor_disagreement(
     metric: str = "jaccard",
     top_n: int = 20,
 ) -> dict:
-    """Per-item disagreement scalar for visualisation (UMAP / t-SNE colouring).
+    """Per-item disagreement scalar for visualization (UMAP / t-SNE coloring).
 
     Parameters
     ----------

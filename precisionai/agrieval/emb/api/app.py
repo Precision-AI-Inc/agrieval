@@ -33,7 +33,7 @@ Everything else is optional.
 
 **Embedding requirements**
 - Flat 1-D array (length = `embedding_dim`)
-- L2-normalised float32 (`‖v‖₂ = 1.0 ± 0.001`)
+- L2-normalized float32 (`‖v‖₂ = 1.0 ± 0.001`)
 - All vectors must share the same length
 - Minimum 2 embeddings per request
 
@@ -67,7 +67,7 @@ app.include_router(evaluate_router, prefix="/v1")
 def main() -> None:
     """Parse CLI arguments and start the uvicorn ASGI server.
 
-    Recognised arguments
+    Recognized arguments
     --------------------
     --dataset-root : str
         Default dataset root passed to the evaluation service when a request

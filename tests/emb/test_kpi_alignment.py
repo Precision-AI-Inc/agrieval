@@ -37,7 +37,7 @@ from precisionai.agrieval.emb.metrics import (
 _N_PER_CLASS = 10
 _DIM = 16
 _K = 5
-# MAP@K normalises by total relevant items (N-1), so MAP can only reach 1.0
+# MAP@K normalizes by total relevant items (N-1), so MAP can only reach 1.0
 # when K >= N_PER_CLASS - 1.  Use K_ALL for MAP tests.
 _K_ALL = _N_PER_CLASS - 1
 
@@ -60,7 +60,7 @@ def _build_embeddings(
     """Return (embeddings [2*N, D], labels [2*N]) for two-class scenarios.
 
     Each embedding is the class prototype perturbed by Gaussian noise then
-    L2-normalised.  Seeds are fixed per sample so output is reproducible.
+    L2-normalized.  Seeds are fixed per sample so output is reproducible.
     """
     vecs: list[np.ndarray] = []
     for i in range(n_per_class):
@@ -90,7 +90,7 @@ _SPARSE_PROTO_A = _unit([1.0, 0.4, 0.2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 _SPARSE_PROTO_B = _unit([0.4, 1.0, 0.2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 _SPARSE_EMB, _SPARSE_LABELS = _build_embeddings(_SPARSE_PROTO_A, _SPARSE_PROTO_B, noise_scale=0.45)
 
-# Pre-compute neighbours once at module level (reused across tests).
+# Pre-compute neighbors once at module level (reused across tests).
 # K_ALL (= N-1) is used for MAP so every same-class item is reachable and
 # MAP can reach 1.0 for perfectly separated embeddings.
 _TIGHT_NEIGHBORS = top_k_neighbors(_TIGHT_EMB, ks=[_K, _K_ALL])
@@ -147,8 +147,8 @@ class TestTightEmbeddings:
         assert _ndcg(_TIGHT_NEIGHBORS, _TIGHT_LABELS) > 0.95
 
     def test_knn_map_is_near_perfect(self) -> None:
-        # MAP@K normalises by total relevant items (N_PER_CLASS - 1).
-        # Using K_ALL (= N-1) so every same-class neighbour is reachable
+        # MAP@K normalizes by total relevant items (N_PER_CLASS - 1).
+        # Using K_ALL (= N-1) so every same-class neighbor is reachable
         # and MAP can reach 1.0 for perfectly separated embeddings.
         assert _map(_TIGHT_NEIGHBORS, _TIGHT_LABELS) > 0.95
 

@@ -188,7 +188,7 @@ class TestAlignment:
         assert result == pytest.approx(0.0, abs=1e-5)
 
     def test_orthogonal_pair_alignment_equals_two(self) -> None:
-        # L2-normalised orthogonal vectors: ||u - v||² = 2(1 - 0) = 2
+        # L2-normalized orthogonal vectors: ||u - v||² = 2(1 - 0) = 2
         emb = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
         result = alignment(emb, [(0, 1)])
         assert result == pytest.approx(2.0, abs=1e-4)

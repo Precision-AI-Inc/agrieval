@@ -262,7 +262,7 @@ class TestJsonify:
         assert result["outer"]["inner"] == pytest.approx(2.0)
         assert "arr" not in result["outer"]
 
-    def test_output_is_json_serialisable(self) -> None:
+    def test_output_is_json_serializable(self) -> None:
         data = {
             "a": np.float32(1.0),
             "b": np.int64(2),

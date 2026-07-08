@@ -1,7 +1,7 @@
 # Copyright 2026 Precision AI
 # SPDX-License-Identifier: Apache-2.0
 
-"""JSON serialisation helpers shared by the evaluation services."""
+"""JSON serialization helpers shared by the evaluation services."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ import numpy as np
 
 
 def _jsonify(obj: Any) -> Any:
-    """Recursively convert a metrics result to JSON-serialisable types.
+    """Recursively convert a metrics result to JSON-serializable types.
 
-    numpy arrays are dropped because they are per-item visualisation artefacts
+    numpy arrays are dropped because they are per-item visualization artefacts
     that do not belong in a summary JSON.  numpy scalars are converted to
     Python native types.  ``NaN`` and ``inf`` become ``None``.
 
@@ -27,7 +27,7 @@ def _jsonify(obj: Any) -> Any:
     Returns
     -------
     object
-        JSON-serialisable equivalent of ``obj``.  ``None`` is returned for
+        JSON-serializable equivalent of ``obj``.  ``None`` is returned for
         numpy arrays (sentinel value; callers omit these keys).
     """
     if isinstance(obj, np.ndarray):

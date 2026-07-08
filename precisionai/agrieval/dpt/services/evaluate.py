@@ -436,7 +436,7 @@ def _find_mask_file(masks_dir: Path, tile_id: str) -> Path:
     Parameters
     ----------
     masks_dir : Path
-        Directory containing ground-truth colour-coded masks.
+        Directory containing ground-truth color-coded masks.
     tile_id : str
         Tile ID to match against a file stem.
 
@@ -744,14 +744,14 @@ def run_dpt_eval(
         without a torch dependency here. All tiles must share the same
         ``P``, ``H``, and ``W``.
     k_values : list[int] | None
-        K cutoffs for nearest-neighbour label metrics. Defaults to ``[5, 10, 20]``.
+        K cutoffs for nearest-neighbor label metrics. Defaults to ``[5, 10, 20]``.
     sample_pairs : int | None
         Max random pairs for global pairwise similarity stats. ``None`` computes exactly.
     max_patches : int
         Max patches used for O(N²) label-aware kNN computation. Larger corpora
         are randomly subsampled (seeded) and the drop is reported in ``warnings``.
     masks_dir : str | Path | None
-        Directory of ground-truth colour-coded masks. When ``tile_placement``
+        Directory of ground-truth color-coded masks. When ``tile_placement``
         is ``None``, one mask per tile (filename stem must match the tile
         ID); when given, one mask per source image instead (filename stem
         must match each tile's ``image_stem``), cropped to each tile's exact
@@ -893,14 +893,14 @@ def run_dpt_image_eval(
         any array-like ``np.asarray`` accepts. All images must share the same
         ``P``, ``H``, and ``W``.
     k_values : list[int] | None
-        K cutoffs for nearest-neighbour label metrics. Defaults to ``[5, 10, 20]``.
+        K cutoffs for nearest-neighbor label metrics. Defaults to ``[5, 10, 20]``.
     sample_pairs : int | None
         Max random pairs for global pairwise similarity stats. ``None`` computes exactly.
     max_patches : int
         Max patches used for O(N²) label-aware kNN computation. Larger corpora
         are randomly subsampled (seeded) and the drop is reported in ``warnings``.
     masks_dir : str | Path | None
-        Directory of ground-truth colour-coded masks, one per image (filename
+        Directory of ground-truth color-coded masks, one per image (filename
         stem must match the image ID). Must already be resolved to a real
         location — dataset_root resolution is an API-layer concern. Requires
         ``classes_path``.

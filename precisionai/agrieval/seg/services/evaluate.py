@@ -1,6 +1,6 @@
 """Semantic segmentation evaluation service.
 
-Loads colour-coded prediction and ground-truth masks, validates them against a
+Loads color-coded prediction and ground-truth masks, validates them against a
 class definition file, computes per-image and dataset-level KPIs, and writes
 the results to JSON.
 """
@@ -57,7 +57,7 @@ def load_classes(classes_path: Path | str) -> list[Any]:
 
     if "classes" not in data:
         raise ValueError(
-            f"Unrecognised class-definition format in '{path}'. Expected a 'classes' key; got: {list(data.keys())}"
+            f"Unrecognized class-definition format in '{path}'. Expected a 'classes' key; got: {list(data.keys())}"
         )
 
     entries: list[Any] = [[e["name"], e["color"], e["id"]] for e in data["classes"]]
@@ -65,7 +65,7 @@ def load_classes(classes_path: Path | str) -> list[Any]:
 
 
 def _build_color_map(classes: list[Any]) -> dict[tuple[int, int, int], int]:
-    """Build a colour → class-ID lookup from the classes list."""
+    """Build a color → class-ID lookup from the classes list."""
     return {(int(rgb[0]), int(rgb[1]), int(rgb[2])): int(cid) for _, rgb, cid in classes}
 
 
@@ -79,21 +79,21 @@ def _validate_colors(
     color_map: dict[tuple[int, int, int], int],
     path: Path,
 ) -> None:
-    """Raise ValueError if any pixel colour in *mask_rgb* is absent from *color_map*.
+    """Raise ValueError if any pixel color in *mask_rgb* is absent from *color_map*.
 
     Parameters
     ----------
     mask_rgb : np.ndarray
         RGB mask array, shape (H, W, 3).
     color_map : dict[tuple[int, int, int], int]
-        Mapping of valid colours to class IDs.
+        Mapping of valid colors to class IDs.
     path : Path
         Source path used in the error message.
 
     Raises
     ------
     ValueError
-        When one or more pixel colours are not defined in the class map.
+        When one or more pixel colors are not defined in the class map.
     """
     flat = mask_rgb.reshape(-1, 3)
     unique = set(map(tuple, np.unique(flat, axis=0).tolist()))
@@ -104,17 +104,17 @@ def _validate_colors(
 
 
 def _build_lut(color_map: dict[tuple[int, int, int], int]) -> np.ndarray:
-    """Build a 24-bit packed-RGB lookup table mapping colour → class ID.
+    """Build a 24-bit packed-RGB lookup table mapping color → class ID.
 
     Packs each ``(R, G, B)`` triple as ``R<<16 | G<<8 | B`` to index a flat
-    array of length 2²⁴ (16 M entries, 64 MB).  Colours not in *color_map*
+    array of length 2²⁴ (16 M entries, 64 MB).  Colors not in *color_map*
     default to 0 (background); ``_validate_colors`` guarantees they never
     appear in a mask passed to :func:`_rgb_to_class_ids`.
 
     Parameters
     ----------
     color_map : dict[tuple[int, int, int], int]
-        Colour → class-ID mapping from :func:`_build_color_map`.
+        Color → class-ID mapping from :func:`_build_color_map`.
 
     Returns
     -------
@@ -136,7 +136,7 @@ def _rgb_to_class_ids(mask_rgb: np.ndarray, lut: np.ndarray) -> np.ndarray:
     Parameters
     ----------
     mask_rgb : np.ndarray
-        RGB mask array, shape (H, W, 3), validated against the colour map
+        RGB mask array, shape (H, W, 3), validated against the color map
         used to build *lut*.
     lut : np.ndarray
         Lookup table from :func:`_build_lut`.
@@ -231,7 +231,7 @@ def _discover_pairs(pred_dir: Path, masks_dir: Path) -> list[tuple[Path, Path]]:
 
 
 def _nan_to_none(v: float) -> float | None:
-    """Return None for NaN, preserving finite floats for JSON serialisation."""
+    """Return None for NaN, preserving finite floats for JSON serialization."""
     return None if np.isnan(v) else v
 
 
@@ -392,7 +392,7 @@ def _evaluate_pairs_threaded(
     return [result for result in completed if result is not None]
 
 
-def _summarise_pair_results(
+def _summarize_pair_results(
     *,
     results: list[tuple[str, np.ndarray]],
     class_names: list[str],
@@ -479,11 +479,11 @@ def run_seg_eval(
     Parameters
     ----------
     pred_dir : Path | str
-        Directory containing predicted colour-coded masks.
+        Directory containing predicted color-coded masks.
     masks_dir : Path | str
-        Directory containing ground-truth colour-coded masks.
+        Directory containing ground-truth color-coded masks.
     classes_path : Path | str
-        Path to ``classes.json`` defining class names and RGB colours.
+        Path to ``classes.json`` defining class names and RGB colors.
     output_dir : Path | str | None
         Directory to write JSON output files.  ``None`` skips file output.
     output_summary_name : str
@@ -502,13 +502,13 @@ def run_seg_eval(
     Returns
     -------
     tuple[dict[str, Any], dict[str, Any]]
-        ``(dataset_summary, image_summary)`` — both are JSON-serialisable dicts.
+        ``(dataset_summary, image_summary)`` — both are JSON-serializable dicts.
 
     Raises
     ------
     ValueError
         If spatial dimensions of a pred/gt pair do not match, if unknown
-        colours appear in any mask, or if class IDs in classes.json are not
+        colors appear in any mask, or if class IDs in classes.json are not
         contiguous from 0.
     FileNotFoundError
         If a predicted mask has no corresponding ground-truth mask.
@@ -551,7 +551,7 @@ def run_seg_eval(
         worker_count=worker_count,
         show_progress=show_progress,
     )
-    dataset_summary, image_summary = _summarise_pair_results(
+    dataset_summary, image_summary = _summarize_pair_results(
         results=pair_results,
         class_names=class_names,
         verbose=verbose,

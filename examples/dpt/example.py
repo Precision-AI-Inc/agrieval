@@ -59,10 +59,10 @@ def _tile_ids_from_masks(masks_dir: Path) -> list[str]:
 def main() -> None:
     """Generate synthetic tiles, run dense patch token evaluation, and print a summary.
 
-    Recognised arguments
+    Recognized arguments
     --------------------
     --masks : str
-        Directory of ground-truth colour-coded masks, one per tile (filename
+        Directory of ground-truth color-coded masks, one per tile (filename
         stem becomes the tile ID). Defaults to ``tests/data/masks``.
     --classes : str
         Path to the AgriBench class-definition JSON. Defaults to ``tests/data/class_map.json``.

@@ -62,7 +62,7 @@ class TestSmokeImage2Image:
         )
         assert set(response.json()["per_class"].keys()) == {"A", "D"}
 
-    def test_output_is_json_serialisable(self, image_embeddings: dict) -> None:
+    def test_output_is_json_serializable(self, image_embeddings: dict) -> None:
         response = client.post(
             "/v1/embeddings/evaluate/image2image",
             json={"embeddings": image_embeddings, "dataset_root": _IMAGE_DATASET_ROOT},
@@ -150,7 +150,7 @@ class TestSmokePlant2Image:
         )
         assert response.json().get("group_analysis") is not None
 
-    def test_output_is_json_serialisable(self, plant2image_payload: dict) -> None:
+    def test_output_is_json_serializable(self, plant2image_payload: dict) -> None:
         response = client.post(
             "/v1/embeddings/evaluate/plant2image",
             json={
@@ -230,7 +230,7 @@ class TestSmokePlant2Plant:
         assert gap is not None
         assert gap > 0.0, "Synthetic label-clustered embeddings should have a positive gap"
 
-    def test_output_is_json_serialisable(self, plant2plant_payload: dict) -> None:
+    def test_output_is_json_serializable(self, plant2plant_payload: dict) -> None:
         response = client.post(
             "/v1/embeddings/evaluate/plant2plant",
             json={

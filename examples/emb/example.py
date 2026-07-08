@@ -56,7 +56,7 @@ def main() -> None:
 
     Optionally writes visualization HTML files to an output directory.
 
-    Recognised arguments
+    Recognized arguments
     --------------------
     --mode : {image2image, image2image_meta, plant2image, plant2plant}
         Which bundled mode to run.
@@ -71,7 +71,7 @@ def main() -> None:
         Dataset root for Image→Image label extraction.  Defaults to
         ``"images"`` to match the ``images/{L2}/`` key prefix.
     --k-values : list[int]
-        One or more K cutoffs for nearest-neighbour metrics.  Defaults to
+        One or more K cutoffs for nearest-neighbor metrics.  Defaults to
         ``[5, 10]``.
     --sample-pairs : int | None
         Maximum number of pairs for pairwise similarity stats.  Omit for an
@@ -134,7 +134,7 @@ def main() -> None:
 
     elif args.mode == "plant2plant":
         instance_labels: dict[str, str] = payload["instance_labels"]
-        print(f"Labels    : {len(instance_labels)} labelled instances")
+        print(f"Labels    : {len(instance_labels)} labeled instances")
         print()
         result = run_plant2plant_eval(
             embeddings=embeddings,

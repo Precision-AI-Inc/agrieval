@@ -74,7 +74,7 @@ def print_result(result: dict) -> None:
 
     Writes a human-readable summary to stdout covering both operating modes:
     embeddings-only (label KPIs) and embeddings+metadata (graded-relevance KPIs,
-    alignment, neighbour diagnostics, and group analysis).
+    alignment, neighbor diagnostics, and group analysis).
 
     Parameters
     ----------
@@ -173,7 +173,7 @@ def _print_geometry_block(gm: dict) -> None:
 
 
 def _print_diag_entry(label: str, entry: dict) -> None:
-    """Print one neighbour-diagnostic entry (per-k dict or flat scalar dict)."""
+    """Print one neighbor-diagnostic entry (per-k dict or flat scalar dict)."""
     if isinstance(entry, dict) and all(str(k).isdigit() for k in entry):
         for k, stats in entry.items():
             print(f"  {label}@{k:<8}  : {_fmt_kv(stats)}")
@@ -183,7 +183,7 @@ def _print_diag_entry(label: str, entry: dict) -> None:
 
 
 def _print_diag_block(gm: dict) -> None:
-    """Print neighbour diagnostics (hubness, knn_radius, mean_top_k_sim, outlier_score)."""
+    """Print neighbor diagnostics (hubness, knn_radius, mean_top_k_sim, outlier_score)."""
     printed = False
     for key, label in _DIAG_KEYS:
         if key not in gm:
@@ -239,7 +239,7 @@ def _print_global(gm: dict) -> None:
 
     Handles both operating modes: when ``metadata`` was supplied the label-based
     KPIs are replaced by graded-relevance metadata KPIs.  Geometry diagnostics,
-    Wang & Isola uniformity/alignment, and neighbour diagnostics are always shown
+    Wang & Isola uniformity/alignment, and neighbor diagnostics are always shown
     when present.
 
     Parameters
@@ -454,7 +454,7 @@ def plot_cosine_similarity(
     sorted_paths = [paths[i] for i in sort_order]
     sorted_vectors = vectors[sort_order]
 
-    # L2-normalised → cosine sim = dot product
+    # L2-normalized → cosine sim = dot product
     sim = (sorted_vectors @ sorted_vectors.T).astype(np.float64)
     np.clip(sim, -1.0, 1.0, out=sim)
 
@@ -582,7 +582,7 @@ def plot_lle(
 ) -> None:
     """Save an interactive 3D LLE (Locally Linear Embedding) scatter (Plotly).
 
-    LLE preserves local neighbourhood structure rather than global distances,
+    LLE preserves local neighborhood structure rather than global distances,
     complementing t-SNE.  Requires ``scikit-learn``.
 
     Parameters
@@ -595,7 +595,7 @@ def plot_lle(
         Destination file path.  ``.html`` produces a rotatable 3D page.
         Pass ``None`` to display inline (e.g. in a Jupyter notebook).
     n_neighbors : int | None
-        LLE neighbourhood size.  Defaults to ``max(5, n // 3)`` clamped to
+        LLE neighborhood size.  Defaults to ``max(5, n // 3)`` clamped to
         ``n - 1``.
     """
     if go is None:
@@ -680,7 +680,7 @@ def plot_tsne(
     n = len(vectors)
 
     # Color by subgroup (path parent dir) rather than L1 class so all L2
-    # clusters are visible as distinct colours instead of collapsing into
+    # clusters are visible as distinct colors instead of collapsing into
     # single blobs per L1 label.
     groups = _subgroup_labels(paths)
     unique_groups = sorted(set(groups))

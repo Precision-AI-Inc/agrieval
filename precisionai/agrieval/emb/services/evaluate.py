@@ -164,7 +164,7 @@ def run_image2image_eval(
     image_embeddings : dict[str, list[float]]
         Mapping of image path to embedding vector.
     k_values : list[int]
-        K cutoffs for nearest-neighbour metrics.
+        K cutoffs for nearest-neighbor metrics.
     dataset_root : str | None
         Optional explicit dataset root for label extraction (ignored when
         ``metadata`` is provided).
@@ -178,7 +178,7 @@ def run_image2image_eval(
     Returns
     -------
     dict
-        Fixed-schema result ready for JSON serialisation.
+        Fixed-schema result ready for JSON serialization.
     """
     paths = list(image_embeddings.keys())
     vectors = list(image_embeddings.values())
@@ -273,13 +273,13 @@ def run_plant2image_eval(
     Parameters
     ----------
     embeddings : dict[str, list[float]]
-        Mapping of image/instance path → L2-normalised embedding vector.
+        Mapping of image/instance path → L2-normalized embedding vector.
         Must include both parent full-image paths and all instance crop paths
         referenced in ``instance_to_image``.
     instance_to_image : dict[str, list[str]]
         Parent full-image path → list of instance crop paths.
     k_values : list[int]
-        K cutoffs for nearest-neighbour metrics.
+        K cutoffs for nearest-neighbor metrics.
     dataset_root : str | None
         Optional dataset root for class label extraction from parent paths.
     sample_pairs : int | None
@@ -288,7 +288,7 @@ def run_plant2image_eval(
     Returns
     -------
     dict
-        Fixed-schema result ready for JSON serialisation.
+        Fixed-schema result ready for JSON serialization.
     """
     metadata = plant2image_to_metadata(instance_to_image, dataset_root)
     return run_image2image_eval(
@@ -314,18 +314,18 @@ def run_plant2plant_eval(
     Parameters
     ----------
     embeddings : dict[str, list[float]]
-        Mapping of instance path → L2-normalised embedding vector.
+        Mapping of instance path → L2-normalized embedding vector.
     instance_labels : dict[str, str]
         Mapping of instance path → crop/weed class label.
     k_values : list[int]
-        K cutoffs for nearest-neighbour metrics.
+        K cutoffs for nearest-neighbor metrics.
     sample_pairs : int | None
         Pair-sampling budget for global similarity stats.
 
     Returns
     -------
     dict
-        Fixed-schema result ready for JSON serialisation.
+        Fixed-schema result ready for JSON serialization.
     """
     metadata = plant2plant_to_metadata(instance_labels)
     return run_image2image_eval(

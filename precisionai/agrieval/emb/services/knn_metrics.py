@@ -46,19 +46,19 @@ from precisionai.agrieval.emb.schemas.evaluate import MetadataGroup
 from precisionai.agrieval.emb.services.labels import build_image_items
 
 # ---------------------------------------------------------------------------
-# Per-item stat summarisation
+# Per-item stat summarization
 # ---------------------------------------------------------------------------
 
 
 def _slice_knn_stats(per_item_by_k: dict[int, np.ndarray], indices: np.ndarray) -> dict:
-    """Summarise per-item KNN scores for a subset of items.
+    """Summarize per-item KNN scores for a subset of items.
 
     Parameters
     ----------
     per_item_by_k : dict[int, np.ndarray]
         Mapping of k → per-item score array (full dataset).
     indices : np.ndarray
-        Row indices of the subset to summarise.
+        Row indices of the subset to summarize.
 
     Returns
     -------
@@ -80,14 +80,14 @@ def _slice_knn_stats(per_item_by_k: dict[int, np.ndarray], indices: np.ndarray) 
 
 
 def _slice_flat_stats(per_item: np.ndarray, indices: np.ndarray) -> dict:
-    """Summarise a flat per-item score array for a subset of items.
+    """Summarize a flat per-item score array for a subset of items.
 
     Parameters
     ----------
     per_item : np.ndarray
         Full-dataset per-item scores (no K nesting).
     indices : np.ndarray
-        Row indices of the subset to summarise.
+        Row indices of the subset to summarize.
 
     Returns
     -------
@@ -114,7 +114,7 @@ def _compute_metadata_knn_metrics(
     Parameters
     ----------
     neighbors : dict[int, np.ndarray]
-        Precomputed top-K neighbour index arrays keyed by K.
+        Precomputed top-K neighbor index arrays keyed by K.
     paths : list[str]
         Embedding path keys in the same index order as ``neighbors``.
     metadata : dict[str, MetadataGroup]
@@ -163,7 +163,7 @@ def _compute_label_knn_metrics(
     Parameters
     ----------
     neighbors : dict[int, np.ndarray]
-        Precomputed top-K neighbour index arrays keyed by K.
+        Precomputed top-K neighbor index arrays keyed by K.
     labels_arr : np.ndarray
         Class label for every item in the same index order as ``neighbors``.
 
@@ -225,7 +225,7 @@ def _compute_neighbor_diagnostics(
     neighbors: dict[int, np.ndarray],
     n: int,
 ) -> dict:
-    """Surface pre-existing neighbour diagnostics as a named bundle.
+    """Surface pre-existing neighbor diagnostics as a named bundle.
 
     Parameters
     ----------
@@ -386,7 +386,7 @@ def _compute_group_analysis(
     paths: list[str],
     metadata: dict[str, MetadataGroup],
 ) -> dict:
-    """Analyse the coherence of each declared metadata group using HDBSCAN.
+    """Analyze the coherence of each declared metadata group using HDBSCAN.
 
     For each group, compute pairwise intra-group cosine statistics and
     attempt to detect natural sub-clusters.  Groups with ``cluster_count > 1``
