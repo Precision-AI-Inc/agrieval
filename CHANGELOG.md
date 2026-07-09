@@ -43,5 +43,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/Precision-AI-Inc/agrieval/compare/v1.0.1...HEAD
 [1.0.1]: https://github.com/Precision-AI-Inc/agrieval/compare/v1.0.0...v1.0.1
-[0.1.1]: https://github.com/Precision-AI-Inc/agrieval/compare/v0.1.0...v0.1.1
+[1.0.0]: https://github.com/Precision-AI-Inc/agrieval/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/Precision-AI-Inc/agrieval/releases/tag/v0.1.0
