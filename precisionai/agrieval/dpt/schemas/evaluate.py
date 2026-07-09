@@ -102,8 +102,9 @@ class DptEvalRequest(BaseModel):
         Path to an AgriStress ``class_map.json`` (same format as ``seg``).
         Requires ``masks_dir`` to also be set.
     ``dataset_root``
-        Root prefix used to resolve relative ``masks_dir``/``classes_path``.
-        Defaults to ``dataset/`` (override at startup with ``--dataset-root``).
+        Root prefix ``masks_dir``/``classes_path`` are resolved against; the
+        resolved path must stay within it. Defaults to ``dataset/`` (override
+        at startup with ``--dataset-root``).
     ``k_values``
         K cutoffs for nearest-neighbor label metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
@@ -139,7 +140,7 @@ class DptEvalRequest(BaseModel):
     )
     dataset_root: str | None = Field(
         default=None,
-        description="Root prefix for resolving relative masks_dir/classes_path. Defaults to dataset/.",
+        description="Root prefix masks_dir/classes_path are resolved against and must stay within. Defaults to dataset/.",
     )
     k_values: list[int] = Field(
         default=[5, 10, 20],
@@ -251,8 +252,9 @@ class DptImageEvalRequest(BaseModel):
         Path to an AgriStress ``class_map.json`` (same format as ``seg``).
         Requires ``masks_dir`` to also be set.
     ``dataset_root``
-        Root prefix used to resolve relative ``masks_dir``/``classes_path``.
-        Defaults to ``dataset/`` (override at startup with ``--dataset-root``).
+        Root prefix ``masks_dir``/``classes_path`` are resolved against; the
+        resolved path must stay within it. Defaults to ``dataset/`` (override
+        at startup with ``--dataset-root``).
     ``k_values``
         K cutoffs for nearest-neighbor label metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
@@ -287,7 +289,7 @@ class DptImageEvalRequest(BaseModel):
     )
     dataset_root: str | None = Field(
         default=None,
-        description="Root prefix for resolving relative masks_dir/classes_path. Defaults to dataset/.",
+        description="Root prefix masks_dir/classes_path are resolved against and must stay within. Defaults to dataset/.",
     )
     k_values: list[int] = Field(
         default=[5, 10, 20],

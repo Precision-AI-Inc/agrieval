@@ -15,6 +15,7 @@ from precisionai.agrieval.emb.metrics._utils import (
     _get_pair_similarities,
     _percentile_stats,
     _prepare_embeddings,
+    _threshold_counts_from_sims,
 )
 from precisionai.agrieval.emb.metrics.ranking import normalize_ks
 
@@ -195,18 +196,4 @@ def similarity_threshold_counts(
     """
     emb = _prepare_embeddings(embeddings, normalize)
     sims, total_unique = _get_pair_similarities(emb, sample_pairs, random_seed)
-    n_evaluated = len(sims)
-
-    result = []
-    for t in sorted(thresholds):
-        count = int(np.sum(sims >= t))
-        fraction = count / n_evaluated if n_evaluated > 0 else 0.0
-        result.append(
-            {
-                "threshold": float(t),
-                "pair_count": count,
-                "pair_fraction": float(fraction),
-                "estimated_total_pairs": total_unique,
-            }
-        )
-    return result
+    return _threshold_counts_from_sims(sims, thresholds, total_unique)

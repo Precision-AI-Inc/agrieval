@@ -103,7 +103,9 @@ images/
 - Flat 1-D array of length `embedding_dim`
 - **L2-normalized float32** — `‖v‖₂ = 1.0 ± 0.001`
 - All vectors must share the same length
-- Minimum 2 embeddings per request
+- Between 2 and 50,000 embeddings per request (all three wirings — sized for
+  the ~50k-image datasets this service targets; also bounds the O(n²) work
+  done downstream)
 
 ---
 
@@ -291,7 +293,7 @@ Only `embeddings` is required. All other fields use server defaults.
 | `metadata` | `null` | Similarity groups — enables metadata-aware graded nDCG. See [Data format](#data-format). |
 | `dataset_root` | server default | Override dataset root for label extraction (ignored when `metadata` is provided) |
 | `k_values` | `[5, 10, 20]` | K cutoffs for KNN metrics |
-| `sample_pairs` | `1 000 000` | Pair budget for pairwise stats; `null` = exact |
+| `sample_pairs` | `1 000 000` | Pair budget for pairwise stats; `null` = exact. Capped at `5,000,000` — a sampling budget sized independently of the embeddings ceiling above, since further precision beyond that isn't worth the added compute |
 
 ---
 

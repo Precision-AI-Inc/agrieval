@@ -16,7 +16,12 @@ from pydantic import ValidationError
 
 from precisionai.agrieval.emb.api.app import app
 from precisionai.agrieval.emb.api.routes.evaluate import _run_or_400
-from precisionai.agrieval.emb.schemas.evaluate import EmbeddingEvaluateRequest, MetadataGroup
+from precisionai.agrieval.emb.schemas.evaluate import (
+    _MAX_EMBEDDINGS,
+    _MAX_SAMPLE_PAIRS,
+    EmbeddingEvaluateRequest,
+    MetadataGroup,
+)
 from precisionai.agrieval.emb.services.evaluate import (
     _DEFAULT_WARN_ITEMS,
     _build_evaluation_warnings,
@@ -732,6 +737,45 @@ class TestNanEmbeddingVulnerability:
         }
         with pytest.raises(ValidationError, match="normalized"):
             EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
+
+
+class TestEmbeddingAndSamplePairsCeilings:
+    """Hard ceilings sized for the ~50k-image datasets this service targets.
+
+    The embeddings ceiling bounds the O(n^2) work (label-aware metrics,
+    group analysis) a single request can trigger. sample_pairs is a
+    separate, independently-sized sampling budget — not derived from the
+    embeddings ceiling — since it controls an approximate statistic rather
+    than a request for exact pairs. Schema-level checks only — constructing
+    the model never runs the evaluation itself, so these stay fast even at
+    the 50,000-item boundary.
+    """
+
+    def test_exactly_at_ceiling_is_accepted(self) -> None:
+        embeddings = {f"ds/A/{i}.png": [1.0] for i in range(_MAX_EMBEDDINGS)}
+        req = EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
+        assert len(req.embeddings) == _MAX_EMBEDDINGS
+
+    def test_one_over_ceiling_raises(self) -> None:
+        embeddings = {f"ds/A/{i}.png": [1.0] for i in range(_MAX_EMBEDDINGS + 1)}
+        with pytest.raises(ValidationError, match="Too many embeddings"):
+            EmbeddingEvaluateRequest(embeddings=embeddings, k_values=[1])
+
+    def test_sample_pairs_over_ceiling_raises(self) -> None:
+        with pytest.raises(ValidationError, match="less than or equal to"):
+            EmbeddingEvaluateRequest(
+                embeddings={"ds/A1/a.png": _unit(0), "ds/B1/b.png": _unit(1)},
+                k_values=[1],
+                sample_pairs=_MAX_SAMPLE_PAIRS + 1,
+            )
+
+    def test_sample_pairs_at_ceiling_is_accepted(self) -> None:
+        req = EmbeddingEvaluateRequest(
+            embeddings={"ds/A1/a.png": _unit(0), "ds/B1/b.png": _unit(1)},
+            k_values=[1],
+            sample_pairs=_MAX_SAMPLE_PAIRS,
+        )
+        assert req.sample_pairs == _MAX_SAMPLE_PAIRS
 
 
 class TestEmptyKValues:

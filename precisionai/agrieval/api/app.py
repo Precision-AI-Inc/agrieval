@@ -56,7 +56,8 @@ POST /v1/dense-patch-tokens/evaluate/image
 All path arguments (``pred_dir``, ``masks_dir``, ``classes_path``, etc.) are
 resolved against the ``dataset_root`` field in the request body, which falls
 back to the ``PAI_DATASET_ROOT`` environment variable and then ``"dataset"``.
-Absolute paths bypass ``dataset_root`` entirely.
+The resolved path must stay within ``dataset_root`` — an absolute path or a
+``..`` segment that would escape it is rejected with HTTP 400.
 """
 
 app = FastAPI(

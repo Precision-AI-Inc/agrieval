@@ -83,7 +83,7 @@ In both cases, the final per-entry downsample step is the same: `dpt` **majority
 | `tiles_path` | path \| `None` | A batched `.npz` archive, resolved against `dataset_root` — see [Tiles / images](#tiles--images). Exactly one of `tiles` / `tiles_path`. |
 | `masks_dir` | directory \| `None` | Ground-truth color-coded masks — one per tile for inline `tiles`, one per source image (cropped per tile) for `tiles_path`. Requires `classes_path`. |
 | `classes_path` | file \| `None` | Class-definition JSON, same format as `seg`. Requires `masks_dir`. |
-| `dataset_root` | str \| `None` | Base path for relative `masks_dir`/`classes_path` (API layer only — the `run_dpt_eval()` function itself expects already-resolved paths, like `run_seg_eval`). |
+| `dataset_root` | str \| `None` | Base path `masks_dir`/`classes_path` are resolved against and must stay within (API layer only — the `run_dpt_eval()` function itself expects already-resolved paths, like `run_seg_eval`). |
 | `k_values` | `list[int]` | K cutoffs for kNN label metrics. Default `[5, 10, 20]`. |
 | `sample_pairs` | `int \| None` | Max random pairs for global pairwise similarity stats. `None` computes exactly. |
 | `max_patches` | `int` | Max patches used for O(N²) label-aware kNN computation; larger corpora are randomly subsampled (seeded) and the drop reported in `warnings`. Default `20 000`. |
@@ -210,6 +210,8 @@ Each metric degrades gracefully: when its preconditions fail — only one class 
 precisionai-agrieval-api --dataset-root /path/to/dataset
 open http://localhost:8000/docs
 ```
+
+The `--dataset-root` flag (or the `PAI_DATASET_ROOT` environment variable) sets the base directory `masks_dir`/`classes_path`/`tiles_path`/`images_path` are resolved against. The resolved path must stay within `dataset_root` — an absolute path or a `..` segment that would escape it is rejected with HTTP 400.
 
 ### `POST /v1/dense-patch-tokens/evaluate/tiles`
 

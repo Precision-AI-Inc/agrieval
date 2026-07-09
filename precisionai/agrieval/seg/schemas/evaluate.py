@@ -14,8 +14,9 @@ class SegEvalRequest(BaseModel):
     Parameters
     ----------
     pred_dir : str
-        Path to the directory of predicted color-coded masks.  Relative paths
-        are resolved against ``dataset_root``; absolute paths are used as-is.
+        Path to the directory of predicted color-coded masks.  Resolved
+        against ``dataset_root``; the resolved path must stay within
+        ``dataset_root`` (rejected with HTTP 400 otherwise).
     masks_dir : str
         Path to the directory of ground-truth color-coded masks.
     classes_path : str
@@ -31,9 +32,10 @@ class SegEvalRequest(BaseModel):
         Number of worker threads for mask-pair processing.  ``None`` selects
         an automatic default.
     dataset_root : str | None
-        Base directory prepended to relative ``pred_dir``, ``masks_dir``,
-        ``classes_path``, and ``output_dir`` values.  Falls back to the
-        ``PAI_DATASET_ROOT`` environment variable, then ``"dataset"``.
+        Base directory ``pred_dir``, ``masks_dir``, ``classes_path``, and
+        ``output_dir`` are resolved against; the resolved path must stay
+        within it.  Falls back to the ``PAI_DATASET_ROOT`` environment
+        variable, then ``"dataset"``.
     """
 
     pred_dir: str = Field(description="Directory of predicted color-coded masks.")
@@ -51,7 +53,9 @@ class SegEvalRequest(BaseModel):
         ge=1,
         description="Number of worker threads. None selects an automatic default, up to 4.",
     )
-    dataset_root: str | None = Field(default=None, description="Base path prepended to relative directory arguments.")
+    dataset_root: str | None = Field(
+        default=None, description="Base path directory arguments are resolved against and must stay within."
+    )
 
 
 class ClassMetrics(BaseModel):

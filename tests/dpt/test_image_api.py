@@ -110,6 +110,17 @@ def test_missing_images_path_returns_400(tmp_path):
     assert "images_path" in resp.json()["detail"]
 
 
+def test_images_path_escape_returns_400(tmp_path):
+    archive = _write_images_batch_npz(tmp_path / "images.npz", ["field_001.png"], seed=9)
+    # A sibling of tmp_path, uniquely named off it — tmp_path.parent is the
+    # shared pytest base dir, so a fixed sibling name could collide across tests.
+    escaped = tmp_path.parent / f"{tmp_path.name}-escaped.npz"
+    escaped.write_bytes(archive.read_bytes())
+    resp = client.post("/v1/dense-patch-tokens/evaluate/image", json={"images_path": str(escaped)})
+    assert resp.status_code == 400
+    assert "images_path" in resp.json()["detail"]
+
+
 def test_mismatched_image_shapes_returns_422():
     resp = client.post(
         "/v1/dense-patch-tokens/evaluate/image",

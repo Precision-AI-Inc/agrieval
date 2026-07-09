@@ -280,7 +280,8 @@ def test_run_seg_eval_no_output_dir(tmp_path, classes_path):
 
     ds, _ = run_seg_eval(pred_dir, gt_dir, classes_path, output_dir=None)
     assert "summary" in ds
-    assert not list(tmp_path.glob("*.json"))
+    assert not (tmp_path / "output_summary.json").exists()
+    assert not (tmp_path / "image_summary.json").exists()
 
 
 def test_run_seg_eval_writes_json(tmp_path, classes_path):
