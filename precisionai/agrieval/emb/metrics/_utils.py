@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import itertools
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -210,6 +211,51 @@ def _get_pair_similarities(
         sims = np.einsum("ij,ij->i", embeddings[pairs_i], embeddings[pairs_j])
 
     return sims.astype(np.float32), total_unique
+
+
+def _threshold_counts_from_sims(
+    sims: np.ndarray,
+    thresholds: Sequence[float],
+    total_unique: int,
+) -> list[dict]:
+    """Count pairs whose similarity exceeds each threshold, given precomputed pair similarities.
+
+    Factored out of :func:`~precisionai.agrieval.emb.metrics.similarity.similarity_threshold_counts`
+    so callers that already hold a sampled ``sims`` array (e.g. because they
+    also need it for :func:`_percentile_stats`) can reuse it instead of
+    re-sampling the same pairs a second time.
+
+    Parameters
+    ----------
+    sims : np.ndarray
+        1-D array of (sampled or exhaustive) pairwise similarities, as
+        returned by :func:`_get_pair_similarities`.
+    thresholds : Sequence[float]
+        Cosine similarity cutoffs to count against.
+    total_unique : int
+        Exact total number of unique pairs in the full dataset, as returned
+        by :func:`_get_pair_similarities`.
+
+    Returns
+    -------
+    list[dict]
+        One entry per threshold with keys ``threshold``, ``pair_count``,
+        ``pair_fraction``, ``estimated_total_pairs``.
+    """
+    n_evaluated = len(sims)
+    result = []
+    for t in sorted(thresholds):
+        count = int(np.sum(sims >= t))
+        fraction = count / n_evaluated if n_evaluated > 0 else 0.0
+        result.append(
+            {
+                "threshold": float(t),
+                "pair_count": count,
+                "pair_fraction": float(fraction),
+                "estimated_total_pairs": total_unique,
+            }
+        )
+    return result
 
 
 def _rankdata(arr: np.ndarray) -> np.ndarray:

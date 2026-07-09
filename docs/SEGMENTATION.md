@@ -248,7 +248,7 @@ precisionai-agrieval-api --dataset-root /path/to/dataset
 open http://localhost:8000/docs
 ```
 
-The `--dataset-root` flag (or the `PAI_DATASET_ROOT` environment variable) sets the base directory against which relative paths in request bodies are resolved. Absolute paths bypass it entirely.
+The `--dataset-root` flag (or the `PAI_DATASET_ROOT` environment variable) sets the base directory against which paths in request bodies are resolved. The resolved path must stay within `dataset_root` — an absolute path or a `..` segment that would escape it is rejected with HTTP 400.
 
 ### `POST /v1/segmentation/evaluate`
 

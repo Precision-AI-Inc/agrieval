@@ -337,6 +337,36 @@ def test_nonexistent_classes_path_returns_400(tmp_path):
     assert "classes_path" in resp.json()["detail"]
 
 
+def test_pred_dir_dot_dot_escape_returns_400(tmp_path, classes_path):
+    payload = _post(tmp_path, classes_path)
+    payload["pred_dir"] = "../escaped"
+    resp = client.post("/v1/segmentation/evaluate", json=payload)
+    assert resp.status_code == 400
+    assert "pred_dir" in resp.json()["detail"]
+
+
+def test_output_dir_absolute_escape_returns_400(tmp_path, classes_path):
+    # A sibling of tmp_path, uniquely named off it — tmp_path.parent is the
+    # shared pytest base dir, so a fixed sibling name could collide across tests.
+    escaped = tmp_path.parent / f"{tmp_path.name}-escaped-output"
+    payload = _post(tmp_path, classes_path)
+    payload["output_dir"] = str(escaped)
+    resp = client.post("/v1/segmentation/evaluate", json=payload)
+    assert resp.status_code == 400
+    assert "output_dir" in resp.json()["detail"]
+    assert not escaped.exists()
+
+
+def test_classes_path_escape_returns_400(tmp_path, classes_path):
+    outside_classes = tmp_path.parent / f"{tmp_path.name}-outside-class-map.json"
+    outside_classes.write_bytes(classes_path.read_bytes())
+    payload = _post(tmp_path, classes_path)
+    payload["classes_path"] = str(outside_classes)
+    resp = client.post("/v1/segmentation/evaluate", json=payload)
+    assert resp.status_code == 400
+    assert "classes_path" in resp.json()["detail"]
+
+
 def test_os_error_returns_400(tmp_path, classes_path, monkeypatch):
     pred_dir = tmp_path / "pred"
     gt_dir = tmp_path / "gt"

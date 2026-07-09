@@ -12,6 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
+from precisionai.agrieval.api.paths import resolve_under_root
 from precisionai.agrieval.seg.api.config import get_dataset_root
 from precisionai.agrieval.seg.schemas.evaluate import (
     SegEvalRequest,
@@ -33,7 +34,9 @@ def evaluate(request: SegEvalRequest) -> SegEvalResponse:
 
     Resolves all path arguments against ``dataset_root`` (or the
     ``PAI_DATASET_ROOT`` environment variable when ``dataset_root`` is
-    omitted).  Absolute paths are used as-is regardless of ``dataset_root``.
+    omitted).  The resolved path must stay within ``dataset_root`` — an
+    absolute path or a ``..`` segment that would escape it is rejected with
+    HTTP 400, regardless of how ``dataset_root`` itself was supplied.
 
     Returns the full dataset-level and per-image confusion-matrix-derived KPIs.
     Raises HTTP 400 for any input validation error (unknown colors, size
@@ -41,10 +44,17 @@ def evaluate(request: SegEvalRequest) -> SegEvalResponse:
     unreadable paths, or invalid image files).
     """
     root = Path(_resolve_dataset_root(request.dataset_root))
-    pred_dir = root / request.pred_dir
-    masks_dir = root / request.masks_dir
-    classes_path = root / request.classes_path
-    output_dir = (root / request.output_dir) if request.output_dir is not None else None
+    try:
+        pred_dir = resolve_under_root(root, request.pred_dir, field_name="pred_dir")
+        masks_dir = resolve_under_root(root, request.masks_dir, field_name="masks_dir")
+        classes_path = resolve_under_root(root, request.classes_path, field_name="classes_path")
+        output_dir = (
+            resolve_under_root(root, request.output_dir, field_name="output_dir")
+            if request.output_dir is not None
+            else None
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if not pred_dir.is_dir():
         raise HTTPException(status_code=400, detail=f"pred_dir does not exist or is not a directory: '{pred_dir}'")

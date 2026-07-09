@@ -7,7 +7,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from precisionai.agrieval.emb.metrics._utils import _validate_embeddings
+from precisionai.agrieval.emb.metrics._utils import (
+    _get_pair_similarities,
+    _percentile_stats,
+    _prepare_embeddings,
+    _threshold_counts_from_sims,
+    _validate_embeddings,
+)
 from precisionai.agrieval.emb.metrics.cross_model import (
     knn_jaccard_at_k,
     knn_overlap_at_k,
@@ -30,11 +36,12 @@ from precisionai.agrieval.emb.metrics.neighbors import (
     mean_top_k_similarity,
     outlier_score_at_k,
 )
-from precisionai.agrieval.emb.metrics.similarity import (
-    pairwise_similarity_stats,
-    similarity_threshold_counts,
-    top_k_neighbors,
-)
+from precisionai.agrieval.emb.metrics.similarity import top_k_neighbors
+
+# Matches the random_seed default shared by similarity.pairwise_similarity_stats
+# and similarity.similarity_threshold_counts, which analyze_embedding_space
+# previously called separately (each re-sampling the same pairs from scratch).
+_PAIR_SAMPLE_SEED = 42
 
 
 def analyze_embedding_space(
@@ -60,7 +67,9 @@ def analyze_embedding_space(
     thresholds : sequence of float
         Similarity thresholds for pair counting and duplicate detection.
     normalize : bool
-        L2-normalize rows before all computations.
+        L2-normalize rows before all computations. Applied once and reused
+        across every sub-metric below, rather than each re-normalizing (and,
+        for the pair-sampling budget, re-sampling) the same input.
     sample_pairs : int | None
         Pair-sampling budget for global stats. ``None`` computes all pairs.
     include_neighbors : bool
@@ -82,20 +91,20 @@ def analyze_embedding_space(
     """
     emb = _validate_embeddings(embeddings)
     n, d = emb.shape
+    normalized = _prepare_embeddings(emb, normalize)
+    sims, total_unique = _get_pair_similarities(normalized, sample_pairs, _PAIR_SAMPLE_SEED)
 
     result: dict = {
         "n_items": n,
         "embedding_dim": d,
         "ks": list(ks),
         "thresholds": list(thresholds),
-        "pairwise_similarity_stats": pairwise_similarity_stats(emb, normalize=normalize, sample_pairs=sample_pairs),
-        "similarity_threshold_counts": similarity_threshold_counts(
-            emb, thresholds, normalize=normalize, sample_pairs=sample_pairs
-        ),
+        "pairwise_similarity_stats": _percentile_stats(sims),
+        "similarity_threshold_counts": _threshold_counts_from_sims(sims, thresholds, total_unique),
     }
 
     if include_neighbors:
-        neighbors = top_k_neighbors(emb, ks, normalize=normalize)
+        neighbors = top_k_neighbors(normalized, ks, normalize=False)
         result["nearest_neighbors"] = {
             "mean_top_k_similarity": mean_top_k_similarity(neighbors),
             "knn_radius_at_k": knn_radius_at_k(neighbors),
@@ -107,13 +116,13 @@ def analyze_embedding_space(
 
     if include_geometry:
         result["geometry"] = {
-            "centroid_similarity_stats": centroid_similarity_stats(emb, normalize=normalize),
-            "pca_explained_variance": pca_explained_variance(emb, normalize=normalize),
-            "effective_rank": effective_rank(emb, normalize=normalize),
+            "centroid_similarity_stats": centroid_similarity_stats(normalized, normalize=False),
+            "pca_explained_variance": pca_explained_variance(normalized, normalize=False),
+            "effective_rank": effective_rank(normalized, normalize=False),
         }
 
     if include_duplicate_pairs:
-        dup_pairs = duplicate_pairs_at_threshold(emb, thresholds, normalize=normalize)
+        dup_pairs = duplicate_pairs_at_threshold(normalized, thresholds, normalize=False)
         result["duplicates"] = {
             "duplicate_pairs_at_threshold": dup_pairs,
             "duplicate_groups_at_threshold": duplicate_groups_at_threshold(dup_pairs, n_items=n),
@@ -122,7 +131,7 @@ def analyze_embedding_space(
     if labels is not None:
         label_result: dict = {
             "intra_inter_similarity_gap": intra_inter_similarity_gap(
-                emb, labels, normalize=normalize, sample_pairs=sample_pairs
+                normalized, labels, normalize=False, sample_pairs=sample_pairs
             ),
         }
         if neighbors is not None:

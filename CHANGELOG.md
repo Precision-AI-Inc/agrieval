@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-09
+
+### Security
+
+- `precisionai.agrieval.seg` and `dpt` API routes now reject any `pred_dir`/`masks_dir`/`classes_path`/`output_dir`/`tiles_path`/`images_path` that resolves outside `dataset_root` (HTTP 400) — previously an absolute path or a `..` segment could read or write anywhere the server process could access, regardless of `dataset_root`. New shared helper: `precisionai.agrieval.api.paths.resolve_under_root`.
+- `precisionai.agrieval.emb` request schemas (`EmbeddingEvaluateRequest`, `Plant2ImageRequest`, `Plant2PlantRequest`) now cap `embeddings` at 50,000 items, bounding the O(n²) work a single request can trigger, and cap `sample_pairs` at 5,000,000 — sized independently as a sampling budget (5x the existing default), not derived from the embeddings ceiling, since further precision beyond that isn't worth the added compute.
+
+### Fixed
+
+- `precisionai.agrieval.emb.metrics.analysis.analyze_embedding_space` now normalizes its input and samples pairwise similarities once, reusing both across every sub-metric — previously each of `pairwise_similarity_stats`, `similarity_threshold_counts`, `top_k_neighbors`, `centroid_similarity_stats`, `pca_explained_variance`, `effective_rank`, `duplicate_pairs_at_threshold`, and `intra_inter_similarity_gap` independently re-normalized (and, for the first two, re-sampled the identical pairs) from scratch.
+- The `embeddings` field validator on the three `emb` request schemas is vectorized with NumPy instead of a pure-Python loop, and de-duplicated into one shared function. The previous per-embedding Python loop ran synchronously during request parsing, ahead of the async dispatch to a worker thread, so a large request briefly blocked every other in-flight request on the server.
+
 ## [1.0.0] - 2026-07-08
 
 ### Changed
@@ -29,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified FastAPI server exposing both subpackages, plus a standalone segmentation CLI (`precisionai-agrieval-seg`).
 - Top-level re-exports on both subpackages so the primary entry points can be imported directly, e.g. `from precisionai.agrieval.emb import run_image2image_eval` and `from precisionai.agrieval.seg import run_seg_eval`.
 
-[Unreleased]: https://github.com/Precision-AI-Inc/agrieval/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Precision-AI-Inc/agrieval/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Precision-AI-Inc/agrieval/compare/v1.0.0...v1.0.1
 [0.1.1]: https://github.com/Precision-AI-Inc/agrieval/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Precision-AI-Inc/agrieval/releases/tag/v0.1.0

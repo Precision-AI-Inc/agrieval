@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from precisionai.agrieval.emb.api.app import app
-from precisionai.agrieval.emb.schemas.evaluate import Plant2ImageRequest, Plant2PlantRequest
+from precisionai.agrieval.emb.schemas.evaluate import _MAX_EMBEDDINGS, Plant2ImageRequest, Plant2PlantRequest
 from precisionai.agrieval.emb.services.evaluate import (
     run_plant2image_eval,
     run_plant2plant_eval,
@@ -475,6 +475,11 @@ class TestPlant2ImageRequestValidation:
         with pytest.raises(Exception, match="at least one value"):
             Plant2ImageRequest(embeddings=_P2I_EMBEDDINGS, instance_to_image=_P2I_MAP, k_values=[])
 
+    def test_too_many_embeddings_raises(self) -> None:
+        embeddings = {f"images/A/{i}.png": [1.0] for i in range(_MAX_EMBEDDINGS + 1)}
+        with pytest.raises(Exception, match="Too many embeddings"):
+            Plant2ImageRequest(embeddings=embeddings, instance_to_image={})
+
 
 # ---------------------------------------------------------------------------
 # Schema validation — Plant2PlantRequest
@@ -551,6 +556,11 @@ class TestPlant2PlantRequestValidation:
     def test_empty_k_values_raises(self) -> None:
         with pytest.raises(Exception, match="at least one value"):
             Plant2PlantRequest(embeddings=_P2P_EMBEDDINGS, instance_labels=_P2P_LABELS, k_values=[])
+
+    def test_too_many_embeddings_raises(self) -> None:
+        embeddings = {f"images/A/{i}.png": [1.0] for i in range(_MAX_EMBEDDINGS + 1)}
+        with pytest.raises(Exception, match="Too many embeddings"):
+            Plant2PlantRequest(embeddings=embeddings, instance_labels={})
 
 
 # ---------------------------------------------------------------------------

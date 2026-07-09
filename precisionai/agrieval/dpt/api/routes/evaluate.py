@@ -19,6 +19,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from precisionai.agrieval.api.paths import resolve_under_root
 from precisionai.agrieval.dpt.api.config import get_dataset_root
 from precisionai.agrieval.dpt.schemas.evaluate import (
     DptEvalRequest,
@@ -50,13 +51,18 @@ def _resolve_label_paths(
 
     Returns ``(None, None)`` when either field is omitted — label-aware
     metrics are simply skipped in that case (the schema already guarantees
-    both-or-neither are set).
+    both-or-neither are set). The resolved paths must stay within
+    ``dataset_root``; escaping it (via an absolute path or a ``..`` segment)
+    raises HTTP 400.
     """
     if masks_dir is None or classes_path is None:
         return None, None
     root = Path(_resolve_dataset_root(dataset_root))
-    resolved_masks_dir = root / masks_dir
-    resolved_classes_path = root / classes_path
+    try:
+        resolved_masks_dir = resolve_under_root(root, masks_dir, field_name="masks_dir")
+        resolved_classes_path = resolve_under_root(root, classes_path, field_name="classes_path")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not resolved_masks_dir.is_dir():
         raise HTTPException(
             status_code=400, detail=f"masks_dir does not exist or is not a directory: '{resolved_masks_dir}'"
@@ -74,10 +80,10 @@ def evaluate_tiles(request: DptEvalRequest) -> DptEvalResponse:
 
     Supply tiles either inline (``tiles``: dict of ``tile_id -> [P, H, W]``
     feature maps) or from disk (``tiles_path``: a batched ``.npz`` archive,
-    resolved against ``dataset_root`` — see :func:`load_tiles`) — exactly
-    one of the two. Always returns unsupervised geometry and per-tile
-    diagnostics. When ``masks_dir`` and ``classes_path`` are also supplied
-    (resolved against ``dataset_root``, same convention as
+    resolved against ``dataset_root`` and must stay within it — see
+    :func:`load_tiles`) — exactly one of the two. Always returns unsupervised
+    geometry and per-tile diagnostics. When ``masks_dir`` and ``classes_path``
+    are also supplied (resolved against ``dataset_root``, same convention as
     ``/v1/segmentation/evaluate``), the response also includes ``classes``,
     ``per_class``, and ``knn_confusion``. When tiles come from ``tiles_path``,
     ground truth is one mask per *source image* (cropped to each tile's
@@ -92,8 +98,9 @@ def evaluate_tiles(request: DptEvalRequest) -> DptEvalResponse:
     """
     tile_placement: dict[str, TilePlacement] | None = None
     if request.tiles_path is not None:
-        tiles_path = Path(_resolve_dataset_root(request.dataset_root)) / request.tiles_path
+        root = Path(_resolve_dataset_root(request.dataset_root))
         try:
+            tiles_path = resolve_under_root(root, request.tiles_path, field_name="tiles_path")
             tiles: dict[str, Any] = load_tiles(tiles_path)
             # Placement (and therefore meta.tile) is only needed to crop
             # ground-truth masks — unsupervised runs work without it.
@@ -131,16 +138,17 @@ def evaluate_image(request: DptImageEvalRequest) -> DptImageEvalResponse:
     entries each represent one whole (untiled) image rather than an
     arbitrary tile crop. Supply images either inline (``images``: dict of
     ``image_id -> [P, H, W]`` feature maps) or from disk (``images_path``: a
-    batched ``.npz`` archive, resolved against ``dataset_root`` — see
-    :func:`load_images`) — exactly one of the two. When ``masks_dir`` and
-    ``classes_path`` are also supplied, the ground-truth mask for each image
-    is downsampled to that image's own patch grid.
+    batched ``.npz`` archive, resolved against ``dataset_root`` and must stay
+    within it — see :func:`load_images`) — exactly one of the two. When
+    ``masks_dir`` and ``classes_path`` are also supplied, the ground-truth
+    mask for each image is downsampled to that image's own patch grid.
 
     All other fields use server defaults.
     """
     if request.images_path is not None:
-        images_path = Path(_resolve_dataset_root(request.dataset_root)) / request.images_path
+        root = Path(_resolve_dataset_root(request.dataset_root))
         try:
+            images_path = resolve_under_root(root, request.images_path, field_name="images_path")
             images: dict[str, Any] = load_images(images_path)
         except (ValueError, FileNotFoundError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -5,17 +5,29 @@
 
 from __future__ import annotations
 
-import math
 import re
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Acceptable deviation from unit norm for L2-normalized inputs.
 # float32 round-trip through JSON can introduce ~1e-5 error; 1e-3 is generous.
 _NORM_TOLERANCE = 1e-3
 _SUPPORTED_EMBEDDING_EXTENSIONS = frozenset({".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"})
+
+# Sized for the ~50k-image datasets this service targets; also bounds the
+# O(n^2) work (label-aware metrics, group analysis) done downstream.
+_MAX_EMBEDDINGS = 50_000
+# Deliberately NOT derived from _MAX_EMBEDDINGS (C(n, 2) at that ceiling would
+# be ~1.25 billion). sample_pairs is a sampling budget for an approximate
+# statistic, not a request for exact pairs — standard error only shrinks as
+# 1/sqrt(n), so beyond a few million samples further precision isn't worth the
+# added O(sample_pairs * embedding_dim) compute. 5x the 1,000,000 default
+# gives meaningful headroom for tighter approximations without inviting
+# multi-second single-field compute; use sample_pairs=None for exact stats.
+_MAX_SAMPLE_PAIRS = 5_000_000
 
 
 def _validate_embedding_paths(v: dict[str, list[float]]) -> dict[str, list[float]]:
@@ -24,6 +36,41 @@ def _validate_embedding_paths(v: dict[str, list[float]]) -> dict[str, list[float
     if bad_paths:
         supported = ", ".join(sorted(_SUPPORTED_EMBEDDING_EXTENSIONS))
         raise ValueError(f"Unsupported file extension(s) in embedding paths (supported: {supported}): {bad_paths}")
+    return v
+
+
+def _validate_embedding_vectors(v: dict[str, list[float]]) -> dict[str, list[float]]:
+    """Validate embedding dict: item-count ceiling, uniform dim, non-empty, finite, L2-normalized."""
+    if len(v) < 2:
+        raise ValueError("At least 2 embeddings are required.")
+    if len(v) > _MAX_EMBEDDINGS:
+        raise ValueError(f"Too many embeddings: {len(v)} exceeds the maximum of {_MAX_EMBEDDINGS:,} per request.")
+    dims = {len(vec) for vec in v.values()}
+    if len(dims) > 1:
+        raise ValueError(f"All embeddings must have the same dimension. Found: {sorted(dims)}")
+    dim = next(iter(dims))
+    if dim == 0:
+        raise ValueError("Embedding vectors must not be empty.")
+
+    paths = list(v.keys())
+    matrix = np.asarray(list(v.values()), dtype=np.float64)
+
+    finite_mask = np.isfinite(matrix).all(axis=1)
+    if not finite_mask.all():
+        bad_path = paths[int(np.argmax(~finite_mask))]
+        raise ValueError(
+            f"Embedding for '{bad_path}' contains non-finite values (NaN or inf). "
+            f"All vector components must be finite floats."
+        )
+
+    norms = np.linalg.norm(matrix, axis=1)
+    off_tolerance = np.abs(norms - 1.0) > _NORM_TOLERANCE
+    if off_tolerance.any():
+        idx = int(np.argmax(off_tolerance))
+        raise ValueError(
+            f"Embedding for '{paths[idx]}' is not L2-normalized "
+            f"(‖v‖₂ = {norms[idx]:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
+        )
     return v
 
 
@@ -92,7 +139,8 @@ class EmbeddingEvaluateRequest(BaseModel):
         from the folder name (leading letters of the L2 folder, e.g. ``A1`` → ``A``).
 
         Each vector must be a **flat, L2-normalized float32 array** of length
-        ``embedding_dim``.  All vectors must share the same length.
+        ``embedding_dim``.  All vectors must share the same length.  Capped
+        at ``50,000`` embeddings per request.
 
     **Optional (server defaults apply when omitted)**
 
@@ -114,6 +162,11 @@ class EmbeddingEvaluateRequest(BaseModel):
         K cutoffs for nearest-neighbor metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise stats. Default: ``1 000 000``.
+        Capped at ``5,000,000``. This is a sampling budget for an
+        approximate statistic, not a request for exact pairs, so the cap is
+        sized independently of the embeddings ceiling below rather than
+        scaling with it — use ``None`` for exact stats instead of raising
+        ``sample_pairs``.
     """
 
     embeddings: dict[str, list[float]] = Field(
@@ -144,34 +197,14 @@ class EmbeddingEvaluateRequest(BaseModel):
         default=1_000_000,
         description="Max random pairs for global pairwise stats. None = exact (slow for large N).",
         ge=0,
+        le=_MAX_SAMPLE_PAIRS,
     )
 
     @field_validator("embeddings")
     @classmethod
     def validate_embeddings(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
-        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalized."""
-        if len(v) < 2:
-            raise ValueError("At least 2 embeddings are required.")
-        dims = {len(vec) for vec in v.values()}
-        if len(dims) > 1:
-            raise ValueError(f"All embeddings must have the same dimension. Found: {sorted(dims)}")
-        dim = next(iter(dims))
-        if dim == 0:
-            raise ValueError("Embedding vectors must not be empty.")
-        # Verify every component is finite, then check L2 normalization.
-        for path, vec in v.items():
-            norm = math.sqrt(sum(x * x for x in vec))
-            if math.isnan(norm) or math.isinf(norm):
-                raise ValueError(
-                    f"Embedding for '{path}' contains non-finite values (NaN or inf). "
-                    f"All vector components must be finite floats."
-                )
-            if abs(norm - 1.0) > _NORM_TOLERANCE:
-                raise ValueError(
-                    f"Embedding for '{path}' is not L2-normalized "
-                    f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
-                )
-        return v
+        """Validate embedding dict: item-count ceiling, uniform dim, non-empty, finite, L2-normalized."""
+        return _validate_embedding_vectors(v)
 
     @field_validator("embeddings")
     @classmethod
@@ -236,7 +269,7 @@ class Plant2ImageRequest(BaseModel):
     ``embeddings``
         Mapping of path → L2-normalized float32 embedding.  Must include both
         parent full-image paths **and** all instance crop paths listed in
-        ``instance_to_image``.
+        ``instance_to_image``.  Capped at ``50,000`` embeddings per request.
 
     ``instance_to_image``
         Mapping from parent full-image path to a list of its instance crop
@@ -253,6 +286,11 @@ class Plant2ImageRequest(BaseModel):
         K cutoffs for nearest-neighbor metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise stats. Default: ``1 000 000``.
+        Capped at ``5,000,000``. This is a sampling budget for an
+        approximate statistic, not a request for exact pairs, so the cap is
+        sized independently of the embeddings ceiling below rather than
+        scaling with it — use ``None`` for exact stats instead of raising
+        ``sample_pairs``.
     """
 
     embeddings: dict[str, list[float]] = Field(
@@ -281,33 +319,14 @@ class Plant2ImageRequest(BaseModel):
         default=1_000_000,
         description="Max random pairs for global pairwise stats. None = exact (slow for large N).",
         ge=0,
+        le=_MAX_SAMPLE_PAIRS,
     )
 
     @field_validator("embeddings")
     @classmethod
     def validate_embeddings(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
-        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalized."""
-        if len(v) < 2:
-            raise ValueError("At least 2 embeddings are required.")
-        dims = {len(vec) for vec in v.values()}
-        if len(dims) > 1:
-            raise ValueError(f"All embeddings must have the same dimension. Found: {sorted(dims)}")
-        dim = next(iter(dims))
-        if dim == 0:
-            raise ValueError("Embedding vectors must not be empty.")
-        for path, vec in v.items():
-            norm = math.sqrt(sum(x * x for x in vec))
-            if math.isnan(norm) or math.isinf(norm):
-                raise ValueError(
-                    f"Embedding for '{path}' contains non-finite values (NaN or inf). "
-                    f"All vector components must be finite floats."
-                )
-            if abs(norm - 1.0) > _NORM_TOLERANCE:
-                raise ValueError(
-                    f"Embedding for '{path}' is not L2-normalized "
-                    f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
-                )
-        return v
+        """Validate embedding dict: item-count ceiling, uniform dim, non-empty, finite, L2-normalized."""
+        return _validate_embedding_vectors(v)
 
     @field_validator("embeddings")
     @classmethod
@@ -360,7 +379,8 @@ class Plant2PlantRequest(BaseModel):
     **Required**
 
     ``embeddings``
-        Mapping of instance_path → L2-normalized float32 embedding.
+        Mapping of instance_path → L2-normalized float32 embedding.  Capped
+        at ``50,000`` embeddings per request.
 
     ``instance_labels``
         Mapping from each instance path to its crop/weed class label
@@ -373,6 +393,11 @@ class Plant2PlantRequest(BaseModel):
         K cutoffs for nearest-neighbor metrics. Default: ``[5, 10, 20]``.
     ``sample_pairs``
         Max random pairs for global pairwise stats. Default: ``1 000 000``.
+        Capped at ``5,000,000``. This is a sampling budget for an
+        approximate statistic, not a request for exact pairs, so the cap is
+        sized independently of the embeddings ceiling below rather than
+        scaling with it — use ``None`` for exact stats instead of raising
+        ``sample_pairs``.
     """
 
     embeddings: dict[str, list[float]] = Field(
@@ -395,33 +420,14 @@ class Plant2PlantRequest(BaseModel):
         default=1_000_000,
         description="Max random pairs for global pairwise stats. None = exact (slow for large N).",
         ge=0,
+        le=_MAX_SAMPLE_PAIRS,
     )
 
     @field_validator("embeddings")
     @classmethod
     def validate_embeddings(cls, v: dict[str, list[float]]) -> dict[str, list[float]]:
-        """Validate embedding dict: ≥2 items, uniform dim, non-empty, L2-normalized."""
-        if len(v) < 2:
-            raise ValueError("At least 2 embeddings are required.")
-        dims = {len(vec) for vec in v.values()}
-        if len(dims) > 1:
-            raise ValueError(f"All embeddings must have the same dimension. Found: {sorted(dims)}")
-        dim = next(iter(dims))
-        if dim == 0:
-            raise ValueError("Embedding vectors must not be empty.")
-        for path, vec in v.items():
-            norm = math.sqrt(sum(x * x for x in vec))
-            if math.isnan(norm) or math.isinf(norm):
-                raise ValueError(
-                    f"Embedding for '{path}' contains non-finite values (NaN or inf). "
-                    f"All vector components must be finite floats."
-                )
-            if abs(norm - 1.0) > _NORM_TOLERANCE:
-                raise ValueError(
-                    f"Embedding for '{path}' is not L2-normalized "
-                    f"(‖v‖₂ = {norm:.6f}, expected 1.0 ± {_NORM_TOLERANCE})."
-                )
-        return v
+        """Validate embedding dict: item-count ceiling, uniform dim, non-empty, finite, L2-normalized."""
+        return _validate_embedding_vectors(v)
 
     @field_validator("embeddings")
     @classmethod

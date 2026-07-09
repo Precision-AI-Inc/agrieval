@@ -177,6 +177,28 @@ def test_missing_tiles_path_returns_400(tmp_path):
     assert "tiles_path" in resp.json()["detail"]
 
 
+def test_tiles_path_escape_returns_400(tmp_path):
+    archive = _write_tile_batch_npz(tmp_path / "tiles.npz", {"t0.png": [(0, 0)]}, seed=9)
+    # A sibling of tmp_path, uniquely named off it — tmp_path.parent is the
+    # shared pytest base dir, so a fixed sibling name could collide across tests.
+    escaped = tmp_path.parent / f"{tmp_path.name}-escaped.npz"
+    escaped.write_bytes(archive.read_bytes())
+    resp = client.post("/v1/dense-patch-tokens/evaluate/tiles", json={"tiles_path": str(escaped)})
+    assert resp.status_code == 400
+    assert "tiles_path" in resp.json()["detail"]
+
+
+def test_masks_dir_escape_returns_400(synthetic_tiles, classes_path, tmp_path):
+    escaped_masks = tmp_path.parent / f"{tmp_path.name}-escaped-masks"
+    escaped_masks.mkdir()
+    resp = client.post(
+        "/v1/dense-patch-tokens/evaluate/tiles",
+        json={"tiles": synthetic_tiles, "masks_dir": str(escaped_masks), "classes_path": str(classes_path)},
+    )
+    assert resp.status_code == 400
+    assert "masks_dir" in resp.json()["detail"]
+
+
 def test_mismatched_tile_shapes_returns_422():
     resp = client.post(
         "/v1/dense-patch-tokens/evaluate/tiles",
